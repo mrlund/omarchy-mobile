@@ -411,6 +411,11 @@ Two fallbacks, still over the same cable, still with no extra hardware:
    ([dev-docs/2026-10-15-fastboot-boot-v2-stock.md](dev-docs/2026-10-15-fastboot-boot-v2-stock.md)).
    This ABL does not start header v2 under `fastboot boot`. Step 4, the
    command line, is not worth a try until a kernel is actually running.
+   A header v4 image of the stock kernel and our own ramdisk reached
+   OxygenOS with `magiskd` in 12 s; its `/init` (a 90 s hold) did not
+   run, so a ramdisk in the uploaded v4 `boot.img` cannot carry a kexec
+   chain-loader
+   ([dev-docs/2026-10-15-fastboot-boot-v4-ramdisk.md](dev-docs/2026-10-15-fastboot-boot-v4-ramdisk.md)).
 
    If ABL refuses a v2 image under `fastboot boot`, the next step is
    flashing `vendor_boot` with our DTB (on the active slot, with the
@@ -740,6 +745,9 @@ A v2 image of the stock kernel, the OTA init ramdisk, and the live FDT
 stayed in fastboot for 60 s
 ([dev-docs/2026-10-15-fastboot-boot-v2-stock.md](dev-docs/2026-10-15-fastboot-boot-v2-stock.md)).
 Header v2 does not start on this ABL.
+A v4 image of the stock kernel and our ramdisk was back in OxygenOS in
+12 s: ABL does not run a ramdisk from the uploaded `boot.img`
+([dev-docs/2026-10-15-fastboot-boot-v4-ramdisk.md](dev-docs/2026-10-15-fastboot-boot-v4-ramdisk.md)).
 
 Then: an image we packed (the unchanged `sm8750-mainline` dodge build is
 enough) comes up on the panel or on the USB serial gadget, and §5.2's way
