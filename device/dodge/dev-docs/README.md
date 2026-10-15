@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-15 | [fastboot-boot-stock](2026-10-15-fastboot-boot-stock.md) | `fastboot boot` of stock `boot.img` was temporary. `boot_a` unchanged. Next cold boot normal. |
 | 2026-10-15 | [boot-timing](2026-10-15-boot-timing.md) | OxygenOS reboot reached boot_completed in 26 s. Fastboot enumerated in 13 s without reseating. |
 | 2026-10-15 | [debugfs-off](2026-10-15-debugfs-off.md) | Same four files with the screen off. Regulator summary identical to the awake copy. |
 | 2026-10-15 | [debugfs](2026-10-15-debugfs.md) | debugfs mounted, four summaries saved with the screen awake, then unmounted. |

@@ -699,7 +699,11 @@ driver needs a fresh comparison.
 
 First try: stock's own `boot.img` from the OTA. Pass: OxygenOS boots, and
 the next cold boot is normal. That proves `fastboot boot` is still
-temporary on this firmware, at no risk.
+temporary on this firmware, at no risk. Met 2026-10-15
+([dev-docs/2026-10-15-fastboot-boot-stock.md](dev-docs/2026-10-15-fastboot-boot-stock.md)):
+`fastboot boot` returned `Booting OKAY`, OxygenOS came back, `boot_a`
+sha256 was unchanged, and the next `adb reboot` was a normal OxygenOS
+boot in 28 s. The packed mainline image has not been tried.
 
 Then: an image we packed (the unchanged `sm8750-mainline` dodge build is
 enough) comes up on the panel or on the USB serial gadget, and §5.2's way
