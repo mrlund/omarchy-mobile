@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: MIT -->
-# 2026-10-15 — board ids packed, boot not sent
+# 2026-10-15 — board ids added, ABL still stayed in fastboot
 
 **Goal.** Put the live FDT's eight msm-id pairs and board-id `0x40008`
 into the dodge DTB and pack a header v2 image. Boot it only while the
