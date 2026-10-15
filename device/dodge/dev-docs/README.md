@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-15 | [fastboot-boot-kexec](2026-10-15-fastboot-boot-kexec.md) | Built-in init kexecs our kernel with our DTB. Stage 2 held 60 s; OxygenOS back at 82 s. Self-contained boot, no flash. |
 | 2026-10-15 | [fastboot-boot-rdinit](2026-10-15-fastboot-boot-rdinit.md) | Our kernel, built-in `/omamobile/init`, forced `rdinit=`. Holds of 90 s and 45 s: OxygenOS back at 108 s and 63 s. Our userspace ran on the stock DTB. |
 | 2026-10-15 | [fastboot-boot-v4-ramdisk](2026-10-15-fastboot-boot-v4-ramdisk.md) | Header v4, stock kernel and our ramdisk. OxygenOS with Magisk in 12 s; our `/init` did not run. |
 | 2026-10-15 | [fastboot-boot-sink](2026-10-15-fastboot-boot-sink.md) | v2, DTB takes every stock `dtbo` entry. Still stayed in fastboot for 63 s. |

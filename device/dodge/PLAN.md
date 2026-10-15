@@ -422,7 +422,11 @@ Two fallbacks, still over the same cable, still with no extra hardware:
    timing, our kernel reaches its own userspace on ABL's stock DTB; a
    45 s hold brought it back at 63 s, so it is our init, not a watchdog
    ([dev-docs/2026-10-15-fastboot-boot-rdinit.md](dev-docs/2026-10-15-fastboot-boot-rdinit.md)).
-   That init is where a kexec into our DTB would go.
+   That init then kexec'd our kernel with our DTB (the live `/memory`
+   map, which ABL would otherwise fill) and a stage 2 initramfs that
+   held 60 s: OxygenOS was back at 82 s, the pass band
+   ([dev-docs/2026-10-15-fastboot-boot-kexec.md](dev-docs/2026-10-15-fastboot-boot-kexec.md)).
+   One `fastboot boot` now starts our kernel, DTB and initramfs.
 
    If ABL refuses a v2 image under `fastboot boot`, the next step is
    flashing `vendor_boot` with our DTB (on the active slot, with the
@@ -759,6 +763,9 @@ Our kernel with a built-in init at `/omamobile/init` and a forced
 `rdinit=` held 90 s and reset; OxygenOS was back after 108 s, and
 after 63 s with a 45 s hold
 ([dev-docs/2026-10-15-fastboot-boot-rdinit.md](dev-docs/2026-10-15-fastboot-boot-rdinit.md)).
+That init kexec'd our kernel with our DTB and a stage 2 init holding
+60 s; OxygenOS was back at 82 s, as expected for stage 2 running
+([dev-docs/2026-10-15-fastboot-boot-kexec.md](dev-docs/2026-10-15-fastboot-boot-kexec.md)).
 
 Then: an image we packed (the unchanged `sm8750-mainline` dodge build is
 enough) comes up on the panel or on the USB serial gadget, and §5.2's way
