@@ -416,6 +416,12 @@ Two fallbacks, still over the same cable, still with no extra hardware:
    run, so a ramdisk in the uploaded v4 `boot.img` cannot carry a kexec
    chain-loader
    ([dev-docs/2026-10-15-fastboot-boot-v4-ramdisk.md](dev-docs/2026-10-15-fastboot-boot-v4-ramdisk.md)).
+   Our kernel with a built-in initramfs, its init at
+   `/omamobile/init` and `CONFIG_CMDLINE_FORCE` `rdinit=`, in a v4
+   image, held for 90 s and reset: OxygenOS was back after 108 s. From
+   timing, our kernel reaches its own userspace on ABL's stock DTB
+   ([dev-docs/2026-10-15-fastboot-boot-rdinit.md](dev-docs/2026-10-15-fastboot-boot-rdinit.md)).
+   That init is where a kexec into our DTB would go.
 
    If ABL refuses a v2 image under `fastboot boot`, the next step is
    flashing `vendor_boot` with our DTB (on the active slot, with the
@@ -748,6 +754,9 @@ Header v2 does not start on this ABL.
 A v4 image of the stock kernel and our ramdisk was back in OxygenOS in
 12 s: ABL does not run a ramdisk from the uploaded `boot.img`
 ([dev-docs/2026-10-15-fastboot-boot-v4-ramdisk.md](dev-docs/2026-10-15-fastboot-boot-v4-ramdisk.md)).
+Our kernel with a built-in init at `/omamobile/init` and a forced
+`rdinit=` held 90 s and reset; OxygenOS was back after 108 s
+([dev-docs/2026-10-15-fastboot-boot-rdinit.md](dev-docs/2026-10-15-fastboot-boot-rdinit.md)).
 
 Then: an image we packed (the unchanged `sm8750-mainline` dodge build is
 enough) comes up on the panel or on the USB serial gadget, and §5.2's way

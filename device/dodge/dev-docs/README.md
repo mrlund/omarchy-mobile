@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-15 | [fastboot-boot-rdinit](2026-10-15-fastboot-boot-rdinit.md) | Our kernel, built-in `/omamobile/init`, forced `rdinit=`. 90 s hold, OxygenOS back at 108 s: our userspace ran on the stock DTB. |
 | 2026-10-15 | [fastboot-boot-v4-ramdisk](2026-10-15-fastboot-boot-v4-ramdisk.md) | Header v4, stock kernel and our ramdisk. OxygenOS with Magisk in 12 s; our `/init` did not run. |
 | 2026-10-15 | [fastboot-boot-sink](2026-10-15-fastboot-boot-sink.md) | v2, DTB takes every stock `dtbo` entry. Still stayed in fastboot for 63 s. |
 | 2026-10-15 | [fastboot-boot-v2-stock](2026-10-15-fastboot-boot-v2-stock.md) | Header v2 of stock kernel, stock ramdisk, and the live DTB stayed in fastboot. v2 does not start. |
