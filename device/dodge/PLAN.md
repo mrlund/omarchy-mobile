@@ -437,6 +437,9 @@ Two fallbacks, still over the same cable, still with no extra hardware:
    A `simple-framebuffer` on ABL's splash buffer did not change the
    command-mode panel
    ([dev-docs/2026-10-15-fastboot-boot-kexec-fb.md](dev-docs/2026-10-15-fastboot-boot-kexec-fb.md)).
+   Forcing `dr_mode = "peripheral"` and dropping `usb-role-switch`
+   still produced no UDC; OxygenOS was back at 125 s
+   ([dev-docs/2026-10-15-fastboot-boot-kexec-peripheral.md](dev-docs/2026-10-15-fastboot-boot-kexec-peripheral.md)).
    The chain-loader is `tools/dodge-chain` and
    [chainload/](chainload/README.md), which also holds the timing bands
    and the next steps.

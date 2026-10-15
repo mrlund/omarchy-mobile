@@ -24,7 +24,7 @@ CHAIN_OUT="${CHAIN_OUT:-$HOME/android/mainline/out-dodge-chain}"
 JOBS="${JOBS:-$(nproc)}"
 # The phone's live FDT, from the rooted capture. Never committed.
 LIVE_DTB="${LIVE_DTB:-$HOME/android/reference/dodge-cph2653/rooted-2026-10-15-on/live.dtb}"
-# Space-separated stage2-dtb.py options: ramoops, fb.
+# Space-separated stage2-dtb.py options: ramoops, fb, peripheral.
 DTB_OPTS="${DTB_OPTS:-}"
 STAGE2_IMAGE="${STAGE2_IMAGE:-$STAGE2_OUT/arch/arm64/boot/Image}"
 STAGE2_DTB_IN="${STAGE2_DTB_IN:-$STAGE2_OUT/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dtb}"
