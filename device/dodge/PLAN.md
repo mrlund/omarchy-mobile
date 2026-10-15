@@ -397,6 +397,13 @@ Two fallbacks, still over the same cable, still with no extra hardware:
    3. what ABL does when stock's `dtbo` does not apply to our DTB;
    4. the command line ABL appends.
 
+   Steps 1 and 2 were tried on 2026-10-15. Both header v2 images stayed
+   in fastboot. A header v4 image with only our kernel left fastboot and
+   returned to OxygenOS with an empty pstore
+   ([dev-docs/2026-10-15-fastboot-boot-v4.md](dev-docs/2026-10-15-fastboot-boot-v4.md)).
+   Steps 3 and 4 have not been tried. The comparison table is in that
+   dev-doc.
+
    If ABL refuses a v2 image under `fastboot boot`, the next step is
    flashing `vendor_boot` with our DTB (on the active slot, with the
    OTA's stock copy to restore). That is a flash, and a decision with
