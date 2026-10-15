@@ -683,7 +683,13 @@ OTA gives us a stock copy of (§3.2). Nothing below `boot` is touched, and
    awake copy.
 
 Also time one cold boot to the OxygenOS home screen, cable plugged in:
-that is `tools/dodge-try`'s long deadline (§5.1).
+that is `tools/dodge-try`'s long deadline (§5.1). Timed 2026-10-15: an
+`adb reboot` reached `sys.boot_completed` in 26 s, with
+`com.android.launcher/.Launcher` resumed and the shade focused
+([dev-docs/2026-10-15-boot-timing.md](dev-docs/2026-10-15-boot-timing.md)).
+The deadline is 120 s. The same session's `adb reboot bootloader` was
+`18d1:d00d` at 13 s with the cable left in place. Slot A, product `sun`.
+The phone was rebooted back to OxygenOS.
 
 Magisk stays installed afterwards. A rooted OxygenOS is still the loop's
 way back (§5.2), and root lets us repeat the capture when a mainline
