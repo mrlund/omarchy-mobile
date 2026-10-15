@@ -1,0 +1,629 @@
+<!-- SPDX-License-Identifier: MIT -->
+# OnePlus 13 (dodge, SM8750) — working plan
+
+Status 2026-10-15: plan revised after the device was named. The loop is
+one USB cable to this machine (`fastboot boot`, then SSH). A USB stick is
+not part of it. Nothing has been run on the phone.
+No `device.conf`, no initramfs, no kernel branch. Attempts go in
+[dev-docs/](dev-docs/). The OSS survey is
+[dev-docs/2026-10-15-oss-landscape.md](dev-docs/2026-10-15-oss-landscape.md).
+Revised again the same day after
+[dev-docs/2026-10-15-plan-review.md](dev-docs/2026-10-15-plan-review.md):
+the way back after a kernel hang, the OTA as the source of stock images,
+slot rules, and the host setup. Phase 1 now ends with a rooted capture of
+OxygenOS through Magisk, instead of a downstream-kernel track:
+[dev-docs/2026-10-15-rooted-capture.md](dev-docs/2026-10-15-rooted-capture.md).
+A second review tightened the image format, the OTA, the watchdog and the
+Magisk fallback:
+[dev-docs/2026-10-15-second-review.md](dev-docs/2026-10-15-second-review.md).
+
+Labels: **[V]** checked in a source we can cite. **[I]** an inference, to
+be checked on this phone before anyone relies on it. A community report is
+[V] for "someone published this", and still [I] for our phone.
+
+## 1. Goal
+
+Run Omarchy (Arch Linux ARM, Hyprland, Omarchy's packages) on this
+OnePlus 13, on a mainline kernel.
+
+The phone is a lab device. Its OxygenOS install and its data are
+expendable. Unlocking wipes it, and that cost is accepted.
+
+The failure we cannot absorb is a hard brick: a phone that no longer
+enumerates in fastboot and no longer reaches a bootloader menu. That ends
+the project. Every other failure is a reboot and another try.
+
+"Done" still arrives in pieces. The first piece is a shell we can reach
+again in minutes. A desk session (display, touch, Omarchy) comes after
+the loop is fast. Calls, cameras and fingerprint stay later plans.
+
+## 2. The phone
+
+| | |
+| --- | --- |
+| Model | CPH2653 (Global / EU OxygenOS) |
+| RAM / storage | 16 GiB / 512 GB |
+| Hardware version | CPH2653_11 |
+| Baseband | Q_V1_P14 |
+| SOTA | B100P01(BRB1GDPR) |
+| Codename | `dodge` |
+| SoC | Qualcomm SM8750, Snapdragon 8 Elite (`sun` / Pakala), Adreno 830, Oryon |
+
+`B100P01(BRB1GDPR)` is the August 2026 OxygenOS 16 SOTA track for the EU
+GDPR build, not the full firmware id. [V] for what that string means in
+OnePlus's announcement and in older GDPR SOTAs (`V60P01(BRB1GDPR)` and
+the like). The OxygenOS build id (`CPH2653_16.0.x.x`) is still [I] until
+we read it. Anti-rollback follows the firmware security version, so the
+SOTA string alone does not tell us the fuse state. Hardware `CPH2653_11`
+matches the GDPR package names (`CPH2653GDPR_11_…`).
+
+OnePlus 13R and OnePlus 13s/13T (`pagani`) are different phones.
+
+## 3. What "do not brick it" means here
+
+[CONTRIBUTING.md](../../CONTRIBUTING.md) §3 is the Pixel safety model. It
+treats stock slot A as the product we must be able to return to. That is
+not the goal on this phone. The part of §3 that still binds is the part
+that keeps the device recoverable.
+
+### 3.1 The bootloader chain is the brick boundary
+
+These partitions stay as they are, both slots: `xbl`, `xbl_config`, `abl`,
+`aop`, `tz`, `hyp`, `keymaster`, `devcfg`, `uefisecapp`, `imagefv`,
+`shrm`, `cpucp`, `cmnlib`, `qupfw`, `modem`, `bluetooth`, `dsp`, `ocdt`,
+and every `oplus*` / engineering / reserve name the capture shows. The
+exact GPT list is [I] until phase 1. Until that list exists, no partition
+is written.
+
+A bad `boot` image is recoverable. A bad `xbl` or `abl` often is not.
+LineageOS's dodge install page documents the fastboot key combo as Volume
+Up + Volume Down + Power from power-off. [V] as their documentation, [I]
+on our phone. That combo is the recovery path, and it depends on `abl`.
+
+Community reports from January 2026 (XDA, "ColorOS 16.0.3.501 updates =
+permanent anti-rollback") say builds at and after ColorOS / OxygenOS
+16.0.3.501 blow a hardware fuse in XBL. Flashing older firmware then
+hard-bricks the phone, and the older EDL programmers do not recover it.
+This phone's SOTA is from August 2026, so it is newer than that line.
+[I] for the fuse state of this unit. The rule does not depend on it:
+never flash a bootloader, modem or firmware image, older or newer.
+
+`vbmeta` is in Lineage's flash list. We do not flash it in the fast loop.
+Abrecht's `fastboot boot` on a CPH2653 did not need a vbmeta change.
+
+### 3.2 What we are willing to destroy
+
+`userdata` goes away at unlock. OxygenOS's data is expendable.
+
+A bootable OxygenOS on the active slot is not, until our own kernel can
+reboot into fastboot by itself. It is the loop's way back: a kernel that
+hangs or panics resets into OxygenOS, and `adb reboot bootloader` returns
+the cable to fastboot with no hands on the phone (§5.2). OxygenOS
+userspace can go once a Linux boot is persistent and has its own path to
+fastboot.
+
+The stock boot images for this exact build come from the full OTA, not
+from the phone: stock has no root and Qualcomm ABL has no `fastboot
+fetch` [I].
+
+Which package: the *full* firmware OTA for the build id in Settings,
+About (`CPH2653_16.0.x.x`), in this phone's region package (the GDPR/EU
+`CPH2653GDPR_11_…` line). Two near-misses do not work. The SOTA package
+(`B100P01`) updates system apps and holds no boot images. An incremental
+OTA holds deltas, which give no `init_boot` we could restore from. The
+OnePlusOSS kernel trees are source, not images for this phone. Extract `boot`, `init_boot`, `vendor_boot`, `dtbo`, `vbmeta`
+and `recovery` (if present) from `payload.bin` into
+`~/android/reference/dodge-cph2653/ota/`. They are what a bad flash of
+those partitions is put back from. They are vendor images: they stay out
+of git. The payload's firmware images (`xbl`, `abl`, `modem` and the rest)
+are never flashed, whatever the OTA's version.
+
+Calibration partitions (`modemst1`, `modemst2`, `fsg`, `fsc`, `persist`,
+and whatever the map adds) stay unread and unwritten until a radio plan
+says otherwise. Wiping them does not help iteration and can turn a living
+phone into one with no radio identity. [I] on the names.
+
+### 3.3 Slots and updates
+
+An A/B OTA leaves the older firmware on the inactive slot. If this
+unit's anti-rollback fuse has blown, booting that slot may hard-brick it
+[I]. So:
+
+- Never `fastboot set_active`, and never flash `--slot=other`, until both
+  slots' firmware is known to be the same build. `getvar
+  version-bootloader` usually reports only the current slot [I], so
+  "known" needs more than one getvar.
+- Switch off automatic system updates in OxygenOS right after unlock. An
+  OTA must not move the bootloader during the project. Taking one is a
+  decision with its own dev-docs entry.
+- Our boot images go to the active slot only.
+
+### 3.4 How this maps onto AGENTS.md
+
+[AGENTS.md](../../AGENTS.md) §1 is written for the Pixel. An agent on
+dodge reads this section before acting, or the workspace rule ("only
+slot B is ours") wins by default. [AGENTS.md](AGENTS.md) in this
+directory, and a line in the root file, point here. On dodge:
+
+- Still binding: ask before every flash, reboot, unlock or irreversible
+  write; announce anything that changes the screen or the feel of the
+  phone; no `devmem`, no PMU/PMIC register access from userspace; one
+  change per boot; a safety net before each risky step; no identifying
+  data or vendor blobs in git; citable sources only.
+- Replaced: "only slot B is ours" becomes §3.1 to §3.3 (the bootloader
+  chain is untouchable, the active slot's boot images are ours, the other
+  slot is untouchable until §3.3 clears it). The `UFS_RW` allowlist and
+  `bin/omamobile flash|push` do not exist for dodge yet (§5.4). "Slot A is
+  the way back" becomes OxygenOS plus `adb reboot bootloader` (§5.2).
+- Not applicable: everything in AGENTS.md §4 is gs201. Dodge gotchas go
+  in `device/dodge/NOTES.md`.
+
+### 3.5 How a human stays in the loop
+
+Unlock, the first `fastboot boot`, and every later flash wait for an
+explicit go. A read of `fastboot getvar` does too, because the phone is
+in someone's hand. Say so before a step that changes the screen.
+
+One change per boot once we are flashing. `fastboot boot` of a throwaway
+image is the exception: it is designed to be thrown away.
+
+No `devmem`. No PMU/PMIC dumps from userspace. No `kexec` as a shortcut
+until we know USB comes back after it.
+
+## 4. Where the existing OSS work actually helps
+
+Detail and links: [dev-docs/2026-10-15-oss-landscape.md](dev-docs/2026-10-15-oss-landscape.md).
+Short version, in the order we will use them.
+
+**The kernel and the boot command already exist, on this model.** Daniel
+Abrecht (XDA, "My attempts to boot linux", November 2025) did this on a
+CPH2653, over the same kind of USB cable:
+
+- `fastboot boot Mu-dodge.img` puts Mu-Silicium's UEFI on the panel and
+  writes nothing. A hung `fastboot boot` cleared with `fastboot reboot`
+  from the laptop. The cable stayed the link.
+- `sm8750-mainline/linux` branch `v6.16` already ships
+  `qcom/sm8750-oneplus-dodge.dtb`. Packing that kernel as an Android
+  `boot.img` and `fastboot boot`ing it hung for him. That hang is a bug
+  to fix in the image, not a reason to add hardware.
+- He later booted Devuan from a USB stick, using a powered hub, because
+  Mu's USB *host* mode does not power a disk. That was his way around the
+  hang. We do not copy it. The phone is already plugged into this machine.
+  The laptop sends the image. See
+  [dev-docs/2026-10-15-cable-not-stick.md](dev-docs/2026-10-15-cable-not-stick.md).
+
+His firmware is `16.0.2.402`, older than this phone's August 2026 SOTA,
+so his image is a data point, not a known-good for us.
+
+**LineageOS has official dodge support**, models CPH2649, CPH2653,
+CPH2655 and PJZ110, kernel 6.6, maintainers including ItsVixano. Their
+flash set is `boot`, `dtbo`, `init_boot`, `vbmeta`, `vendor_boot`, plus
+`recovery`. There is no `vendor_kernel_boot`. That list is our later
+persistent install set, minus `vbmeta` until we know why theirs must be
+flashed. Their kernel tree is the downstream DT reference, next to
+OnePlusOSS (`android_kernel_oneplus_sm8750` and the modules/DT repo;
+branches through `CPH2653_16.0.9.401` in July 2026).
+
+**Mu-Silicium's dodge port** (`dodgePkg`) is a fallback console, booted
+with `fastboot boot` over the cable if our own image hangs before it can
+print. The status page marks Linux boot, display, internal storage, side
+buttons and USB device mode working, and USB host, GPU and WLAN not. The
+project state is inactive. We do not flash it over XBL, and we do not
+need its USB-host mode.
+
+**pagani-linux** (OnePlus 13s/13T, same SoC) is the worked example of a
+mainline board port: DSC command-mode panel, touch, ath12k on WCN7880.
+Different panel (1216x2640). Read it when we write the dodge panel driver.
+
+**postmarketOS's dodge page** reports USB networking, internal storage,
+screen, touch and the camera flash working, battery stuck at 0%, and no
+device package in the repos. The photo is KDE Plasma on Arch Linux ARM,
+which is the userspace family we want. The page disagrees with itself on
+whether the port is mainline. Treat the feature list as someone else's
+result.
+
+**Not part of the loop:** Android custom kernels (KernelSU, susfs, OPlus
+Kernel Lab), dual-boot trees that write `abl` / `tz` / `modem` per slot
+(`spiral009/dodge-dualboot` is explicit that an ARB mismatch bricks a
+slot), and random EDL "stock ROM" sites. EDL is not our recovery plan.
+
+## 5. The iteration setup
+
+The phone stays on one USB-C cable to this machine. That cable is
+fastboot while the bootloader owns the bus, and it is SSH
+(`172.16.42.1`) once our kernel brings up the USB gadget. The early
+rootfs is a ramdisk inside the image the laptop just sent. Nothing is
+copied to a stick, and no hub is required.
+
+The loop has to be minutes. Android's GKI tree is the wrong build: it is
+large, it wants a ramdisk full of Android, and a bad flash of it is how
+people break `super`.
+
+### 5.1 Laptop
+
+| Piece | Where |
+| --- | --- |
+| Kernel | `~/android/mainline/wt-dodge`, output `~/android/mainline/out-dodge`. Start from `sm8750-mainline/linux` (it has the dodge DTB) and rebase onto a current mainline tag once the DTB builds. Branch `omamobile-dodge`. |
+| Config | `kernel/configs/omamobile-dodge.config`, written when the first build is real. The Pixel fragment (`ARCH_EXYNOS`, Exynos USB, Exynos UFS, `s3c2410_wdt`) is the wrong fragment. |
+| Boot image | Packed on the laptop as one self-contained header v2 image (`Image` + dodge DTB + a small initramfs, §5.3) and handed over with `fastboot boot`. Omarchy's full root image comes later, once SSH exists. Building it on every try is the slow loop. |
+| Loop script | `tools/dodge-try` (to write): build, pack, `fastboot boot`, wait for SSH with a timeout, save kmsg to `logs/`, append a row to the tries log (§5.5). Two deadlines: a short one for SSH from our kernel, and a long one (orange-state warning plus a full OxygenOS boot, measured in phase 1) before it tries `adb reboot bootloader`. Only after both does it call the phone dead. `bin/omamobile`'s `kernel`, `initramfs` and `images` are Pixel-shaped and stay untouched until §5.4. |
+| Stock reference | `~/android/reference/dodge-cph2653/`: `getvar`, the OTA's boot images and DTBs (§3.2), notes on what they show. Never committed. |
+| Notes | One `dev-docs/` file per session. |
+
+The first config builds in (`=y`) everything the loop needs, so the
+initramfs carries no modules: dwc3-qcom and the SM8750 USB PHYs, configfs
+NCM and ACM, simplefb, pstore/ramoops, `QCOM_WDT`, panic on soft lockup
+and hung task. `clk_ignore_unused pd_ignore_unused panic=10` on the
+command line.
+
+`QCOM_WDT=y` alone resets nothing. It needs a watchdog node in the DTB
+(phase 0c checks it), and a hardware watchdog only bites once something
+has armed it: the init opens `/dev/watchdog` early and feeds it (busybox
+`watchdog`), so a hung kernel stops feeding it and the phone resets. A
+hang before init runs is covered only by `panic=10` if it panics, and by
+a human otherwise. On SM8750 the hypervisor (Gunyah) may own the APSS
+watchdog [I]; if Linux cannot arm it, the watchdog row of §5.2 does not
+exist and a human is the way back from a hang.
+
+ramoops needs a region that survives a warm reset and that nothing else
+uses: stock's own ramoops / pstore region from the OTA's reserved memory,
+or a hole that the OTA's map and the rooted capture's `/proc/iomem`
+agree on. Never a guess.
+
+Host setup, done once before phase 1 (none of it existed on 2026-10-15):
+
+- `fastboot`, `adb` and `dtc` installed; `mkbootimg` and
+  `unpack_bootimg` from a standalone package, not from the LineageOS
+  tree `bin/omamobile` assumes (`SRC_DIR`, about 400 GB);
+- udev access for OnePlus (`22d9`) and fastboot (`18d1:d00d`), so
+  fastboot works without root;
+- the user in the `docker` group, or the kernel built with the system
+  clang;
+- the NetworkManager profile `omamobile-phone` (172.16.42.2/24) that
+  `tools/phone-ssh` assumes ([CONTRIBUTING.md](../../CONTRIBUTING.md) §2);
+- a payload extractor for the OTA.
+
+Downstream DT checkouts (OnePlusOSS, Lineage's 6.6 tree) are read-only
+references under `~/android/reference/src/`. They are not the tree we
+compile for the phone. A Mu-Silicium checkout is optional, and only for
+the fallback in §5.3.
+
+### 5.2 The fast loop (no phone write)
+
+This is the default until a kernel stays up on purpose.
+
+```text
+edit DTS or driver
+  -> build Image + sm8750-oneplus-dodge.dtb + initramfs   (laptop)
+  -> pack boot.img
+  -> fastboot boot boot.img          (the cable already plugged in)
+  -> panel shows the console; USB gadget comes up as 172.16.42.1
+  -> ssh root@172.16.42.1
+  -> reboot-to bootloader, or reboot -> OxygenOS -> adb reboot bootloader
+```
+
+How a failed try gets back to fastboot depends on where it failed:
+
+| Where it stopped | Way back |
+| --- | --- |
+| In ABL, before the kernel (fastboot still answers) | `fastboot reboot` from the laptop. This is the hang Abrecht cleared |
+| In the kernel, with a watchdog or a panic | Reset after `panic=10` or the watchdog, into OxygenOS, then `adb reboot bootloader` (`bin/omamobile fastboot` does this) |
+| In our initramfs, gadget never configured | The init crashes itself after a timeout, as cheetah's does; then as above |
+| Hard hang, no watchdog | A human: force restart with the buttons, then the fastboot combo. The case the first two rows exist to avoid |
+
+So a failed kernel costs a reset and an OxygenOS boot, not a hand on the
+phone, as long as OxygenOS stays bootable and adb-authorized (§3.2) and
+the kernel has its watchdog (§5.1). `172.16.42.1` matches the rest of
+this repo, so `tools/phone-ssh` works unchanged.
+
+On the desk: the phone and one USB-C cable. The first session confirms
+`fastboot devices`, and that `fastboot boot` of stock's own `boot.img`
+boots OxygenOS once and leaves the next cold boot normal.
+
+### 5.3 If our image hangs before it can talk
+
+Two fallbacks, still over the same cable, still with no extra hardware:
+
+1. Fix the boot image, one `fastboot boot` per suspect. [I] for all of
+   them: with a header v4 image, Qualcomm ABL combines the uploaded
+   `boot.img` with the *flashed* `init_boot` and `vendor_boot`: their
+   ramdisks, and the DTB from `vendor_boot`, with `dtbo` on top. That mix
+   is not a test of our kernel. Before Magisk it is stock Android's
+   first-stage ramdisk and stock's DTB; after Magisk it is Magisk's
+   ramdisk and stock's DTB. So the loop image is always self-contained.
+
+   The first image copies stock's geometry: base, kernel, ramdisk, tags
+   and DTB offsets and page size, from `unpack_bootimg` of the OTA's
+   `vendor_boot` (a v4 `boot.img` carries no addresses). ABL may ignore
+   them on arm64 [I], but a wrong offset hangs the same way a wrong DTB
+   does, so stock's values remove that variable. Then one change per try:
+   1. a header v2 image with `--dtb` carrying the mainline dodge DTB, in
+      stock's geometry;
+   2. `qcom,msm-id` and `qcom,board-id` in our DTB set to stock's values
+      (from the OTA's DTB). ABL selects the DTB by them, as gs201's ABL
+      does by `soc_id`;
+   3. what ABL does when stock's `dtbo` does not apply to our DTB;
+   4. the command line ABL appends.
+
+   If ABL refuses a v2 image under `fastboot boot`, the next step is
+   flashing `vendor_boot` with our DTB (on the active slot, with the
+   OTA's stock copy to restore). That is a flash, and a decision with
+   its own dev-docs entry, not the next item on this list.
+
+   The postmarketOS dodge page already reports USB networking working,
+   so the cable path is not theoretical.
+2. `fastboot boot Mu-dodge.img` for a known console on the panel, to see
+   how far UEFI gets. That image is not how we load our kernel. Mu's
+   USB-host mode and the stick it boots from stay unused.
+
+We add a hub and a stick only if both of those fail and a written note
+says why the cable cannot carry the next try. That is a decision, not
+the setup.
+
+### 5.4 A flash, once the cable loop has worked
+
+Only after the same kernel has booted temporarily and come back to
+fastboot. Then, with a go-ahead:
+
+- Flash only `boot`, `init_boot`, `vendor_boot`, `dtbo` (Lineage's set,
+  without `vbmeta`).
+- Put the rootfs on `userdata`. Unlock already erased it.
+- Flash the active slot only (§3.3). Keep the OTA's stock boot images
+  (§3.2) beside ours, so a bad persistent kernel is one fastboot flash
+  from OxygenOS again.
+
+`bin/omamobile images` and `device.conf` show up at this step, filled from
+the capture. Extending the descriptor past Pixel `SOC_IDS` /
+`vendor_kernel_boot` is a tool change, and cheetah's images stay
+byte-identical. Do not invent a descriptor to make the tools run sooner.
+
+### 5.5 What we log every try
+
+Last kernel commit, the image's header version and DTB, whether it was
+`fastboot boot` or a flash, the last line on the panel or over SSH,
+whether pstore held anything after the reset, and which row of §5.2 got
+the cable back to fastboot. `tools/dodge-try` appends this as one row to
+`logs/dodge-tries.tsv`; a dev-docs entry quotes the rows that matter. A
+try that hangs with no log teaches nothing, so the initramfs prints
+early, ramoops is in the DT from the first try, and `panic=10` is set
+before we care about a pretty boot.
+
+## 6. Phases
+
+### Phase 0 — Desk
+
+This document, the OSS survey, the device identity. Still offline, no
+phone:
+
+- **0a. Host.** The setup list in §5.1.
+- **0b. The stock images.** The human reads the build id from Settings,
+  About. Fetch the full OTA for that build and extract the boot images
+  (§3.2). Unpack them and record: header versions, page size, the
+  `vendor_boot` geometry (base and offsets, §5.3), vendor cmdline, `qcom,msm-id` / `qcom,board-id`, the dtbo entries, the panel
+  compatible, the Wi-Fi chip, reserved memory (the continuous-splash
+  framebuffer and a ramoops region).
+- **0c. The kernel.** Clone `sm8750-mainline`, confirm
+  `sm8750-oneplus-dodge.dtb` builds, and compare its msm-id / board-id
+  with 0b's. Confirm the DTB has an enabled watchdog node for
+  `QCOM_WDT`, and the USB controller and PHY nodes the gadget needs,
+  and note whether stock's DT shows the hypervisor owning the watchdog
+  (§5.1).
+- **0d. The loop.** `tools/dodge-try` and the first initramfs (cheetah's
+  init without its `devmem` and DECON lines, with its gadget self-crash
+  and a watchdog feeder).
+- **0e. The rooted capture.** `bin/omamobile capture` takes its root
+  path only when `adb shell id -u` is 0, which Magisk's root never is: it
+  needs a `su -c` path, and the dodge additions in §6 phase 1. A small
+  tool change; cheetah's capture stays the same. Download the Magisk APK
+  from `topjohnwu/Magisk` GitHub releases only, and record the version.
+
+### Phase 1 — Read the boot chain, unlock, root, capture
+
+Pass: `~/android/reference/dodge-cph2653/` holds `getvar` and the
+partition map. Build id recorded next to the SOTA string. The live FDT
+needs root, which stock does not have until the rooted capture below.
+
+Then, on a go-ahead: `fastboot flashing unlock`. Data is gone after that.
+Fastboot must still answer, and Volume Up + Volume Down + Power must still
+reach it.
+
+After unlock, set OxygenOS up once: skip accounts, switch off automatic
+system updates (§3.3), turn on USB debugging and authorize this laptop.
+Pass: `adb reboot bootloader` reaches fastboot. That is the loop's way
+back (§5.2).
+
+Stop: `getvar product` is not this phone's product string, or the
+current slot's bootloader version differs from the OTA we extracted. We
+do not flash a bootloader to make anything match.
+
+#### The rooted capture
+
+Why: a working system's live state is what every mainline driver is
+debugged against. Cheetah's ports leaned on exactly this
+(`~/android/reference/cheetah-stock-*`). Stock OxygenOS gives no root, and
+a downstream kernel booted only for its captures would be a second kernel
+to maintain. Reasoning and the LineageOS alternative:
+[dev-docs/2026-10-15-rooted-capture.md](dev-docs/2026-10-15-rooted-capture.md).
+
+Risk: low. One flash of `init_boot` on the active slot, the partition the
+OTA gives us a stock copy of (§3.2). Nothing below `boot` is touched, and
+`vbmeta` is not flashed. Each step on a go-ahead.
+
+1. Install the Magisk APK (0e) with `adb install`. Push the OTA's stock
+   `init_boot.img` for *this* build to the phone and patch it in the
+   Magisk app. Pull `magisk_patched-*.img` back into
+   `~/android/reference/dodge-cph2653/root/`.
+   Expect: the patched image is a few MiB larger than stock, and
+   `unpack_bootimg` reads it. Stop: Magisk reports a different image
+   format from 0b's, or the build ids do not match.
+2. `adb reboot bootloader`. Read the active slot (`getvar current-slot`),
+   then `fastboot flash init_boot_<slot> magisk_patched-*.img`, with the
+   slot named, never the bare partition. `fastboot reboot`.
+   Expect: the orange-state warning, then OxygenOS, and the Magisk app
+   shows Magisk installed. Stop: a bootloop. Rollback: Volume Up +
+   Volume Down + Power to fastboot, `fastboot flash init_boot_<slot>` with
+   the OTA's stock `init_boot.img`. Never `--slot=all`, never the other
+   slot (§3.3).
+
+   If the patched image loops and stock boots again, phase 2 starts
+   without the live capture; the OTA's DTBs stand in. Disabling
+   verification in `vbmeta` is not the recovery step and not a second
+   attempt: that is a separate decision with its own entry.
+3. Grant `su` to the shell once on the phone's screen (the human taps
+   it). Then the capture, read-only, into
+   `~/android/reference/dodge-cph2653/rooted-<date>/`:
+   - `/sys/firmware/fdt`, `dmesg`, `/proc/iomem`, `/proc/interrupts`,
+     `/proc/modules`, `/proc/cmdline`;
+   - the kernel's own views: `regulator/regulator_summary`,
+     `clk/clk_summary`, `pinctrl/*/pinmux-pins`, `gpio` under debugfs,
+     and `/sys/bus/i2c/devices`, `/sys/bus/platform/devices`;
+   - the firmware inventory: listings of `/vendor/firmware`,
+     `/vendor/firmware_mnt` and `/vendor/lib/modules`, and the partition
+     map with sizes;
+   - one capture with the screen on and one with it off, for the panel's
+     rails.
+
+   Not in it: no `regmap/*/registers` files, no `devmem`, no PMIC or PMU
+   register reads (§3.5), no writes. Nothing from `persist`, `modemst*`
+   or `fsg`. The capture holds identifiers (serial, MACs in `dmesg`, the
+   IMEI in properties): it never leaves `~/android/reference/`.
+   Pass: the live DTB decompiles, and its `qcom,msm-id` / `qcom,board-id`
+   match the OTA's DTB that ABL picked.
+
+Also time one cold boot to the OxygenOS home screen, cable plugged in:
+that is `tools/dodge-try`'s long deadline (§5.1).
+
+Magisk stays installed afterwards. A rooted OxygenOS is still the loop's
+way back (§5.2), and root lets us repeat the capture when a mainline
+driver needs a fresh comparison.
+
+### Phase 2 — `fastboot boot` over the cable
+
+First try: stock's own `boot.img` from the OTA. Pass: OxygenOS boots, and
+the next cold boot is normal. That proves `fastboot boot` is still
+temporary on this firmware, at no risk.
+
+Then: an image we packed (the unchanged `sm8750-mainline` dodge build is
+enough) comes up on the panel or on the USB serial gadget, and §5.2's way
+back returns the cable to fastboot. If it hangs, work down §5.3.
+
+Stop: the only way forward is flashing XBL, ABL or vbmeta. Stop if
+`fastboot boot` is still the active boot after a cold boot (it must not
+be). Mu-Silicium is a console to try if our image hangs, not a second
+boot path we maintain.
+
+### Phase 3 — Our kernel, SSH, no flash
+
+Pass: `ssh root@172.16.42.1` from a kernel we built, booted with
+`fastboot boot`, storage still read-only. Console on the framebuffer.
+`panic=10`.
+
+The storage guard from cheetah's initramfs is copied only with the
+cheetah `devmem` and DECON writes removed, and only once we are about to
+mount UFS. The ramdisk root used for `fastboot boot` does not need it.
+
+### Phase 4 — Persistent Arch
+
+Pass: one flash of the boot images, Arch (then Omarchy) on `userdata`,
+Hyprland up. Software rendering is enough. The device package
+`omamobile-device-dodge` starts here with nothing enabled that can hang
+a boot.
+
+### Phase 5 — Subsystems, one at a time
+
+Each gets `device/dodge/<NAME>-PLAN.md` before code. Order, because each
+one shortens the next debug:
+
+| # | Stage | Done when |
+| --- | --- | --- |
+| 1 | Display | The panel's own mode, brightness, 120 Hz, DPMS. Pagani's DSC driver is the shape, not the timings. |
+| 2 | Touch and buttons | `evtest` sees them |
+| 3 | Battery and charging | Percent and temperature move. The public report says the gauge sticks at 0%. |
+| 4 | USB-C | A replug comes back |
+| 5 | GPU | Hyprland on Adreno 830. Software rendering stays the fallback. |
+| 6 | Wi-Fi and Bluetooth | The chip the DT names. ath12k is the likely driver. Firmware from the owner's image, never committed. |
+| 7 | Haptics, torch | A buzz, a light |
+| 8 | Audio | Speakers under a volume ceiling |
+| 9 | Sensors | Accelerometer, so rotation works |
+| 10 | Suspend | s2idle, log streamed, Wi-Fi unloaded until its sleep path is known |
+| 11 | Modem | Its own plan. Backups of the NV partitions first. Not the Pixel SIT client. |
+| 12 | NFC, cameras, fingerprint | Last. A secure-storage write waits for an explicit yes. |
+
+## 7. Gates
+
+| After | Continue | Stop |
+| --- | --- | --- |
+| Phase 0 | The OTA's images match the build id; the dodge DTB builds | No OTA for this build can be found |
+| Phase 1 | Fastboot answers before and after unlock; `adb reboot bootloader` works from OxygenOS; the rooted capture exists | Product id is unexpected, the bootloader does not match the OTA, or patched `init_boot` loops and the stock one does not restore it |
+| Phase 2 | `fastboot boot` over the cable was temporary, and the kernel printed a banner | The next step wants an XBL or ABL write |
+| Phase 3 | SSH from `fastboot boot`, and a reboot returns to fastboot | The boot image has to be flashed to learn anything |
+| Phase 4 | A bad flash is one fastboot write from a prompt | Fastboot stops answering |
+
+GPU, Wi-Fi and the modem failing leave those rows open. They do not end
+the port. Losing fastboot does.
+
+## 8. Notes
+
+| Kind | Where |
+| --- | --- |
+| This plan | `device/dodge/PLAN.md` |
+| One attempt | `device/dodge/dev-docs/YYYY-MM-DD-slug.md` |
+| A fact later boots will trip over | `device/dodge/NOTES.md`, once we have one |
+| A subsystem | `device/dodge/<SUBSYSTEM>-PLAN.md` |
+| The device matrix | `docs/DEVICES.md`, only with a note that shows what this phone did |
+
+No serials, IMEIs or MACs in any of these. The model, hardware version,
+baseband and SOTA string are properties of the CPH2653 EU build, and they
+belong in the plan.
+
+## 9. Open on this phone
+
+- The OxygenOS build id next to SOTA `B100P01(BRB1GDPR)` (Settings,
+  About), and the bootloader version of each slot (§3.3).
+- Whether `fastboot boot` is still temporary on this August 2026 firmware.
+  Abrecht proved it on `16.0.2.402`. Phase 2's stock `boot.img` try
+  answers it.
+- The GPT names, and whether `recovery` is a real partition (Lineage
+  flashes one).
+- Why a packed mainline `boot.img` hung for Abrecht: §5.3's list, one
+  try per suspect. The cable is the path either way.
+- Whether ABL takes the DTB from a header v2 image under `fastboot boot`,
+  or always from the flashed `vendor_boot`.
+- Whether our kernel's `reboot-to bootloader` reaches fastboot on this
+  ABL (`qcom-pon` reboot mode), which would retire OxygenOS as the way
+  back.
+
+Answered offline from the OTA (phase 0b), not from the phone: the panel
+compatible, the Wi-Fi chip, header versions, msm-id / board-id, the
+splash framebuffer and the ramoops region. Confirmed against the running
+phone by the rooted capture (phase 1): which DTB ABL picked, the rails
+and clocks the panel, touch and USB need, and which firmware files the
+running system loaded.
+
+## 10. Sources
+
+Re-check before building. Community trees move. The survey write-up has
+the same list with the role each one plays.
+
+- This repo: CONTRIBUTING §3, `docs/DEVICES.md`, `docs/RELEASES.md` §3,
+  `device/cheetah/device.conf`, `kernel/configs/omamobile.config`.
+- LineageOS wiki: `devices/dodge` and `devices/dodge/install`.
+- Magisk documentation (`topjohnwu.github.io/Magisk/install.html`): patching
+  `init_boot` on devices that launched with Android 13 or later.
+- Daniel Abrecht, XDA thread "My attempts to boot linux" (November 2025),
+  and `Daniel-Abrecht/Mu-Silicium` branch `dodge-host-mode`.
+- Project-Silicium `Mu-Silicium` `Platforms/OnePlus/dodgePkg` and
+  `Status.md`.
+- `sm8750-mainline/linux` branch `v6.16` (`sm8750-oneplus-dodge.dtb`, as
+  packed in Abrecht's `fastboot boot` command).
+- OnePlusOSS `android_kernel_oneplus_sm8750`,
+  `android_kernel_common_oneplus_sm8750`,
+  `android_kernel_modules_and_devicetree_oneplus_sm8750`.
+- `renhiyama/pagani-linux` commit `c49d202`.
+- postmarketOS / Nura wiki, OnePlus 13 (`oneplus-dodge`) and the SM8750
+  SoC page.
+- XDA anti-rollback thread, January 2026. OnePlus's August 2026 SOTA
+  announcement for `B100P01` (the GDPR variant is the EU track of that
+  update).
+- Mainline `arch/arm64/boot/dts/qcom/sm8750.dtsi` (SoC, not the phone).
+  Adreno 830 DRM series on the list, August 2026.

@@ -1,5 +1,10 @@
 # OnePlus 13 vs Omarchy Mobile — initial assessment
 
+> **2026-10-15:** Kept as the snapshot from the day the repo was cloned.
+> The working plan is [device/dodge/PLAN.md](device/dodge/PLAN.md). The
+> running log of attempts and what they taught us is
+> [device/dodge/dev-docs/](device/dodge/dev-docs/).
+
 Parked 2026-10-14. Repo cloned to `~/Repos/omarchy-mobile` from
 https://github.com/derekross/omarchy-mobile (upstream tip around 2026-10-13).
 
