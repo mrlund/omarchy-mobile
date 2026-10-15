@@ -151,8 +151,10 @@ cmd_capture() {
     fi
     adb shell getprop > "$dir/getprop.txt"
     adb shell 'ls -l /dev/block/by-name/' > "$dir/partitions-by-name.txt"
-    adb shell cat /proc/cpuinfo /proc/meminfo /proc/cmdline > "$dir/proc.txt" 2>&1
-    adb shell 'ls -lR /vendor/lib/modules /vendor_dlkm/lib/modules' > "$dir/vendor-modules.txt" 2>&1
+    # cmdline is often unreadable as the shell user. The root path below
+    # reads it again. A denial must not throw away the rest of the capture.
+    adb shell cat /proc/cpuinfo /proc/meminfo /proc/cmdline > "$dir/proc.txt" 2>&1 || true
+    adb shell 'ls -lR /vendor/lib/modules /vendor_dlkm/lib/modules' > "$dir/vendor-modules.txt" 2>&1 || true
     if [[ $root_mode == adb ]]; then
       say "Root available: device tree, kernel log, modules, interrupts, memory map"
       adb shell cat /sys/firmware/fdt > "$dir/live.dtb"
@@ -163,7 +165,7 @@ cmd_capture() {
       say "Magisk su available: device tree, kernel log, modules, interrupts, memory map"
       capture_as_root "cat /sys/firmware/fdt" > "$dir/live.dtb"
       capture_as_root "dmesg" > "$dir/dmesg.txt"
-      capture_as_root "cat /proc/modules /proc/interrupts /proc/iomem" > "$dir/proc-root.txt" 2>&1
+      capture_as_root "cat /proc/modules /proc/interrupts /proc/iomem /proc/cmdline" > "$dir/proc-root.txt" 2>&1
       capture_as_root "ls /vendor/firmware" > "$dir/vendor-firmware.txt" 2>&1
     else
       echo "  (no root: skipping device tree, dmesg and memory map)"
