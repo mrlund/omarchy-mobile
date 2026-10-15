@@ -30,7 +30,10 @@ expected near 263 + 25·v seconds after `Booting OKAY` (263, 288, 313,
 ## What happened
 
 `Booting OKAY` at 20:10:29. Fastboot did not stay up. No adb and no
-fastboot device for the next 480 s, and none a moment after that.
+fastboot device for the next 480 s, and none a moment after that. The
+screen stayed on the OnePlus logo and "fastboot mode". Holding Power
+did not change it, and reseat had not yet been tried. The laptop still
+saw no USB device at that report.
 
 ## Learning
 
