@@ -673,8 +673,11 @@ OTA gives us a stock copy of (§3.2). Nothing below `boot` is touched, and
    model "Sun MTP,dodge", `qcom,board-id` `<0x40008 0x00>`, and all eight
    sun/sunp msm-id pairs. The screen-off half is
    [dev-docs/2026-10-15-rooted-off.md](dev-docs/2026-10-15-rooted-off.md).
-   Debugfs was not mounted, so the clock, regulator and pin files are
-   absent in both.
+   Debugfs was not mounted during those two captures. It was mounted
+   afterwards with the screen awake, the four files were saved, and it
+   was unmounted
+   ([dev-docs/2026-10-15-debugfs.md](dev-docs/2026-10-15-debugfs.md)).
+   A screen-off copy of the regulator summary is still open.
 
 Also time one cold boot to the OxygenOS home screen, cable plugged in:
 that is `tools/dodge-try`'s long deadline (§5.1).
