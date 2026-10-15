@@ -4,7 +4,8 @@
 Status 2026-10-15: plan revised after the device was named. The loop is
 one USB cable to this machine (`fastboot boot`, then SSH). A USB stick is
 not part of it. Nothing has been run on the phone.
-No `device.conf`, no initramfs, no kernel branch. Attempts go in
+No `device.conf` and no initramfs in this repository. The kernel checkout
+is `~/android/mainline/wt-dodge`, branch `omamobile-dodge`. Attempts go in
 [dev-docs/](dev-docs/). The OSS survey is
 [dev-docs/2026-10-15-oss-landscape.md](dev-docs/2026-10-15-oss-landscape.md).
 Revised again the same day after
@@ -16,10 +17,12 @@ OxygenOS through Magisk, instead of a downstream-kernel track:
 A second review tightened the image format, the OTA, the watchdog and the
 Magisk fallback:
 [dev-docs/2026-10-15-second-review.md](dev-docs/2026-10-15-second-review.md).
-Phase 0a (host) and phase 0b (stock images) are done on the laptop. The
-phone has not been unlocked, rooted, rebooted or flashed. The OTA facts
-are in
+Phase 0a (host), phase 0b (stock images) and phase 0c (the mainline
+DTB) are done on the laptop. The phone has not been unlocked, rooted,
+rebooted or flashed. The OTA facts are in
 [dev-docs/2026-10-15-ota-boot-images.md](dev-docs/2026-10-15-ota-boot-images.md).
+The DTB comparison is in
+[dev-docs/2026-10-15-mainline-dtb.md](dev-docs/2026-10-15-mainline-dtb.md).
 
 Labels: **[V]** checked in a source we can cite. **[I]** an inference, to
 be checked on this phone before anyone relies on it. A community report is
@@ -262,7 +265,7 @@ people break `super`.
 
 | Piece | Where |
 | --- | --- |
-| Kernel | `~/android/mainline/wt-dodge`, output `~/android/mainline/out-dodge`. Start from `sm8750-mainline/linux` (it has the dodge DTB) and rebase onto a current mainline tag once the DTB builds. Branch `omamobile-dodge`. |
+| Kernel | `~/android/mainline/wt-dodge`, output `~/android/mainline/out-dodge`. Checked out 2026-10-15 from `sm8750-mainline/linux` branch `v6.16` at `16cf517b2781`, depth 1, local branch `omamobile-dodge`. The dodge DTB builds. A rebase onto current mainline waits: Linux 7.3-rc7 has no dodge board. |
 | Config | `kernel/configs/omamobile-dodge.config`, written when the first build is real. The Pixel fragment (`ARCH_EXYNOS`, Exynos USB, Exynos UFS, `s3c2410_wdt`) is the wrong fragment. |
 | Boot image | Packed on the laptop as one self-contained header v2 image (`Image` + dodge DTB + a small initramfs, §5.3) and handed over with `fastboot boot`. Omarchy's full root image comes later, once SSH exists. Building it on every try is the slow loop. |
 | Loop script | `tools/dodge-try` (to write): build, pack, `fastboot boot`, wait for SSH with a timeout, save kmsg to `logs/`, append a row to the tries log (§5.5). Two deadlines: a short one for SSH from our kernel, and a long one (orange-state warning plus a full OxygenOS boot, measured in phase 1) before it tries `adb reboot bootloader`. Only after both does it call the phone dead. `bin/omamobile`'s `kernel`, `initramfs` and `images` are Pixel-shaped and stay untouched until §5.4. |
@@ -275,14 +278,15 @@ NCM and ACM, simplefb, pstore/ramoops, `QCOM_WDT`, panic on soft lockup
 and hung task. `clk_ignore_unused pd_ignore_unused panic=10` on the
 command line.
 
-`QCOM_WDT=y` alone resets nothing. It needs a watchdog node in the DTB
-(phase 0c checks it), and a hardware watchdog only bites once something
-has armed it: the init opens `/dev/watchdog` early and feeds it (busybox
-`watchdog`), so a hung kernel stops feeding it and the phone resets. A
-hang before init runs is covered only by `panic=10` if it panics, and by
-a human otherwise. On SM8750 the hypervisor (Gunyah) may own the APSS
-watchdog [I]; if Linux cannot arm it, the watchdog row of §5.2 does not
-exist and a human is the way back from a hang.
+`QCOM_WDT=y` alone resets nothing. It needs a watchdog node in the DTB,
+and a hardware watchdog only bites once something has armed it. Phase 0c
+found no such node. The mainline dodge DTB has none, and stock's only
+watchdog is an empty `/hypervisor/qcom,gh-watchdog` with no `compatible`
+and no `reg`. `QCOM_WDT` has nothing to bind, so the watchdog row of
+§5.2 does not exist yet. A hang before init runs is covered only by
+`panic=10` if it panics, and by a human otherwise. A feeder in the
+initramfs stays, and it cannot be the way back until a node Linux can
+arm exists.
 
 ramoops needs a region that survives a warm reset and that nothing else
 uses: stock's own ramoops / pstore region from the OTA's reserved memory,
@@ -435,13 +439,15 @@ phone:
   Header versions, geometry, cmdline, msm-id / board-id, dtbo entries,
   the panel list, the Wi-Fi node and reserved memory are in the
   subsection below.
-- **0c. The kernel.** Clone `sm8750-mainline`, confirm
-  `sm8750-oneplus-dodge.dtb` builds, and compare its msm-id / board-id
-  with the stock set below. Do not collapse that set to one pair before
-  the live FDT. Confirm the DTB has an enabled watchdog node for
-  `QCOM_WDT`, and the USB controller and PHY nodes the gadget needs,
-  and note whether stock's DT shows the hypervisor owning the watchdog
-  (§5.1).
+- **0c. The kernel.** Done 2026-10-15.
+  `qcom/sm8750-oneplus-dodge.dtb` builds from `sm8750-mainline` `v6.16`
+  at `16cf517b2781`. The built DTB has no `qcom,msm-id` and no
+  `qcom,board-id`. Its compatible is `OnePlus,13`, `qcom,sm8750`. That
+  is not the stock overlay's `qcom,board-id = <0x40008 0x00>`, and the
+  eight sun/sunp pairs stay uncollapsed until the live FDT. There is no
+  watchdog node (§5.1). USB `usb@a600000` (`snps,dwc3`), the wrapper
+  `qcom,sm8750-dwc3` / `qcom,dwc3`, and both PHYs are enabled. Write-up:
+  [dev-docs/2026-10-15-mainline-dtb.md](dev-docs/2026-10-15-mainline-dtb.md).
 - **0d. The loop.** `tools/dodge-try` and the first initramfs (cheetah's
   init without its `devmem` and DECON lines, with its gadget self-crash
   and a watchdog feeder).
@@ -661,7 +667,7 @@ one shortens the next debug:
 
 | After | Continue | Stop |
 | --- | --- | --- |
-| Phase 0 | The OTA's images match the build id (met 2026-10-15); the dodge DTB builds | No OTA for this build can be found |
+| Phase 0 | The OTA matches the build id, and the dodge DTB builds. Both met 2026-10-15; 0d and 0e remain | No OTA for this build can be found |
 | Phase 1 | Fastboot answers before and after unlock; `adb reboot bootloader` works from OxygenOS; the rooted capture exists | Product id is unexpected, the bootloader does not match the OTA, or patched `init_boot` loops and the stock one does not restore it |
 | Phase 2 | `fastboot boot` over the cable was temporary, and the kernel printed a banner | The next step wants an XBL or ABL write |
 | Phase 3 | SSH from `fastboot boot`, and a reboot returns to fastboot | The boot image has to be flashed to learn anything |
@@ -703,7 +709,11 @@ belong in the plan.
 - Which vendor FDT and which dtbo entry (T0 or later) ABL picks, and
   which panel on the primary list this unit is (§6).
 - The ramoops physical address. The OTA gives the size and a dynamic
-  range (§6). A rooted `/proc/iomem` is the check.
+  range (§6). The mainline dodge DTB has no ramoops node. A rooted
+  `/proc/iomem` is the check.
+- A watchdog node Linux can arm. Stock has an empty Gunyah watchdog,
+  and the mainline DTB has none (§5.1), so a hang that does not panic
+  waits for a human.
 
 Answered from the OTA on 2026-10-15 (phase 0b): header versions, page
 size, `vendor_boot` geometry, vendor cmdline, msm-id / board-id, the

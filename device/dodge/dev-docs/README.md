@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-15 | [mainline-dtb](2026-10-15-mainline-dtb.md) | `sm8750-oneplus-dodge.dtb` builds. No msm-id, board-id or watchdog. USB at `0xa600000` is enabled. Phone untouched. |
 | 2026-10-15 | [ota-boot-images](2026-10-15-ota-boot-images.md) | EU full OTA for `CPH2653_16.0.10.501(EX01)` unpacked. Geometry, ids, panel list, Wi-Fi node, splash and ramoops recorded. Phone untouched. |
 | 2026-10-15 | [second-review](2026-10-15-second-review.md) | Outside review: self-contained v2 image, full OTA, an armed watchdog, Magisk fallback, stale notes marked. |
 | 2026-10-15 | [rooted-capture](2026-10-15-rooted-capture.md) | No downstream-kernel track. Phase 1 roots OxygenOS with Magisk for a live capture. |
