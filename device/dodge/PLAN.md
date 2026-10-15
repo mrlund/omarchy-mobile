@@ -583,7 +583,8 @@ allowed` and `unlocked` stayed `no`
 After the OEM unlocking switch was turned on, the same command returned
 `OKAY` and the phone rebooted to the OxygenOS welcome slide
 ([dev-docs/2026-10-15-unlock.md](dev-docs/2026-10-15-unlock.md)).
-`getvar unlocked` has not been read again yet. Do not substitute
+After setup, `ro.boot.flash.locked=0`, verified boot is `orange`, and
+the slot is still `_a`. The build id is unchanged. Do not substitute
 `fastboot oem unlock`.
 Fastboot must still answer, and Volume Up + Volume Down + Power must still
 reach it.
