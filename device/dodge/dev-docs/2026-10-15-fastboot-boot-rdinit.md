@@ -97,7 +97,11 @@ every second:
 | 63 s | adb |
 
 OxygenOS: slot `_a`, same build, `magiskd`, uptime 13 s, pstore empty,
-`ro.boot.bootreason` `bootloader`. Reset at about 50 s. Halving the
+`ro.boot.bootreason` `bootloader`. Reset at about 50 s. Watched by
+hand: the fastboot screen (OnePlus logo, "fastboot mode") stayed up,
+unchanged, for about 50 s, then the phone rebooted into OxygenOS. Our
+kernel had no console (forced cmdline) and no framebuffer node in
+stock's DTB, so the panel kept ABL's last frame. Halving the
 hold took 45 s off the return (108 s to 63 s), so the reset is our
 init's `sysrq b`.
 
