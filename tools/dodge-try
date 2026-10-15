@@ -1,0 +1,317 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# dodge-try: build and pack a self-contained header v2 image for the
+# OnePlus 13, and (boot subcommand only) hand it to fastboot.
+#
+#   tools/dodge-try config   merge the fragment, check the loop symbols
+#   tools/dodge-try pack     config, build Image + dodge DTB, initramfs, boot.img
+#   tools/dodge-try boot     pack, then fastboot boot, then wait
+#
+# pack does not talk to the phone. boot does: fastboot boot, and if SSH
+# never comes up, fastboot reboot or adb reboot bootloader as in
+# device/dodge/PLAN.md §5.2. boot never flashes.
+#
+# bin/omamobile kernel/initramfs/images stay Pixel-shaped (PLAN.md §5.4).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+KERNEL_DIR="${KERNEL_DIR:-$HOME/android/mainline/wt-dodge}"
+KERNEL_OUT="${KERNEL_OUT:-$HOME/android/mainline/out-dodge}"
+JOBS="${JOBS:-$(nproc)}"
+FRAGMENT="$ROOT/kernel/configs/omamobile-dodge.config"
+INIT="$ROOT/device/dodge/initramfs/init"
+# Stock vendor_boot geometry (PLAN.md §6). --base 0, so the offset is the address.
+PAGE_SIZE=4096
+KERNEL_OFFSET=0x8000
+RAMDISK_OFFSET=0x01000000
+TAGS_OFFSET=0x100
+DTB_OFFSET=0x01f00000
+# panic=10 is also CONFIG_PANIC_TIMEOUT. console=tty0 is the panel, if
+# simpledrm binds a framebuffer ABL left behind. Stock's console=ttynull
+# and nosoftlockup are not copied.
+CMDLINE="clk_ignore_unused pd_ignore_unused panic=10 console=tty0"
+# SSH from our kernel. Past the init's worst case: 30 s for a UDC, then
+# 45 s waiting to be configured, then 20 s before it panics.
+SSH_DEADLINE="${SSH_DEADLINE:-120}"
+# OxygenOS cold boot, cable in, after our kernel did not answer.
+# Not measured. Phase 1 times one boot to the home screen and replaces this.
+OXYGEN_DEADLINE="${OXYGEN_DEADLINE:-600}"
+ALPINE_VER=3.24.2
+ALPINE_SUM=9bf70a7f18ea44094cbb5f70c58f9af129c8214745743db0e68e5502cc2ce773
+# Symbols the ramdisk needs built in. tools/dodge-try config fails if any
+# of these is not =y after olddefconfig.
+NEED_Y=(
+  USB_LIBCOMPOSITE USB_CONFIGFS USB_CONFIGFS_NCM USB_CONFIGFS_ACM
+  USB_DWC3 USB_DWC3_QCOM
+  PHY_QCOM_QMP PHY_QCOM_QMP_COMBO PHY_QCOM_M31_EUSB PHY_QCOM_EUSB2_REPEATER
+  DRM DRM_SIMPLEDRM FRAMEBUFFER_CONSOLE
+  PSTORE PSTORE_RAM PSTORE_CONSOLE PSTORE_PMSG
+  QCOM_WDT
+  SOFTLOCKUP_DETECTOR BOOTPARAM_SOFTLOCKUP_PANIC
+  DETECT_HUNG_TASK BOOTPARAM_HUNG_TASK_PANIC
+)
+
+say() { printf '\e[1m==> %s\e[0m\n' "$*"; }
+die() { printf '\e[31merror:\e[0m %s\n' "$*" >&2; exit 1; }
+
+usage() {
+  cat <<USAGE
+Usage: tools/dodge-try <config|pack|boot>
+
+  config   Merge kernel/configs/omamobile-dodge.config onto arm64 defconfig
+           and check the loop symbols. No phone.
+  pack     config, then Image, the dodge DTB, the initramfs and a header v2
+           boot.img under \$KERNEL_OUT. No phone.
+  boot     pack, then fastboot boot that image and wait for SSH. This talks
+           to the phone. It never flashes.
+
+KERNEL_DIR=$KERNEL_DIR
+KERNEL_OUT=$KERNEL_OUT
+SSH_DEADLINE=${SSH_DEADLINE}s   OXYGEN_DEADLINE=${OXYGEN_DEADLINE}s (not measured; phase 1)
+USAGE
+}
+
+config_symbol() {
+  local key=$1 line
+  line=$(grep -E "^CONFIG_${key}=|^# CONFIG_${key} is not set" "$KERNEL_OUT/.config" || true)
+  [[ -n $line ]] || die "CONFIG_$key is missing from $KERNEL_OUT/.config"
+  printf '%s\n' "$line"
+}
+
+cmd_config() {
+  [[ -d $KERNEL_DIR ]] || die "no kernel tree at $KERNEL_DIR"
+  [[ -f $FRAGMENT ]] || die "no fragment $FRAGMENT"
+  command -v clang >/dev/null || die "clang is not installed"
+  mkdir -p "$KERNEL_OUT"
+  say "defconfig + $FRAGMENT"
+  make -C "$KERNEL_DIR" O="$KERNEL_OUT" ARCH=arm64 LLVM=1 defconfig
+  "$KERNEL_DIR/scripts/kconfig/merge_config.sh" -m -O "$KERNEL_OUT" \
+    "$KERNEL_OUT/.config" "$FRAGMENT"
+  make -C "$KERNEL_DIR" O="$KERNEL_OUT" ARCH=arm64 LLVM=1 olddefconfig
+  local key line bad=0
+  for key in "${NEED_Y[@]}"; do
+    line=$(config_symbol "$key")
+    if [[ $line != "CONFIG_${key}=y" ]]; then
+      printf 'not built in: %s\n' "$line" >&2
+      bad=1
+    fi
+  done
+  if ((bad)); then
+    die "the fragment did not stick; see the lines above"
+  fi
+  line=$(config_symbol PANIC_TIMEOUT)
+  [[ $line == "CONFIG_PANIC_TIMEOUT=10" ]] || die "panic timeout is '$line', want 10"
+  # The first ramdisk does not mount UFS. A built-in qcom host would
+  # enumerate disks before the guard is trusted. Modular is the intent.
+  line=$(config_symbol SCSI_UFS_QCOM)
+  [[ $line == "CONFIG_SCSI_UFS_QCOM=m" ]] \
+    || die "SCSI_UFS_QCOM is '$line'; the first image wants it modular"
+  say "config ok ($KERNEL_OUT/.config)"
+}
+
+cmd_kernel() {
+  cmd_config
+  say "Building Image and qcom/sm8750-oneplus-dodge.dtb (-j$JOBS)"
+  make -C "$KERNEL_DIR" O="$KERNEL_OUT" ARCH=arm64 LLVM=1 -j"$JOBS" \
+    Image qcom/sm8750-oneplus-dodge.dtb
+  [[ -f $KERNEL_OUT/arch/arm64/boot/Image ]] || die "no Image"
+  [[ -f $KERNEL_OUT/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dtb ]] \
+    || die "no dodge DTB"
+}
+
+cmd_initramfs() {
+  local dl="$HOME/android/downloads/alpine" stage="$KERNEL_OUT/initramfs"
+  local tarball="alpine-minirootfs-$ALPINE_VER-aarch64.tar.gz" apk
+  [[ -f $INIT ]] || die "no $INIT"
+  command -v python3 >/dev/null || die "python3 is not installed"
+  mkdir -p "$dl"
+  if [[ ! -f $dl/$tarball ]]; then
+    say "Downloading $tarball"
+    curl -fsSL -o "$dl/$tarball" \
+      "https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VER%.*}/releases/aarch64/$tarball"
+  fi
+  echo "$ALPINE_SUM  $dl/$tarball" | sha256sum -c --quiet \
+    || die "checksum mismatch for $tarball"
+  say "Staging initramfs in $stage"
+  rm -rf "$stage" && mkdir -p "$stage"
+  tar -xzf "$dl/$tarball" -C "$stage"
+  for apk in $(python3 -I "$ROOT/tools/alpine-fetch.py" "$ALPINE_VER" "$dl/apks" dropbear); do
+    tar -xzf "$apk" -C "$stage" --exclude='.PKGINFO' --exclude='.SIGN.*' --exclude='.*.sh' \
+      2>/dev/null || true
+  done
+  [[ -x $stage/usr/sbin/dropbear ]] || die "the initramfs has no dropbear"
+  # Busybox links point at /bin/busybox, so on the laptop -x is false
+  # (the target is not there) and -L is the check that works. udhcpd is
+  # not an applet in this minirootfs; the laptop address is static.
+  local applet dir found
+  for applet in setsid tee head ip blockdev; do
+    found=0
+    for dir in bin sbin usr/bin usr/sbin; do
+      if [[ -L $stage/$dir/$applet || -x $stage/$dir/$applet ]]; then
+        found=1
+        break
+      fi
+    done
+    if ((found == 0)); then
+      die "the initramfs has no $applet"
+    fi
+  done
+  install -m 755 "$INIT" "$stage/init"
+  sh -n "$stage/init"
+  local pubs=("$HOME"/.ssh/*.pub)
+  [[ -f ${pubs[0]} ]] || die "no $HOME/.ssh/*.pub to install as authorized_keys"
+  mkdir -p "$stage/root/.ssh"
+  cat "${pubs[@]}" > "$stage/root/.ssh/authorized_keys"
+  chmod 700 "$stage/root/.ssh" && chmod 600 "$stage/root/.ssh/authorized_keys"
+  # Fixed mtimes so two packs of the same tree match. The archive is not
+  # committed; it lands in KERNEL_OUT.
+  find "$stage" -exec touch -h -d @0 {} +
+  (cd "$stage" && find . -print0 | sort -z \
+    | cpio --null --reproducible -o -H newc --owner=0:0 --quiet) \
+    | lz4 -l -9 -q > "$KERNEL_OUT/initramfs.cpio.lz4"
+  ls -lh "$KERNEL_OUT/initramfs.cpio.lz4"
+}
+
+cmd_pack() {
+  command -v mkbootimg >/dev/null || die "mkbootimg is not installed (android-tools)"
+  command -v unpack_bootimg >/dev/null || die "unpack_bootimg is not installed"
+  cmd_kernel
+  cmd_initramfs
+  local img="$KERNEL_OUT/images" out="$KERNEL_OUT/images/boot.img"
+  mkdir -p "$img"
+  say "Packing header v2 $out"
+  mkbootimg \
+    --header_version 2 \
+    --kernel "$KERNEL_OUT/arch/arm64/boot/Image" \
+    --ramdisk "$KERNEL_OUT/initramfs.cpio.lz4" \
+    --dtb "$KERNEL_OUT/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dtb" \
+    --base 0 \
+    --pagesize "$PAGE_SIZE" \
+    --kernel_offset "$KERNEL_OFFSET" \
+    --ramdisk_offset "$RAMDISK_OFFSET" \
+    --tags_offset "$TAGS_OFFSET" \
+    --dtb_offset "$DTB_OFFSET" \
+    --cmdline "$CMDLINE" \
+    -o "$out"
+  unpack_bootimg --boot_img "$out" --format=info > "$img/boot.img.unpack" 
+  say "Packed $(du -h "$out" | awk '{print $1}') $out"
+  grep -E '^(boot image header version|command line args|kernel load address|ramdisk load address|dtb load address|product name)' \
+    "$img/boot.img.unpack" || true
+}
+
+ssh_up() {
+  ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+    -o ConnectTimeout=3 -o BatchMode=yes root@172.16.42.1 true
+}
+
+# Count lines. Never exits the caller: a command substitution must not be
+# the place that decides the phone is unexpected.
+fastboot_count() {
+  fastboot devices 2>/dev/null | awk 'NF{c++} END{print c+0}'
+}
+
+adb_count() {
+  adb devices 2>/dev/null | awk 'NR>1 && $2=="device"{c++} END{print c+0}'
+}
+
+wait_until() {
+  local seconds=$1
+  shift
+  local end=$((SECONDS + seconds))
+  while ((SECONDS < end)); do
+    if "$@"; then
+      return 0
+    fi
+    sleep 3
+  done
+  return 1
+}
+
+append_try() {
+  local how=$1 last=$2 way=$3
+  local logdir="$ROOT/logs" tsv commit
+  mkdir -p "$logdir"
+  tsv="$logdir/dodge-tries.tsv"
+  [[ -f $tsv ]] || printf 'stamp\tkernel\theader\tdtb\thow\tlast\tpstore\tway_back\n' > "$tsv"
+  commit=$(git -C "$KERNEL_DIR" rev-parse --short=12 HEAD)
+  # last is one of our own omamobile: lines, or a fixed token. No dmesg dump.
+  printf '%s\t%s\tv2\tsm8750-oneplus-dodge.dtb\t%s\t%s\tunread\t%s\n' \
+    "$(date -Iseconds)" "$commit" "$how" "$last" "$way" >> "$tsv"
+  say "appended $tsv"
+}
+
+cmd_boot() {
+  say "boot talks to the phone: fastboot boot, then wait ${SSH_DEADLINE}s for SSH."
+  say "If SSH misses, wait ${OXYGEN_DEADLINE}s for OxygenOS (not measured yet) before adb reboot bootloader."
+  local n
+  n=$(fastboot_count)
+  if ((n > 1)); then
+    die "more than one fastboot device"
+  fi
+  if ((n == 0)); then
+    die "no fastboot device. Plug the phone in fastboot first."
+  fi
+  cmd_pack
+  local out="$KERNEL_OUT/images/boot.img" stamp log
+  stamp=$(date +%Y%m%d-%H%M%S)
+  log="$ROOT/logs/dodge-$stamp.kmsg"
+  mkdir -p "$ROOT/logs"
+  say "fastboot boot $out"
+  fastboot boot "$out"
+  if wait_until "$SSH_DEADLINE" ssh_up; then
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+      -o BatchMode=yes root@172.16.42.1 dmesg > "$log" || true
+    local last
+    last=$(grep -a 'omamobile:' "$log" | tail -1 | cut -c1-160 || true)
+    [[ -n $last ]] || last="ssh-up-no-omamobile-line"
+    append_try "fastboot-boot" "$last" "ssh"
+    say "SSH is up: ssh root@172.16.42.1"
+    say "kmsg: $log (gitignored; check it for identifiers before quoting)"
+    return 0
+  fi
+  say "no SSH after ${SSH_DEADLINE}s"
+  n=$(fastboot_count)
+  if ((n > 1)); then
+    die "more than one fastboot device after the try"
+  fi
+  if ((n == 1)); then
+    say "fastboot still answers: fastboot reboot (PLAN.md §5.2, still in ABL)"
+    fastboot reboot || true
+    append_try "fastboot-boot" "no-ssh-still-fastboot" "fastboot-reboot"
+  else
+    append_try "fastboot-boot" "no-ssh" "pending-oxygen"
+  fi
+  say "waiting ${OXYGEN_DEADLINE}s for the cable to come back. This number is not a measured boot time."
+  local end=$((SECONDS + OXYGEN_DEADLINE))
+  while ((SECONDS < end)); do
+    n=$(adb_count)
+    if ((n > 1)); then
+      die "more than one adb device"
+    fi
+    if ((n == 1)); then
+      say "adb is up: adb reboot bootloader"
+      adb reboot bootloader
+      append_try "fastboot-boot" "no-ssh" "adb-reboot-bootloader"
+      return 0
+    fi
+    n=$(fastboot_count)
+    if ((n == 1)); then
+      say "fastboot answers again. The cable is back. Not sending another reboot."
+      append_try "fastboot-boot" "no-ssh" "fastboot-again"
+      return 0
+    fi
+    sleep 3
+  done
+  say "the phone is not answering on fastboot or adb."
+  say "A human has to force a restart: Power held about 30 s, then Power. Fastboot by hand: Volume Down + Power."
+  append_try "fastboot-boot" "no-ssh" "dead"
+  exit 1
+}
+
+case "${1:-}" in
+  config) cmd_config ;;
+  pack) cmd_pack ;;
+  boot) cmd_boot ;;
+  -h|--help|help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac

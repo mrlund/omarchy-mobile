@@ -4,8 +4,10 @@
 Status 2026-10-15: plan revised after the device was named. The loop is
 one USB cable to this machine (`fastboot boot`, then SSH). A USB stick is
 not part of it. Nothing has been run on the phone.
-No `device.conf` and no initramfs in this repository. The kernel checkout
-is `~/android/mainline/wt-dodge`, branch `omamobile-dodge`. Attempts go in
+No `device.conf`. The first initramfs is
+[`initramfs/init`](initramfs/init). It is packed and has not been booted.
+The kernel checkout is `~/android/mainline/wt-dodge`, branch
+`omamobile-dodge`. Attempts go in
 [dev-docs/](dev-docs/). The OSS survey is
 [dev-docs/2026-10-15-oss-landscape.md](dev-docs/2026-10-15-oss-landscape.md).
 Revised again the same day after
@@ -23,6 +25,9 @@ rebooted or flashed. The OTA facts are in
 [dev-docs/2026-10-15-ota-boot-images.md](dev-docs/2026-10-15-ota-boot-images.md).
 The DTB comparison is in
 [dev-docs/2026-10-15-mainline-dtb.md](dev-docs/2026-10-15-mainline-dtb.md).
+Phase 0d (the loop script, the initramfs and a packed header v2 image)
+is done on the laptop. The image has not been handed to fastboot:
+[dev-docs/2026-10-15-dodge-try.md](dev-docs/2026-10-15-dodge-try.md).
 
 Labels: **[V]** checked in a source we can cite. **[I]** an inference, to
 be checked on this phone before anyone relies on it. A community report is
@@ -266,17 +271,21 @@ people break `super`.
 | Piece | Where |
 | --- | --- |
 | Kernel | `~/android/mainline/wt-dodge`, output `~/android/mainline/out-dodge`. Checked out 2026-10-15 from `sm8750-mainline/linux` branch `v6.16` at `16cf517b2781`, depth 1, local branch `omamobile-dodge`. The dodge DTB builds. A rebase onto current mainline waits: Linux 7.3-rc7 has no dodge board. |
-| Config | `kernel/configs/omamobile-dodge.config`, written when the first build is real. The Pixel fragment (`ARCH_EXYNOS`, Exynos USB, Exynos UFS, `s3c2410_wdt`) is the wrong fragment. |
-| Boot image | Packed on the laptop as one self-contained header v2 image (`Image` + dodge DTB + a small initramfs, §5.3) and handed over with `fastboot boot`. Omarchy's full root image comes later, once SSH exists. Building it on every try is the slow loop. |
-| Loop script | `tools/dodge-try` (to write): build, pack, `fastboot boot`, wait for SSH with a timeout, save kmsg to `logs/`, append a row to the tries log (§5.5). Two deadlines: a short one for SSH from our kernel, and a long one (orange-state warning plus a full OxygenOS boot, measured in phase 1) before it tries `adb reboot bootloader`. Only after both does it call the phone dead. `bin/omamobile`'s `kernel`, `initramfs` and `images` are Pixel-shaped and stay untouched until §5.4. |
+| Config | `kernel/configs/omamobile-dodge.config`, merged by `tools/dodge-try` on 2026-10-15. The Pixel fragment (`ARCH_EXYNOS`, Exynos USB, Exynos UFS, `s3c2410_wdt`) is the wrong fragment. |
+| Boot image | One self-contained header v2 image (`Image` + dodge DTB + the initramfs, §5.3). Packed 2026-10-15 at `~/android/mainline/out-dodge/images/boot.img` (45481984 bytes). Not handed to fastboot. Omarchy's full root image comes later, once SSH exists. |
+| Loop script | `tools/dodge-try`: `config` and `pack` stay on the laptop; `boot` does `fastboot boot`, waits for SSH, saves kmsg to `logs/`, and appends a row to `logs/dodge-tries.tsv` (§5.5). SSH deadline 120 s. The OxygenOS deadline is 600 s and is not a measured boot time; phase 1 replaces it. Only after both does `boot` call the phone dead. `bin/omamobile`'s `kernel`, `initramfs` and `images` are Pixel-shaped and stay untouched until §5.4. |
 | Stock reference | `~/android/reference/dodge-cph2653/`: `getvar`, the OTA's boot images and DTBs (§3.2), notes on what they show. Never committed. |
 | Notes | One `dev-docs/` file per session. |
 
 The first config builds in (`=y`) everything the loop needs, so the
-initramfs carries no modules: dwc3-qcom and the SM8750 USB PHYs, configfs
-NCM and ACM, simplefb, pstore/ramoops, `QCOM_WDT`, panic on soft lockup
-and hung task. `clk_ignore_unused pd_ignore_unused panic=10` on the
-command line.
+initramfs carries no modules: dwc3-qcom (both the `qcom,snps-dwc3` driver
+and the legacy `qcom,dwc3` driver), the SM8750 USB PHYs and the eUSB2
+repeater, configfs NCM and ACM, simpledrm, pstore/ramoops, `QCOM_WDT`,
+panic on soft lockup and hung task. This tree's `FB_SIMPLE` depends on
+`!DRM_SIMPLEDRM`, so the simple framebuffer is `DRM_SIMPLEDRM`. The image
+command line is `clk_ignore_unused pd_ignore_unused panic=10 console=tty0`.
+`console=tty0` is there so a framebuffer ABL left behind can show the
+console. Stock's `console=ttynull` and `nosoftlockup` are not copied.
 
 `QCOM_WDT=y` alone resets nothing. It needs a watchdog node in the DTB,
 and a hardware watchdog only bites once something has armed it. Phase 0c
@@ -304,9 +313,11 @@ Host setup, done 2026-10-15 before the OTA download:
   clang;
 - the NetworkManager profile `omamobile-phone` (172.16.42.2/24) that
   `tools/phone-ssh` assumes ([CONTRIBUTING.md](../../CONTRIBUTING.md) §2);
-- a payload extractor for the OTA.
+- a payload extractor for the OTA;
+- `bc`, which the kernel needs to generate `timeconst.h`. The first
+  `tools/dodge-try pack` stopped without it (2026-10-15).
 
-All five are in place. `adb`, `fastboot`, `mkbootimg`, `unpack_bootimg`
+All of these are in place. `adb`, `fastboot`, `mkbootimg`, `unpack_bootimg`
 and `mkdtboimg` are Arch `android-tools`; `dtc` is the `dtc` package.
 `/etc/udev/rules.d/52-omamobile-oneplus.rules` covers vendor `22d9` at
 mode 0660, group `adbusers`. The user is in `docker` and `adbusers`.
@@ -448,9 +459,17 @@ phone:
   watchdog node (§5.1). USB `usb@a600000` (`snps,dwc3`), the wrapper
   `qcom,sm8750-dwc3` / `qcom,dwc3`, and both PHYs are enabled. Write-up:
   [dev-docs/2026-10-15-mainline-dtb.md](dev-docs/2026-10-15-mainline-dtb.md).
-- **0d. The loop.** `tools/dodge-try` and the first initramfs (cheetah's
-  init without its `devmem` and DECON lines, with its gadget self-crash
-  and a watchdog feeder).
+- **0d. The loop.** Done on the laptop 2026-10-15. Not booted.
+  `tools/dodge-try pack` built Image `6.16.0-g16cf517b2781`, the dodge
+  DTB from 0c (87477 bytes, still no msm-id or board-id), and
+  [`initramfs/init`](initramfs/init). The header v2 image is
+  `~/android/mainline/out-dodge/images/boot.img`. The init is cheetah's
+  first-light init with the `devmem` and DECON lines removed. Every disk
+  is read-only, there is no allowlist, and it does not mount UFS. The
+  gadget still panics if the host never configures it. The watchdog
+  feeder logs and continues when `/dev/watchdog` is absent, which it is
+  on this DTB (§5.1). Write-up:
+  [dev-docs/2026-10-15-dodge-try.md](dev-docs/2026-10-15-dodge-try.md).
 - **0e. The rooted capture.** `bin/omamobile capture` takes its root
   path only when `adb shell id -u` is 0, which Magisk's root never is: it
   needs a `su -c` path, and the dodge additions in §6 phase 1. A small
@@ -632,9 +651,10 @@ Pass: `ssh root@172.16.42.1` from a kernel we built, booted with
 `fastboot boot`, storage still read-only. Console on the framebuffer.
 `panic=10`.
 
-The storage guard from cheetah's initramfs is copied only with the
-cheetah `devmem` and DECON writes removed, and only once we are about to
-mount UFS. The ramdisk root used for `fastboot boot` does not need it.
+The first initramfs already marks every disk read-only, with an empty
+allowlist. Cheetah's allowlist (the slot images and `userdata`) is copied
+across, still without the `devmem` and DECON writes, only once we are
+about to mount UFS.
 
 ### Phase 4 — Persistent Arch
 
@@ -667,7 +687,7 @@ one shortens the next debug:
 
 | After | Continue | Stop |
 | --- | --- | --- |
-| Phase 0 | The OTA matches the build id, and the dodge DTB builds. Both met 2026-10-15; 0d and 0e remain | No OTA for this build can be found |
+| Phase 0 | The OTA matches the build id, and the dodge DTB builds. Both met 2026-10-15. 0d packed a header v2 image on the laptop the same day and did not boot it. 0e remains | No OTA for this build can be found |
 | Phase 1 | Fastboot answers before and after unlock; `adb reboot bootloader` works from OxygenOS; the rooted capture exists | Product id is unexpected, the bootloader does not match the OTA, or patched `init_boot` loops and the stock one does not restore it |
 | Phase 2 | `fastboot boot` over the cable was temporary, and the kernel printed a banner | The next step wants an XBL or ABL write |
 | Phase 3 | SSH from `fastboot boot`, and a reboot returns to fastboot | The boot image has to be flashed to learn anything |
