@@ -711,7 +711,9 @@ board-id. The screen was the OnePlus logo and the words "fastboot
 mode". The next image is packed with the live FDT's eight pairs and
 `qcom,board-id` `<0x40008 0x00>`
 ([dev-docs/2026-10-15-fastboot-boot-ids.md](dev-docs/2026-10-15-fastboot-boot-ids.md),
-kernel `f71c365a8`). It has not been booted: the phone was not on USB.
+kernel `f71c365a8`). Booted after the cable was reseated: ABL again
+returned `Booting OKAY` and stayed in fastboot for 60 s. The ids did
+not change the result. `fastboot reboot` restored OxygenOS.
 
 Then: an image we packed (the unchanged `sm8750-mainline` dodge build is
 enough) comes up on the panel or on the USB serial gadget, and §5.2's way

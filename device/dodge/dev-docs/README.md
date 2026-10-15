@@ -50,7 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
-| 2026-10-15 | [fastboot-boot-ids](2026-10-15-fastboot-boot-ids.md) | DTB now has the eight msm-id pairs and board-id `0x40008`. Image packed. Not booted: phone was not on USB. |
+| 2026-10-15 | [fastboot-boot-ids](2026-10-15-fastboot-boot-ids.md) | Ids added. ABL still stayed in fastboot for 60 s. OxygenOS restored. |
 | 2026-10-15 | [fastboot-boot-mainline](2026-10-15-fastboot-boot-mainline.md) | Packed v2 image: ABL said Booting OKAY and stayed in fastboot. Screen showed the OnePlus logo and "fastboot mode". Returned to OxygenOS. |
 | 2026-10-15 | [fastboot-boot-stock](2026-10-15-fastboot-boot-stock.md) | `fastboot boot` of stock `boot.img` was temporary. `boot_a` unchanged. Next cold boot normal. |
 | 2026-10-15 | [boot-timing](2026-10-15-boot-timing.md) | OxygenOS reboot reached boot_completed in 26 s. Fastboot enumerated in 13 s without reseating. |
