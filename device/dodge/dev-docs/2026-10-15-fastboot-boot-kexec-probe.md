@@ -42,5 +42,9 @@ Power, did not change the frame. The three-key combo had not been tried.
 `reboot=warm` is not the next try: the file OxygenOS does keep is not
 readable. The probe should have reset by 438 s even for v = 7. It did
 not return, so either `sysrq b` did not run or the phone came back
-without enumerating. The screen is what decides that. No further boot
-until it is back on the cable.
+without enumerating. Power for about 30 s, and Volume Down plus Power, left the frame
+unchanged. Volume Up plus Volume Down plus Power, held together,
+powered the phone off. Plugging the cable in then booted OxygenOS.
+The panel had been holding the fastboot frame on its own. After that
+boot: slot `_a`, `CPH2653_16.0.10.501(EX01)`, `ro.boot.flash.locked=0`,
+`magiskd`. No further boot until that recovery was confirmed.

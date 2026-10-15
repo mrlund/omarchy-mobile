@@ -634,7 +634,10 @@ After setup, `ro.boot.flash.locked=0`, verified boot is `orange`, and
 the slot is still `_a`. The build id is unchanged. Do not substitute
 `fastboot oem unlock`.
 Fastboot must still answer, and Volume Up + Volume Down + Power must still
-reach it.
+reach it. On 2026-10-15 that three-key hold powered the phone off when
+Power alone and Volume Down plus Power did not, and the panel was still
+showing the fastboot frame. Plugging the cable in then booted OxygenOS
+([dev-docs/2026-10-15-fastboot-boot-kexec-probe.md](dev-docs/2026-10-15-fastboot-boot-kexec-probe.md)).
 
 After unlock, set OxygenOS up once. The welcome flow requires a Wi-Fi
 connection and does not offer a skip (2026-10-15). Join a network, then
