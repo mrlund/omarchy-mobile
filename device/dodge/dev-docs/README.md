@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-15 | [fastboot-boot-kexec-fb](2026-10-15-fastboot-boot-kexec-fb.md) | simple-framebuffer on ABL's splash buffer. Command-mode panel did not change; 136 s, no USB. |
 | 2026-10-15 | [fastboot-boot-kexec-ramoops](2026-10-15-fastboot-boot-kexec-ramoops.md) | Stage 2 ramoops at OxygenOS's 0x880000000. Same no-USB boot (136 s); OxygenOS pstore empty. |
 | 2026-10-15 | [fastboot-boot-kexec-ssh](2026-10-15-fastboot-boot-kexec-ssh.md) | kexec into the dodge-try initramfs. No USB; back at 137 s, the no-UDC panic path. |
 | 2026-10-15 | [fastboot-boot-kexec](2026-10-15-fastboot-boot-kexec.md) | Built-in init kexecs our kernel with our DTB. Stage 2 held 60 s; OxygenOS back at 82 s. Self-contained boot, no flash. |

@@ -434,6 +434,12 @@ Two fallbacks, still over the same cable, still with no extra hardware:
    A stage 2 `ramoops` node at OxygenOS's ramoops address (0x880000000)
    left nothing in OxygenOS's pstore
    ([dev-docs/2026-10-15-fastboot-boot-kexec-ramoops.md](dev-docs/2026-10-15-fastboot-boot-kexec-ramoops.md)).
+   A `simple-framebuffer` on ABL's splash buffer did not change the
+   command-mode panel
+   ([dev-docs/2026-10-15-fastboot-boot-kexec-fb.md](dev-docs/2026-10-15-fastboot-boot-kexec-fb.md)).
+   The chain-loader is `tools/dodge-chain` and
+   [chainload/](chainload/README.md), which also holds the timing bands
+   and the next steps.
 
    If ABL refuses a v2 image under `fastboot boot`, the next step is
    flashing `vendor_boot` with our DTB (on the active slot, with the
