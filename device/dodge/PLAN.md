@@ -577,11 +577,14 @@ was not read. The live FDT needs root, which stock does not have until
 the rooted capture below.
 
 Then, on a go-ahead: `fastboot flashing unlock`. Data is gone after that.
-Tried once on 2026-10-15. ABL answered `Flashing Unlock is not allowed`
-and `unlocked` stayed `no`
+Tried twice on 2026-10-15. The first answer was `Flashing Unlock is not
+allowed` and `unlocked` stayed `no`
 ([dev-docs/2026-10-15-unlock-refused.md](dev-docs/2026-10-15-unlock-refused.md)).
-The OEM unlocking switch in Developer options has to be on before that
-command is sent again. Do not substitute `fastboot oem unlock`.
+After the OEM unlocking switch was turned on, the same command returned
+`OKAY` and the phone rebooted to the OxygenOS welcome slide
+([dev-docs/2026-10-15-unlock.md](dev-docs/2026-10-15-unlock.md)).
+`getvar unlocked` has not been read again yet. Do not substitute
+`fastboot oem unlock`.
 Fastboot must still answer, and Volume Up + Volume Down + Power must still
 reach it.
 
@@ -728,6 +731,15 @@ GPU, Wi-Fi and the modem failing leave those rows open. They do not end
 the port. Losing fastboot does.
 
 ## 8. Notes
+
+Keep a log. Every step on the phone, and every laptop step that changes
+what the next boot will do, is written up before the session moves on.
+That includes refusals, surprises and dead ends, not only the steps that
+worked. The entry says what we did, what the phone did, and what the
+next attempt will do differently. It lands in the same change as the
+plan update it causes. Captures and identifiers stay in
+`~/android/reference/dodge-cph2653/` and out of git. The format is
+[dev-docs/README.md](dev-docs/README.md).
 
 | Kind | Where |
 | --- | --- |

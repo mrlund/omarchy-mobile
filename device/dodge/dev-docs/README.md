@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-15 | [unlock](2026-10-15-unlock.md) | Second `fastboot flashing unlock` returned OKAY. Phone rebooted to the OxygenOS welcome slide. |
 | 2026-10-15 | [unlock-refused](2026-10-15-unlock-refused.md) | `fastboot flashing unlock` refused. Still locked. Rebooted to OxygenOS. |
 | 2026-10-15 | [getvar](2026-10-15-getvar.md) | Fastboot read. Locked, slot A, slot B unbootable. `recovery` is a real partition. Unlock not sent. |
 | 2026-10-15 | [magisk-capture](2026-10-15-magisk-capture.md) | Magisk 30.7 downloaded. `capture` can use `su -c`. APK not installed. Phone untouched. |
