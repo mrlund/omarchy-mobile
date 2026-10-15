@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-15 | [magisk-capture](2026-10-15-magisk-capture.md) | Magisk 30.7 downloaded. `capture` can use `su -c`. APK not installed. Phone untouched. |
 | 2026-10-15 | [dodge-try](2026-10-15-dodge-try.md) | Header v2 image packed on the laptop. Watchdog feeder cannot reset this DTB. Phone not booted. |
 | 2026-10-15 | [mainline-dtb](2026-10-15-mainline-dtb.md) | `sm8750-oneplus-dodge.dtb` builds. No msm-id, board-id or watchdog. USB at `0xa600000` is enabled. Phone untouched. |
 | 2026-10-15 | [ota-boot-images](2026-10-15-ota-boot-images.md) | EU full OTA for `CPH2653_16.0.10.501(EX01)` unpacked. Geometry, ids, panel list, Wi-Fi node, splash and ramoops recorded. Phone untouched. |

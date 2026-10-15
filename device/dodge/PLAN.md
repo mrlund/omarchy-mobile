@@ -28,6 +28,9 @@ The DTB comparison is in
 Phase 0d (the loop script, the initramfs and a packed header v2 image)
 is done on the laptop. The image has not been handed to fastboot:
 [dev-docs/2026-10-15-dodge-try.md](dev-docs/2026-10-15-dodge-try.md).
+Phase 0e downloaded Magisk 30.7 and taught `bin/omamobile capture` the
+`su -c` path. The APK is not installed:
+[dev-docs/2026-10-15-magisk-capture.md](dev-docs/2026-10-15-magisk-capture.md).
 
 Labels: **[V]** checked in a source we can cite. **[I]** an inference, to
 be checked on this phone before anyone relies on it. A community report is
@@ -470,11 +473,17 @@ phone:
   feeder logs and continues when `/dev/watchdog` is absent, which it is
   on this DTB (§5.1). Write-up:
   [dev-docs/2026-10-15-dodge-try.md](dev-docs/2026-10-15-dodge-try.md).
-- **0e. The rooted capture.** `bin/omamobile capture` takes its root
-  path only when `adb shell id -u` is 0, which Magisk's root never is: it
-  needs a `su -c` path, and the dodge additions in §6 phase 1. A small
-  tool change; cheetah's capture stays the same. Download the Magisk APK
-  from `topjohnwu/Magisk` GitHub releases only, and record the version.
+- **0e. The rooted capture.** Done on the laptop 2026-10-15. Not
+  installed. Magisk 30.7 (`Magisk-v30.7.apk`, from the `topjohnwu/Magisk`
+  GitHub release, not the `app-debug.apk` asset) is at
+  `~/android/reference/dodge-cph2653/root/`. `bin/omamobile capture`
+  still uses `adb shell` when the adb uid is 0, so a cheetah capture's
+  root commands are unchanged. When that uid is not 0 it tries Magisk
+  `su -c`, with a 10 s bound so an ungranted prompt cannot hang it.
+  `DEVICE=dodge` also saves the phase 1 regulator, clock, pin, bus,
+  firmware and partition-size listings. The tool does not change the
+  panel and does not install the APK. Write-up:
+  [dev-docs/2026-10-15-magisk-capture.md](dev-docs/2026-10-15-magisk-capture.md).
 
 #### Stock boot images
 
@@ -582,7 +591,8 @@ Risk: low. One flash of `init_boot` on the active slot, the partition the
 OTA gives us a stock copy of (§3.2). Nothing below `boot` is touched, and
 `vbmeta` is not flashed. Each step on a go-ahead.
 
-1. Install the Magisk APK (0e) with `adb install`. Push the OTA's stock
+1. Install `~/android/reference/dodge-cph2653/root/Magisk-v30.7.apk`
+   (Magisk 30.7, from 0e) with `adb install`. Push the OTA's stock
    `init_boot.img` for *this* build to the phone and patch it in the
    Magisk app. Pull `magisk_patched-*.img` back into
    `~/android/reference/dodge-cph2653/root/`.
@@ -603,8 +613,11 @@ OTA gives us a stock copy of (§3.2). Nothing below `boot` is touched, and
    verification in `vbmeta` is not the recovery step and not a second
    attempt: that is a separate decision with its own entry.
 3. Grant `su` to the shell once on the phone's screen (the human taps
-   it). Then the capture, read-only, into
-   `~/android/reference/dodge-cph2653/rooted-<date>/`:
+   it). Then the capture, read-only, twice. The tool does not change
+   the panel. With the screen on:
+   `DEVICE=dodge bin/omamobile capture dodge-cph2653/rooted-<date>-on`
+   and with the screen off, the same command with `-off`. Root commands
+   go through `su -c` (0e). Each directory gets:
    - `/sys/firmware/fdt`, `dmesg`, `/proc/iomem`, `/proc/interrupts`,
      `/proc/modules`, `/proc/cmdline`;
    - the kernel's own views: `regulator/regulator_summary`,
@@ -687,7 +700,7 @@ one shortens the next debug:
 
 | After | Continue | Stop |
 | --- | --- | --- |
-| Phase 0 | The OTA matches the build id, and the dodge DTB builds. Both met 2026-10-15. 0d packed a header v2 image on the laptop the same day and did not boot it. 0e remains | No OTA for this build can be found |
+| Phase 0 | The OTA matches the build id, and the dodge DTB builds. Both met 2026-10-15. 0d packed a header v2 image and 0e downloaded Magisk 30.7 and taught capture `su -c`, both on the laptop, neither run on the phone. Phase 1 still waits for a go | No OTA for this build can be found |
 | Phase 1 | Fastboot answers before and after unlock; `adb reboot bootloader` works from OxygenOS; the rooted capture exists | Product id is unexpected, the bootloader does not match the OTA, or patched `init_boot` loops and the stock one does not restore it |
 | Phase 2 | `fastboot boot` over the cable was temporary, and the kernel printed a banner | The next step wants an XBL or ABL write |
 | Phase 3 | SSH from `fastboot boot`, and a reboot returns to fastboot | The boot image has to be flashed to learn anything |
