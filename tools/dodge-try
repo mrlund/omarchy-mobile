@@ -33,9 +33,10 @@ CMDLINE="clk_ignore_unused pd_ignore_unused panic=10 console=tty0"
 # SSH from our kernel. Past the init's worst case: 30 s for a UDC, then
 # 45 s waiting to be configured, then 20 s before it panics.
 SSH_DEADLINE="${SSH_DEADLINE:-120}"
-# OxygenOS cold boot, cable in, after our kernel did not answer.
-# Not measured. Phase 1 times one boot to the home screen and replaces this.
-OXYGEN_DEADLINE="${OXYGEN_DEADLINE:-600}"
+# OxygenOS reboot, cable in, after our kernel did not answer.
+# One adb reboot on 2026-10-15 reached sys.boot_completed in 26 s,
+# launcher already resumed. 120 s is that boot with margin.
+OXYGEN_DEADLINE="${OXYGEN_DEADLINE:-120}"
 ALPINE_VER=3.24.2
 ALPINE_SUM=9bf70a7f18ea44094cbb5f70c58f9af129c8214745743db0e68e5502cc2ce773
 # Symbols the ramdisk needs built in. tools/dodge-try config fails if any
@@ -67,7 +68,7 @@ Usage: tools/dodge-try <config|pack|boot>
 
 KERNEL_DIR=$KERNEL_DIR
 KERNEL_OUT=$KERNEL_OUT
-SSH_DEADLINE=${SSH_DEADLINE}s   OXYGEN_DEADLINE=${OXYGEN_DEADLINE}s (not measured; phase 1)
+SSH_DEADLINE=${SSH_DEADLINE}s   OXYGEN_DEADLINE=${OXYGEN_DEADLINE}s (26 s measured 2026-10-15, plus margin)
 USAGE
 }
 
@@ -242,7 +243,7 @@ append_try() {
 
 cmd_boot() {
   say "boot talks to the phone: fastboot boot, then wait ${SSH_DEADLINE}s for SSH."
-  say "If SSH misses, wait ${OXYGEN_DEADLINE}s for OxygenOS (not measured yet) before adb reboot bootloader."
+  say "If SSH misses, wait ${OXYGEN_DEADLINE}s for OxygenOS before adb reboot bootloader."
   local n
   n=$(fastboot_count)
   if ((n > 1)); then
@@ -281,7 +282,7 @@ cmd_boot() {
   else
     append_try "fastboot-boot" "no-ssh" "pending-oxygen"
   fi
-  say "waiting ${OXYGEN_DEADLINE}s for the cable to come back. This number is not a measured boot time."
+  say "waiting ${OXYGEN_DEADLINE}s for the cable to come back."
   local end=$((SECONDS + OXYGEN_DEADLINE))
   while ((SECONDS < end)); do
     n=$(adb_count)
