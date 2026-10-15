@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-15 | [fastboot-boot-v4](2026-10-15-fastboot-boot-v4.md) | Header v4, our kernel only. ABL left fastboot. OxygenOS back, empty pstore, no SSH. |
 | 2026-10-15 | [fastboot-boot-ids](2026-10-15-fastboot-boot-ids.md) | Ids added. ABL still stayed in fastboot for 60 s. OxygenOS restored. |
 | 2026-10-15 | [fastboot-boot-mainline](2026-10-15-fastboot-boot-mainline.md) | Packed v2 image: ABL said Booting OKAY and stayed in fastboot. Screen showed the OnePlus logo and "fastboot mode". Returned to OxygenOS. |
 | 2026-10-15 | [fastboot-boot-stock](2026-10-15-fastboot-boot-stock.md) | `fastboot boot` of stock `boot.img` was temporary. `boot_a` unchanged. Next cold boot normal. |
