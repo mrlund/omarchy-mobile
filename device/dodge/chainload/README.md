@@ -22,7 +22,8 @@ one `fastboot boot` and no flash. The why is in
 
 [stage2-dtb.py](stage2-dtb.py) makes stage 2's DTB: the dodge DTB with
 the phone's own memory map in `memory` (ABL fills that node, kexec does
-not), plus `ramoops` or `fb` if asked.
+not), plus `ramoops`, `fb`, or `peripheral` if asked. `peripheral` sets
+the dwc3 node to `dr_mode = "peripheral"` and drops `usb-role-switch`.
 
 ```sh
 tools/dodge-try pack                    # stage 2: Image, DTB, initramfs in out-dodge
@@ -64,6 +65,11 @@ ramoops at OxygenOS's address, and a simple-framebuffer on the
 command-mode panel. One change per boot, the human's go before each
 `fastboot boot`, a dev-docs entry and a `logs/dodge-tries.tsv` row
 after each. Nothing is flashed; stage 1 stays as it is.
+
+`peripheral` was tried on 2026-10-15 and OxygenOS was back at 125 s,
+the no-UDC band
+([../dev-docs/2026-10-15-fastboot-boot-kexec-peripheral.md](../dev-docs/2026-10-15-fastboot-boot-kexec-peripheral.md)).
+The role switch was not the whole holdup.
 
 1. **Does OxygenOS keep its own pstore across a plain reboot?** As
    root, `ls /sys/fs/pstore` after a plain `adb reboot` (a reboot: ask

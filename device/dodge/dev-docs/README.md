@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-15 | [fastboot-boot-kexec-peripheral](2026-10-15-fastboot-boot-kexec-peripheral.md) | Stage 2 dwc3 forced to peripheral, role switch removed. Still no UDC; OxygenOS at 125 s. |
 | 2026-10-15 | [fastboot-boot-kexec-fb](2026-10-15-fastboot-boot-kexec-fb.md) | simple-framebuffer on ABL's splash buffer. Command-mode panel did not change; 136 s, no USB. |
 | 2026-10-15 | [fastboot-boot-kexec-ramoops](2026-10-15-fastboot-boot-kexec-ramoops.md) | Stage 2 ramoops at OxygenOS's 0x880000000. Same no-USB boot (136 s); OxygenOS pstore empty. |
 | 2026-10-15 | [fastboot-boot-kexec-ssh](2026-10-15-fastboot-boot-kexec-ssh.md) | kexec into the dodge-try initramfs. No USB; back at 137 s, the no-UDC panic path. |

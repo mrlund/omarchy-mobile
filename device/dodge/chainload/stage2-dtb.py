@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Make the stage 2 DTB for the dodge kexec chain-loader.
 
-Usage: stage2-dtb.py <built dodge.dtb> <live.dtb> <out.dtb> [ramoops] [fb]
+Usage: stage2-dtb.py <built dodge.dtb> <live.dtb> <out.dtb> [ramoops] [fb] [peripheral]
 
 ABL fills the `memory` node at boot and kexec does not, so its reg is
 taken from the phone's live FDT (/sys/firmware/fdt from a rooted
@@ -14,6 +14,9 @@ ramoops  add a ramoops node at OxygenOS's ramoops address and layout
 fb       reserve ABL's splash region and add a simple-framebuffer there
          (dev-docs/2026-10-15-fastboot-boot-kexec-fb.md)
 Both were tried once and showed nothing; they are kept for retries.
+peripheral  dr_mode = "peripheral" and no usb-role-switch on the dwc3
+            node. The role otherwise comes from pmic_glink, which this
+            initramfs does not load.
 """
 import re
 import subprocess
@@ -66,6 +69,12 @@ if "ramoops" in opts:
 			no-map;
 		};
 """)
+
+if "peripheral" in opts:
+    if ours.count('dr_mode = "otg";') != 1 or ours.count("usb-role-switch;") != 1:
+        raise SystemExit("expected exactly one otg dr_mode and one usb-role-switch")
+    ours = ours.replace('dr_mode = "otg";', 'dr_mode = "peripheral";', 1)
+    ours = re.sub(r"\n[ \t]*usb-role-switch;\n", "\n", ours, count=1)
 
 if "fb" in opts:
     ours = insert_in(ours, "reserved-memory {", """
