@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-15 | [debugfs-off](2026-10-15-debugfs-off.md) | Same four files with the screen off. Regulator summary identical to the awake copy. |
 | 2026-10-15 | [debugfs](2026-10-15-debugfs.md) | debugfs mounted, four summaries saved with the screen awake, then unmounted. |
 | 2026-10-15 | [rooted-off](2026-10-15-rooted-off.md) | Screen-off capture saved. Debugfs still not mounted. |
 | 2026-10-15 | [rooted-on](2026-10-15-rooted-on.md) | Screen-on capture. Live DTB model is Sun MTP,dodge. Board-id `0x40008`. All eight msm-id pairs. Debugfs not mounted. |

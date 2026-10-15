@@ -677,7 +677,10 @@ OTA gives us a stock copy of (§3.2). Nothing below `boot` is touched, and
    afterwards with the screen awake, the four files were saved, and it
    was unmounted
    ([dev-docs/2026-10-15-debugfs.md](dev-docs/2026-10-15-debugfs.md)).
-   A screen-off copy of the regulator summary is still open.
+   The screen-off copy is
+   [dev-docs/2026-10-15-debugfs-off.md](dev-docs/2026-10-15-debugfs-off.md).
+   The regulator summary, including the DSI rails, is identical to the
+   awake copy.
 
 Also time one cold boot to the OxygenOS home screen, cable plugged in:
 that is `tools/dodge-try`'s long deadline (§5.1).
