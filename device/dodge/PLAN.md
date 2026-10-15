@@ -636,6 +636,11 @@ OTA gives us a stock copy of (§3.2). Nothing below `boot` is touched, and
    Volume Down + Power to fastboot, `fastboot flash init_boot_<slot>` with
    the OTA's stock `init_boot.img`. Never `--slot=all`, never the other
    slot (§3.3).
+   Done 2026-10-15: `init_boot_a` only, then OxygenOS on slot A with
+   `magiskd` running
+   ([dev-docs/2026-10-15-magisk-install.md](dev-docs/2026-10-15-magisk-install.md)).
+   The boot menu did not enumerate until the cable was reseated. `su` is
+   not granted yet.
 
    If the patched image loops and stock boots again, phase 2 starts
    without the live capture; the OTA's DTBs stand in. Disabling
