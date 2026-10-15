@@ -405,9 +405,12 @@ Two fallbacks, still over the same cable, still with no extra hardware:
    DTB on the laptop (no `/__symbols__`), so a sink of stub labels with
    phandles was added and all six entries then applied. That v2 image
    also stayed in fastboot
-   ([dev-docs/2026-10-15-fastboot-boot-sink.md](dev-docs/2026-10-15-fastboot-boot-sink.md),
-   which has the comparison table). Step 4 has not been tried. Whether
-   this ABL starts any header v2 image is now the open question.
+   ([dev-docs/2026-10-15-fastboot-boot-sink.md](dev-docs/2026-10-15-fastboot-boot-sink.md)).
+   A header v2 image of the stock kernel, the OTA `init_boot` ramdisk,
+   and the live FDT stayed in fastboot too
+   ([dev-docs/2026-10-15-fastboot-boot-v2-stock.md](dev-docs/2026-10-15-fastboot-boot-v2-stock.md)).
+   This ABL does not start header v2 under `fastboot boot`. Step 4, the
+   command line, is not worth a try until a kernel is actually running.
 
    If ABL refuses a v2 image under `fastboot boot`, the next step is
    flashing `vendor_boot` with our DTB (on the active slot, with the
@@ -730,9 +733,13 @@ v4 image with only our kernel was then tried
 ([dev-docs/2026-10-15-fastboot-boot-v4.md](dev-docs/2026-10-15-fastboot-boot-v4.md)):
 ABL left fastboot immediately and OxygenOS was back in about 23 s,
 pstore empty, no SSH. That boot is not a test of our DTB or initramfs.
-A v2 image whose DTB takes every stock `dtbo` entry (checked with
-`fdtoverlay`) also stayed in fastboot, 63 s
+A v2 image whose DTB takes every stock `dtbo` entry also stayed in
+fastboot, 63 s
 ([dev-docs/2026-10-15-fastboot-boot-sink.md](dev-docs/2026-10-15-fastboot-boot-sink.md)).
+A v2 image of the stock kernel, the OTA init ramdisk, and the live FDT
+stayed in fastboot for 60 s
+([dev-docs/2026-10-15-fastboot-boot-v2-stock.md](dev-docs/2026-10-15-fastboot-boot-v2-stock.md)).
+Header v2 does not start on this ABL.
 
 Then: an image we packed (the unchanged `sm8750-mainline` dodge build is
 enough) comes up on the panel or on the USB serial gadget, and §5.2's way
