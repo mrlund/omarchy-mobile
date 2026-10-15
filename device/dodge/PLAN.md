@@ -713,7 +713,11 @@ mode". The next image is packed with the live FDT's eight pairs and
 ([dev-docs/2026-10-15-fastboot-boot-ids.md](dev-docs/2026-10-15-fastboot-boot-ids.md),
 kernel `f71c365a8`). Booted after the cable was reseated: ABL again
 returned `Booting OKAY` and stayed in fastboot for 60 s. The ids did
-not change the result. `fastboot reboot` restored OxygenOS.
+not change the result. `fastboot reboot` restored OxygenOS. A header
+v4 image with only our kernel was then tried
+([dev-docs/2026-10-15-fastboot-boot-v4.md](dev-docs/2026-10-15-fastboot-boot-v4.md)):
+ABL left fastboot immediately and OxygenOS was back in about 23 s,
+pstore empty, no SSH. That boot is not a test of our DTB or initramfs.
 
 Then: an image we packed (the unchanged `sm8750-mainline` dodge build is
 enough) comes up on the panel or on the USB serial gadget, and §5.2's way
