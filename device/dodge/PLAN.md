@@ -401,8 +401,13 @@ Two fallbacks, still over the same cable, still with no extra hardware:
    in fastboot. A header v4 image with only our kernel left fastboot and
    returned to OxygenOS with an empty pstore
    ([dev-docs/2026-10-15-fastboot-boot-v4.md](dev-docs/2026-10-15-fastboot-boot-v4.md)).
-   Steps 3 and 4 have not been tried. The comparison table is in that
-   dev-doc.
+   Step 3 was tried the same day: stock's `dtbo` did not apply to our
+   DTB on the laptop (no `/__symbols__`), so a sink of stub labels with
+   phandles was added and all six entries then applied. That v2 image
+   also stayed in fastboot
+   ([dev-docs/2026-10-15-fastboot-boot-sink.md](dev-docs/2026-10-15-fastboot-boot-sink.md),
+   which has the comparison table). Step 4 has not been tried. Whether
+   this ABL starts any header v2 image is now the open question.
 
    If ABL refuses a v2 image under `fastboot boot`, the next step is
    flashing `vendor_boot` with our DTB (on the active slot, with the
@@ -725,6 +730,9 @@ v4 image with only our kernel was then tried
 ([dev-docs/2026-10-15-fastboot-boot-v4.md](dev-docs/2026-10-15-fastboot-boot-v4.md)):
 ABL left fastboot immediately and OxygenOS was back in about 23 s,
 pstore empty, no SSH. That boot is not a test of our DTB or initramfs.
+A v2 image whose DTB takes every stock `dtbo` entry (checked with
+`fdtoverlay`) also stayed in fastboot, 63 s
+([dev-docs/2026-10-15-fastboot-boot-sink.md](dev-docs/2026-10-15-fastboot-boot-sink.md)).
 
 Then: an image we packed (the unchanged `sm8750-mainline` dodge build is
 enough) comes up on the panel or on the USB serial gadget, and §5.2's way
