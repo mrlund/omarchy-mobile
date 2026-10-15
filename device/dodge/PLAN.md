@@ -703,7 +703,12 @@ temporary on this firmware, at no risk. Met 2026-10-15
 ([dev-docs/2026-10-15-fastboot-boot-stock.md](dev-docs/2026-10-15-fastboot-boot-stock.md)):
 `fastboot boot` returned `Booting OKAY`, OxygenOS came back, `boot_a`
 sha256 was unchanged, and the next `adb reboot` was a normal OxygenOS
-boot in 28 s. The packed mainline image has not been tried.
+boot in 28 s. The packed mainline image was then tried
+([dev-docs/2026-10-15-fastboot-boot-mainline.md](dev-docs/2026-10-15-fastboot-boot-mainline.md)):
+ABL returned `Booting OKAY` and stayed in fastboot for 38 s. No SSH.
+`fastboot reboot` restored OxygenOS. The DTB still has no msm-id or
+board-id. The next image adds the live FDT's eight pairs and
+`qcom,board-id` `<0x40008 0x00>`.
 
 Then: an image we packed (the unchanged `sm8750-mainline` dodge build is
 enough) comes up on the panel or on the USB serial gadget, and §5.2's way
@@ -792,9 +797,9 @@ belong in the plan.
 
 - The bootloader version of each slot (§3.3). `getvar version-bootloader`
   was empty on 2026-10-15, on slot A. The OxygenOS build id is §2.
-- Whether `fastboot boot` of a packed mainline image is temporary. The
-  stock `boot.img` try on 2026-10-15 was temporary: `boot_a` was not
-  written, and the next cold boot was normal OxygenOS.
+- Whether a header v2 image ABL actually starts is temporary once it
+  boots. The stock image was temporary. The first packed image never
+  left fastboot (2026-10-15).
 - Whether the two slots' boot images are the same build. The names are
   known (2026-10-15): `recovery_a` and `recovery_b` are real, 100 MiB,
   and there is no `vendor_kernel_boot`. Slot B is unbootable.
