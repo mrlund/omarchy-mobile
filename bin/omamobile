@@ -21,7 +21,9 @@ Usage: [DEVICE=<codename>] omamobile <command>
   from device/<codename>/device.conf (docs/RELEASES.md).
 
   capture [name]   Save what the connected phone exposes (Android over adb, or fastboot)
-                   into $REFERENCE_DIR/<name>
+                   into $REFERENCE_DIR/<name>. Root is adb's own uid 0, or
+                   Magisk "su -c" when that uid is not 0. DEVICE=dodge also
+                   saves the regulator, clock, pin and firmware listings.
   initramfs        Build the M1 initramfs (Alpine + dropbear + our init) into $KERNEL_OUT
   initramfs-config <dir>
                    Write only the device's files for the shared init (storage-guard
@@ -137,6 +139,41 @@ in_container() {
     "$IMAGE" bash -c "$1"
 }
 
+# Run one remote command as root. $1 has no single quotes.
+# adb's own uid 0 uses "adb shell", the cheetah path. Magisk never makes
+# that uid 0, so the shell stays "shell" and root is "su -c". exec-out
+# keeps a binary such as the FDT from being CRLF-mangled.
+capture_as_root() {
+  if [[ $root_mode == adb ]]; then
+    adb shell "$1"
+  else
+    adb exec-out "su -c '$1'"
+  fi
+}
+
+# Dodge phase 1 views. Read-only. No regmap registers, no devmem, no
+# partition contents. One missing debugfs file does not stop the rest.
+# The caller runs this twice, screen on and screen off; this does not
+# change the panel.
+capture_dodge_views() {
+  local dir=$1
+  say "Dodge views: regulators, clocks, pins, buses, firmware, partition sizes"
+  capture_as_root "cat /sys/kernel/debug/regulator/regulator_summary" \
+    > "$dir/regulator_summary.txt" 2>&1 || true
+  capture_as_root "cat /sys/kernel/debug/clk/clk_summary" \
+    > "$dir/clk_summary.txt" 2>&1 || true
+  capture_as_root "for f in /sys/kernel/debug/pinctrl/*/pinmux-pins; do echo === \$f ===; cat \$f; done" \
+    > "$dir/pinmux-pins.txt" 2>&1 || true
+  capture_as_root "cat /sys/kernel/debug/gpio" > "$dir/gpio.txt" 2>&1 || true
+  capture_as_root "ls -l /sys/bus/i2c/devices /sys/bus/platform/devices" \
+    > "$dir/buses.txt" 2>&1 || true
+  capture_as_root "ls -l /vendor/firmware_mnt /vendor/lib/modules" \
+    > "$dir/vendor-firmware-extra.txt" 2>&1 || true
+  # Size is the sysfs sector count. The block device itself is not read.
+  capture_as_root "for u in /sys/class/block/*/uevent; do d=\${u%/uevent}; n=\$(sed -n s/^PARTNAME=//p \$u); s=\$(cat \$d/size); echo \${d##*/} \$n \$s; done" \
+    > "$dir/partition-sizes.txt" 2>&1 || true
+}
+
 cmd_capture() {
   local name="${1:-$DEVICE-$(date +%Y%m%d-%H%M)}" dir
   dir="$REFERENCE_DIR/$name"
@@ -146,20 +183,38 @@ cmd_capture() {
     fastboot -s "$(fastboot_serial)" getvar all > "$dir/fastboot-getvar-all.txt" 2>&1
   elif adb get-state >/dev/null 2>&1; then
     say "Capturing Android state into $dir"
-    local root=""
-    [[ "$(adb shell id -u)" == 0 ]] && root=1
+    local root_mode="" uid su_uid
+    # adb shell appends CR. Without stripping it, uid 0 never matches.
+    uid=$(adb shell id -u | tr -d '\r')
+    if [[ $uid == 0 ]]; then
+      root_mode=adb
+    else
+      # An ungranted Magisk prompt would wait. Bound it. Phase 1 grants
+      # su before the capture, so a granted shell returns at once.
+      su_uid=$(timeout 10 adb exec-out "su -c 'id -u'" 2>/dev/null | tr -d '\r\n ' || true)
+      [[ $su_uid == 0 ]] && root_mode=su
+    fi
     adb shell getprop > "$dir/getprop.txt"
     adb shell 'ls -l /dev/block/by-name/' > "$dir/partitions-by-name.txt"
     adb shell cat /proc/cpuinfo /proc/meminfo /proc/cmdline > "$dir/proc.txt" 2>&1
     adb shell 'ls -lR /vendor/lib/modules /vendor_dlkm/lib/modules' > "$dir/vendor-modules.txt" 2>&1
-    if [[ -n "$root" ]]; then
+    if [[ $root_mode == adb ]]; then
       say "Root available: device tree, kernel log, modules, interrupts, memory map"
       adb shell cat /sys/firmware/fdt > "$dir/live.dtb"
       adb shell dmesg > "$dir/dmesg.txt"
       adb shell cat /proc/modules /proc/interrupts /proc/iomem > "$dir/proc-root.txt" 2>&1
       adb shell 'ls /vendor/firmware' > "$dir/vendor-firmware.txt" 2>&1
+    elif [[ $root_mode == su ]]; then
+      say "Magisk su available: device tree, kernel log, modules, interrupts, memory map"
+      capture_as_root "cat /sys/firmware/fdt" > "$dir/live.dtb"
+      capture_as_root "dmesg" > "$dir/dmesg.txt"
+      capture_as_root "cat /proc/modules /proc/interrupts /proc/iomem" > "$dir/proc-root.txt" 2>&1
+      capture_as_root "ls /vendor/firmware" > "$dir/vendor-firmware.txt" 2>&1
     else
       echo "  (no root: skipping device tree, dmesg and memory map)"
+    fi
+    if [[ $DEVICE == dodge && -n $root_mode ]]; then
+      capture_dodge_views "$dir"
     fi
   else
     die "no phone found over adb or fastboot"
