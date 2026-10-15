@@ -427,6 +427,10 @@ Two fallbacks, still over the same cable, still with no extra hardware:
    held 60 s: OxygenOS was back at 82 s, the pass band
    ([dev-docs/2026-10-15-fastboot-boot-kexec.md](dev-docs/2026-10-15-fastboot-boot-kexec.md)).
    One `fastboot boot` now starts our kernel, DTB and initramfs.
+   With `tools/dodge-try`'s initramfs as stage 2, no USB device
+   appeared and its "USB never configured" panic reset the phone at the
+   time that fits no UDC registering
+   ([dev-docs/2026-10-15-fastboot-boot-kexec-ssh.md](dev-docs/2026-10-15-fastboot-boot-kexec-ssh.md)).
 
    If ABL refuses a v2 image under `fastboot boot`, the next step is
    flashing `vendor_boot` with our DTB (on the active slot, with the
@@ -766,6 +770,9 @@ after 63 s with a 45 s hold
 That init kexec'd our kernel with our DTB and a stage 2 init holding
 60 s; OxygenOS was back at 82 s, as expected for stage 2 running
 ([dev-docs/2026-10-15-fastboot-boot-kexec.md](dev-docs/2026-10-15-fastboot-boot-kexec.md)).
+With the dodge-try initramfs as stage 2, no USB came up; the timing
+fits no UDC registering
+([dev-docs/2026-10-15-fastboot-boot-kexec-ssh.md](dev-docs/2026-10-15-fastboot-boot-kexec-ssh.md)).
 
 Then: an image we packed (the unchanged `sm8750-mainline` dodge build is
 enough) comes up on the panel or on the USB serial gadget, and §5.2's way
