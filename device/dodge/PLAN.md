@@ -588,8 +588,15 @@ After the OEM unlocking switch was turned on, the same command returned
 Fastboot must still answer, and Volume Up + Volume Down + Power must still
 reach it.
 
-After unlock, set OxygenOS up once: skip accounts, switch off automatic
-system updates (§3.3), turn on USB debugging and authorize this laptop.
+After unlock, set OxygenOS up once. The welcome flow requires a Wi-Fi
+connection and does not offer a skip (2026-10-15). Join a network, then
+skip accounts and any copy-from-old-device step. If a system update is
+offered, do not install it: the phone stays on
+`CPH2653_16.0.10.501(EX01)`. If the wizard instead demands the Google
+account that was on the phone before the wipe, that is factory-reset
+protection: sign in with that account, then remove it from the phone
+once setup is done. Switch off automatic system updates (§3.3), turn on
+USB debugging and authorize this laptop.
 Pass: `adb reboot bootloader` reaches fastboot. That is the loop's way
 back (§5.2).
 
