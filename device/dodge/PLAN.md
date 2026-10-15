@@ -431,6 +431,9 @@ Two fallbacks, still over the same cable, still with no extra hardware:
    appeared and its "USB never configured" panic reset the phone at the
    time that fits no UDC registering
    ([dev-docs/2026-10-15-fastboot-boot-kexec-ssh.md](dev-docs/2026-10-15-fastboot-boot-kexec-ssh.md)).
+   A stage 2 `ramoops` node at OxygenOS's ramoops address (0x880000000)
+   left nothing in OxygenOS's pstore
+   ([dev-docs/2026-10-15-fastboot-boot-kexec-ramoops.md](dev-docs/2026-10-15-fastboot-boot-kexec-ramoops.md)).
 
    If ABL refuses a v2 image under `fastboot boot`, the next step is
    flashing `vendor_boot` with our DTB (on the active slot, with the
