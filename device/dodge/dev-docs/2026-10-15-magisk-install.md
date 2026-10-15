@@ -39,5 +39,13 @@ recompressed it. The cpio contains `.backup/.magisk` and
 `overlay.d/sbin/magisk.xz`. That is a Magisk init ramdisk, not a format
 change. The file stays out of git.
 
-The flash, when it happens, names `init_boot_a` and then reboots. Stock
-`init_boot.img` is the rollback.
+The flash names `init_boot_a` and then reboots. Stock `init_boot.img`
+is the rollback.
+
+The first `adb reboot bootloader` left the phone on the boot menu with
+no USB device. Reseating the cable made `18d1:d00d` appear. `getvar`
+was `product:sun`, `unlocked:yes`, `current-slot:a`, slot B still
+unbootable. `fastboot flash init_boot_a` of the patched image returned
+OKAY (8192 KB), then `fastboot reboot`. OxygenOS came back on slot A,
+build `CPH2653_16.0.10.501(EX01)`, verified boot `orange`, and `ps`
+shows `magiskd`. `su` has not been granted yet.
