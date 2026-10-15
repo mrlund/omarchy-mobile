@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-15 | [rooted-off](2026-10-15-rooted-off.md) | Screen-off capture saved. Debugfs still not mounted. |
 | 2026-10-15 | [rooted-on](2026-10-15-rooted-on.md) | Screen-on capture. Live DTB model is Sun MTP,dodge. Board-id `0x40008`. All eight msm-id pairs. Debugfs not mounted. |
 | 2026-10-15 | [magisk-install](2026-10-15-magisk-install.md) | Patched `init_boot` flashed to `init_boot_a`. OxygenOS booted. `magiskd` is running. |
 | 2026-10-15 | [unlock](2026-10-15-unlock.md) | Second `fastboot flashing unlock` returned OKAY. Phone rebooted to the OxygenOS welcome slide. |

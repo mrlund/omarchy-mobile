@@ -671,8 +671,10 @@ OTA gives us a stock copy of (§3.2). Nothing below `boot` is touched, and
    match the OTA's DTB that ABL picked. The screen-on half is in
    ([dev-docs/2026-10-15-rooted-on.md](dev-docs/2026-10-15-rooted-on.md)):
    model "Sun MTP,dodge", `qcom,board-id` `<0x40008 0x00>`, and all eight
-   sun/sunp msm-id pairs. Debugfs was not mounted, so the clock,
-   regulator and pin files are absent. The screen-off half is not done.
+   sun/sunp msm-id pairs. The screen-off half is
+   [dev-docs/2026-10-15-rooted-off.md](dev-docs/2026-10-15-rooted-off.md).
+   Debugfs was not mounted, so the clock, regulator and pin files are
+   absent in both.
 
 Also time one cold boot to the OxygenOS home screen, cable plugged in:
 that is `tools/dodge-try`'s long deadline (§5.1).
