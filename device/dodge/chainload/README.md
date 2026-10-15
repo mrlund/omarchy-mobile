@@ -69,7 +69,12 @@ after each. Nothing is flashed; stage 1 stays as it is.
 `peripheral` was tried on 2026-10-15 and OxygenOS was back at 125 s,
 the no-UDC band
 ([../dev-docs/2026-10-15-fastboot-boot-kexec-peripheral.md](../dev-docs/2026-10-15-fastboot-boot-kexec-peripheral.md)).
-The role switch was not the whole holdup.
+The role switch was not the whole holdup. Two later inits that stat
+the USB sysfs nodes did not return on USB at all and needed the
+three-key power-off
+([../dev-docs/2026-10-15-no-unattended-boot.md](../dev-docs/2026-10-15-no-unattended-boot.md)).
+Do not boot those again unless someone is there. The next attended
+boot uses the sleep-and-sysrq init, which does return.
 
 1. **Does OxygenOS keep its own pstore across a plain reboot?** As
    root, `ls /sys/fs/pstore` after a plain `adb reboot` (a reboot: ask

@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-15 | [no-unattended-boot](2026-10-15-no-unattended-boot.md) | Phone back after three-key power-off. No more boots that touch USB sysfs unless someone can reset. |
 | 2026-10-15 | [fastboot-boot-kexec-probe2](2026-10-15-fastboot-boot-kexec-probe2.md) | Shorter probe with a panic backup. Still no USB after 280 s. |
 | 2026-10-15 | [fastboot-boot-kexec-probe](2026-10-15-fastboot-boot-kexec-probe.md) | Ramoops file after an OxygenOS reboot is not a readable log. USB timing probe did not return within 8 min. |
 | 2026-10-15 | [fastboot-boot-kexec-peripheral](2026-10-15-fastboot-boot-kexec-peripheral.md) | Stage 2 dwc3 forced to peripheral, role switch removed. Still no UDC; OxygenOS at 125 s. |
