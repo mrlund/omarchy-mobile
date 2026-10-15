@@ -160,9 +160,11 @@ unit's anti-rollback fuse has blown, booting that slot may hard-brick it
 [I]. So:
 
 - Never `fastboot set_active`, and never flash `--slot=other`, until both
-  slots' firmware is known to be the same build. `getvar
-  version-bootloader` usually reports only the current slot [I], so
-  "known" needs more than one getvar.
+  slots' firmware is known to be the same build. On 2026-10-15 slot A
+  was current and slot B was marked unbootable (`slot-successful:yes`
+  as well, retry count 6). Slot B is not a fallback. `getvar
+  version-bootloader` came back empty, so the bootloader version of
+  neither slot is known yet.
 - Switch off automatic system updates in OxygenOS right after unlock. An
   OTA must not move the bootloader during the project. Taking one is a
   decision with its own dev-docs entry.
@@ -561,9 +563,18 @@ is copied into our DTB (§5.1).
 ### Phase 1 — Read the boot chain, unlock, root, capture
 
 Pass: `~/android/reference/dodge-cph2653/` holds `getvar` and the
-partition map. The build id is already recorded (§2); phase 1 checks
-the current slot's bootloader version against the OTA. The live FDT
-needs root, which stock does not have until the rooted capture below.
+partition map. Met for the read on 2026-10-15
+([dev-docs/2026-10-15-getvar.md](dev-docs/2026-10-15-getvar.md)). The
+phone was left locked, on the bootloader menu. adb's product was
+`CPH2653EEA`, model `CPH2653`, device `OP5D55L1`, matching the OTA.
+Fastboot `product` is `sun`. `current-slot` is `a`. Slot B is
+unbootable (§3.3). `version-bootloader` and `version-baseband` are
+empty, and the OTA metadata has no bootloader version, so that
+comparison is still open. `recovery_a` and `recovery_b` exist, 100 MiB
+each. There is no `vendor_kernel_boot`. No partition is named
+`modemst1`, `modemst2`, `fsg`, `fsc` or `efs`. `persist` is present and
+was not read. The live FDT needs root, which stock does not have until
+the rooted capture below.
 
 Then, on a go-ahead: `fastboot flashing unlock`. Data is gone after that.
 Fastboot must still answer, and Volume Up + Volume Down + Power must still
@@ -574,9 +585,11 @@ system updates (§3.3), turn on USB debugging and authorize this laptop.
 Pass: `adb reboot bootloader` reaches fastboot. That is the loop's way
 back (§5.2).
 
-Stop: `getvar product` is not this phone's product string, or the
-current slot's bootloader version differs from the OTA we extracted. We
-do not flash a bootloader to make anything match.
+Stop: `getvar product` is not `sun`, or adb's product is not
+`CPH2653EEA`. Both matched on 2026-10-15. A bootloader version that
+`getvar` actually returns and that differs from the OTA also stops us.
+The variable was empty, so it did not. We do not flash a bootloader to
+make anything match.
 
 #### The rooted capture
 
@@ -725,13 +738,14 @@ belong in the plan.
 
 ## 9. Open on this phone
 
-- The bootloader version of each slot (§3.3). The OxygenOS build id is
-  §2.
+- The bootloader version of each slot (§3.3). `getvar version-bootloader`
+  was empty on 2026-10-15, on slot A. The OxygenOS build id is §2.
 - Whether `fastboot boot` is still temporary on this August 2026 firmware.
   Abrecht proved it on `16.0.2.402`. Phase 2's stock `boot.img` try
   answers it.
-- The GPT names, and whether `recovery` is a real partition (the OTA has
-  a `recovery.img`; Lineage flashes one).
+- Whether the two slots' boot images are the same build. The names are
+  known (2026-10-15): `recovery_a` and `recovery_b` are real, 100 MiB,
+  and there is no `vendor_kernel_boot`. Slot B is unbootable.
 - Why a packed mainline `boot.img` hung for Abrecht: §5.3's list, one
   try per suspect. The cable is the path either way.
 - Whether ABL takes the DTB from a header v2 image under `fastboot boot`,
