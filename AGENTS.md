@@ -7,6 +7,8 @@ Omarchy Mobile runs native Omarchy (Arch Linux ARM, Hyprland, Omarchy's packages
 
 ## 1. Safety rules (non-negotiable)
 
+These rules are written for the Pixels. **On the OnePlus 13 (`dodge`), read [device/dodge/AGENTS.md](device/dodge/AGENTS.md) first:** its plan replaces the slot rules below.
+
 - **Ask the human before every reboot, flash, `push`, overlay boot or irreversible write.** That includes RPMB writes, a first `storageproxyd` run, `devinfo` and anything under `/dev/sd*`. The phone is real hardware with calibration data that can't be replaced, and a human has to be ready to recover it.
 - **The phone is shared with a human. Announce anything that affects the screen or the feel of the phone before you run it**: DPMS, display modes and refresh rate, brightness, `bl_power`, haptics, the torch, the shell restarting, rotation. Otherwise they think the phone is broken, or it buzzes in their hand.
 - **Only slot B and `userdata` are ours.** Write only `boot_b`, `init_boot_b`, `vendor_boot_b`, `vendor_kernel_boot_b` and `dtbo_b`, and only through `bin/omamobile flash|push`. Never touch bootloader, radio, `devinfo`, `persist`, `efs*`, `modem*` or `vbmeta`, and never run an unsuffixed `fastboot flash`. Slot A's stock Android is the way back.
