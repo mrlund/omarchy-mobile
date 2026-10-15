@@ -50,7 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
-| 2026-10-15 | [magisk-install](2026-10-15-magisk-install.md) | Magisk 30.7 installed. Stock `init_boot` pushed. Not patched, not flashed. |
+| 2026-10-15 | [magisk-install](2026-10-15-magisk-install.md) | Magisk 30.7 patched `init_boot`. Header still v4. Not flashed. |
 | 2026-10-15 | [unlock](2026-10-15-unlock.md) | Second `fastboot flashing unlock` returned OKAY. Phone rebooted to the OxygenOS welcome slide. |
 | 2026-10-15 | [unlock-refused](2026-10-15-unlock-refused.md) | `fastboot flashing unlock` refused. Still locked. Rebooted to OxygenOS. |
 | 2026-10-15 | [getvar](2026-10-15-getvar.md) | Fastboot read. Locked, slot A, slot B unbootable. `recovery` is a real partition. Unlock not sent. |
