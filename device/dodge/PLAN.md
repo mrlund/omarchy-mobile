@@ -16,6 +16,10 @@ OxygenOS through Magisk, instead of a downstream-kernel track:
 A second review tightened the image format, the OTA, the watchdog and the
 Magisk fallback:
 [dev-docs/2026-10-15-second-review.md](dev-docs/2026-10-15-second-review.md).
+Phase 0a (host) and phase 0b (stock images) are done on the laptop. The
+phone has not been unlocked, rooted, rebooted or flashed. The OTA facts
+are in
+[dev-docs/2026-10-15-ota-boot-images.md](dev-docs/2026-10-15-ota-boot-images.md).
 
 Labels: **[V]** checked in a source we can cite. **[I]** an inference, to
 be checked on this phone before anyone relies on it. A community report is
@@ -46,16 +50,30 @@ the loop is fast. Calls, cameras and fingerprint stay later plans.
 | Hardware version | CPH2653_11 |
 | Baseband | Q_V1_P14 |
 | SOTA | B100P01(BRB1GDPR) |
+| OxygenOS | `CPH2653_16.0.10.501(EX01)` |
+| Package | `CPH2653EEA`, `CPH2653_11.F.93_2930_202608071055` |
+| Security patch | 2026-08-01 |
 | Codename | `dodge` |
 | SoC | Qualcomm SM8750, Snapdragon 8 Elite (`sun` / Pakala), Adreno 830, Oryon |
 
 `B100P01(BRB1GDPR)` is the August 2026 OxygenOS 16 SOTA track for the EU
-GDPR build, not the full firmware id. [V] for what that string means in
+build, not the full firmware id. [V] for what that string means in
 OnePlus's announcement and in older GDPR SOTAs (`V60P01(BRB1GDPR)` and
-the like). The OxygenOS build id (`CPH2653_16.0.x.x`) is still [I] until
-we read it. Anti-rollback follows the firmware security version, so the
-SOTA string alone does not tell us the fuse state. Hardware `CPH2653_11`
-matches the GDPR package names (`CPH2653GDPR_11_…`).
+the like). Settings, About shows
+`CPH2653_16.0.10.501(EX01B100P01)`: the firmware id with the SOTA suffix
+appended. The OTA's `version_name` is `CPH2653_16.0.10.501(EX01)`,
+product `CPH2653EEA`, device `OP5D55L1`, ota version
+`CPH2653_11.F.93_2930_202608071055`, Android 16. [V] the human read
+About, and the zip metadata and the `boot.img` Linux version
+(`6.6.118-android15-8-g2e6b9c3812c5-ab15114928-4k`) match that build.
+The catalog name is `CPH2653_11.F.93_…`. The earlier guess
+`CPH2653GDPR_11_…` does not appear in this package. `EX01` is the tag on
+the EU catalog's version strings. A later EU package,
+`CPH2653_16.0.10.600(EX01)` (`F.94`, September 2026 patch), was the
+catalog's latest on 2026-10-15 and was left unused. Hardware
+`CPH2653_11` matches the `CPH2653_11.F.93` ota version. Anti-rollback
+follows the firmware security version, so the SOTA string alone does not
+tell us the fuse state. The fuse state of this unit is still [I].
 
 OnePlus 13R and OnePlus 13s/13T (`pagani`) are different phones.
 
@@ -106,17 +124,18 @@ The stock boot images for this exact build come from the full OTA, not
 from the phone: stock has no root and Qualcomm ABL has no `fastboot
 fetch` [I].
 
-Which package: the *full* firmware OTA for the build id in Settings,
-About (`CPH2653_16.0.x.x`), in this phone's region package (the GDPR/EU
-`CPH2653GDPR_11_…` line). Two near-misses do not work. The SOTA package
+Which package: the full firmware OTA for the build in Settings, in this
+phone's region. That package is now on disk: product `CPH2653EEA`, ota
+version `CPH2653_11.F.93_2930_202608071055` (§2, §6). The SOTA package
 (`B100P01`) updates system apps and holds no boot images. An incremental
 OTA holds deltas, which give no `init_boot` we could restore from. The
-OnePlusOSS kernel trees are source, not images for this phone. Extract `boot`, `init_boot`, `vendor_boot`, `dtbo`, `vbmeta`
-and `recovery` (if present) from `payload.bin` into
-`~/android/reference/dodge-cph2653/ota/`. They are what a bad flash of
-those partitions is put back from. They are vendor images: they stay out
-of git. The payload's firmware images (`xbl`, `abl`, `modem` and the rest)
-are never flashed, whatever the OTA's version.
+OnePlusOSS kernel trees are source, not images for this phone. `boot`,
+`init_boot`, `vendor_boot`, `dtbo`, `vbmeta` and `recovery` are extracted
+under `~/android/reference/dodge-cph2653/ota/`. They are what a bad flash
+of those partitions is put back from. They are vendor images: they stay
+out of git. The payload's firmware images (`xbl`, `abl`, `modem` and the
+rest) were not extracted and are never flashed, whatever the OTA's
+version.
 
 Calibration partitions (`modemst1`, `modemst2`, `fsg`, `fsc`, `persist`,
 and whatever the map adds) stay unread and unwritten until a radio plan
@@ -270,7 +289,7 @@ uses: stock's own ramoops / pstore region from the OTA's reserved memory,
 or a hole that the OTA's map and the rooted capture's `/proc/iomem`
 agree on. Never a guess.
 
-Host setup, done once before phase 1 (none of it existed on 2026-10-15):
+Host setup, done 2026-10-15 before the OTA download:
 
 - `fastboot`, `adb` and `dtc` installed; `mkbootimg` and
   `unpack_bootimg` from a standalone package, not from the LineageOS
@@ -282,6 +301,15 @@ Host setup, done once before phase 1 (none of it existed on 2026-10-15):
 - the NetworkManager profile `omamobile-phone` (172.16.42.2/24) that
   `tools/phone-ssh` assumes ([CONTRIBUTING.md](../../CONTRIBUTING.md) §2);
 - a payload extractor for the OTA.
+
+All five are in place. `adb`, `fastboot`, `mkbootimg`, `unpack_bootimg`
+and `mkdtboimg` are Arch `android-tools`; `dtc` is the `dtc` package.
+`/etc/udev/rules.d/52-omamobile-oneplus.rules` covers vendor `22d9` at
+mode 0660, group `adbusers`. The user is in `docker` and `adbusers`.
+`omamobile-phone` is manual `172.16.42.2/24`, never the default route,
+IPv6 disabled, matched on `cdc_ncm` and not on an interface name, so an
+OxygenOS RNDIS tether stays on its own profile. `payload-dumper-go`
+lives in the reference tree.
 
 Downstream DT checkouts (OnePlusOSS, Lineage's 6.6 tree) are read-only
 references under `~/android/reference/src/`. They are not the tree we
@@ -334,14 +362,18 @@ Two fallbacks, still over the same cable, still with no extra hardware:
 
    The first image copies stock's geometry: base, kernel, ramdisk, tags
    and DTB offsets and page size, from `unpack_bootimg` of the OTA's
-   `vendor_boot` (a v4 `boot.img` carries no addresses). ABL may ignore
-   them on arm64 [I], but a wrong offset hangs the same way a wrong DTB
-   does, so stock's values remove that variable. Then one change per try:
+   `vendor_boot` (a v4 `boot.img` carries no addresses). Those addresses
+   are recorded in §6. With `--base 0` each offset equals the address.
+   ABL may ignore them on arm64 [I], but a wrong offset hangs the same
+   way a wrong DTB does, so stock's values remove that variable. Then one
+   change per try:
    1. a header v2 image with `--dtb` carrying the mainline dodge DTB, in
       stock's geometry;
    2. `qcom,msm-id` and `qcom,board-id` in our DTB set to stock's values
-      (from the OTA's DTB). ABL selects the DTB by them, as gs201's ABL
-      does by `soc_id`;
+      (from the OTA's DTB, §6). ABL selects the DTB by them, as gs201's
+      ABL does by `soc_id`. Stock's dodge overlay carries eight sun and
+      sunp pairs and `qcom,board-id = <0x40008 0x00>`. Which pair this
+      unit is stays [I] until the live FDT;
    3. what ABL does when stock's `dtbo` does not apply to our DTB;
    4. the command line ABL appends.
 
@@ -395,16 +427,18 @@ before we care about a pretty boot.
 This document, the OSS survey, the device identity. Still offline, no
 phone:
 
-- **0a. Host.** The setup list in §5.1.
-- **0b. The stock images.** The human reads the build id from Settings,
-  About. Fetch the full OTA for that build and extract the boot images
-  (§3.2). Unpack them and record: header versions, page size, the
-  `vendor_boot` geometry (base and offsets, §5.3), vendor cmdline, `qcom,msm-id` / `qcom,board-id`, the dtbo entries, the panel
-  compatible, the Wi-Fi chip, reserved memory (the continuous-splash
-  framebuffer and a ramoops region).
+- **0a. Host.** Done 2026-10-15. The setup list in §5.1.
+- **0b. The stock images.** Done 2026-10-15. The build id is §2. The
+  EU full OTA is extracted under
+  `~/android/reference/dodge-cph2653/ota/`. The write-up is
+  [dev-docs/2026-10-15-ota-boot-images.md](dev-docs/2026-10-15-ota-boot-images.md).
+  Header versions, geometry, cmdline, msm-id / board-id, dtbo entries,
+  the panel list, the Wi-Fi node and reserved memory are in the
+  subsection below.
 - **0c. The kernel.** Clone `sm8750-mainline`, confirm
   `sm8750-oneplus-dodge.dtb` builds, and compare its msm-id / board-id
-  with 0b's. Confirm the DTB has an enabled watchdog node for
+  with the stock set below. Do not collapse that set to one pair before
+  the live FDT. Confirm the DTB has an enabled watchdog node for
   `QCOM_WDT`, and the USB controller and PHY nodes the gadget needs,
   and note whether stock's DT shows the hypervisor owning the watchdog
   (§5.1).
@@ -417,10 +451,84 @@ phone:
   tool change; cheetah's capture stays the same. Download the Magisk APK
   from `topjohnwu/Magisk` GitHub releases only, and record the version.
 
+#### Stock boot images
+
+[V] from the OTA named in §2, unpacked 2026-10-15. Images stay out of
+git. The attempt log has the commands and the header dumps.
+
+`boot`, `init_boot`, `vendor_boot` and `recovery` are header version 4.
+`boot.img` carries the kernel only
+(36731392 bytes, an ARM64 `Image`, little-endian, 4 KiB pages, no
+ramdisk, no cmdline). `init_boot` and `recovery` are ramdisks, LZ4
+legacy, and their headers say os version 15.0.0, patch 2026-08, while
+the package is Android 16. `vbmeta.img` is 12 KiB and has not been
+decoded. `recovery.img` is in the payload; whether the GPT has a
+`recovery` partition is still [I] until phase 1.
+
+`vendor_boot` page size `0x1000`. Load addresses, used as the v2 offsets
+with `--base 0` (§5.3):
+
+| | |
+| --- | --- |
+| Kernel | `0x8000` |
+| Ramdisk | `0x01000000` |
+| Tags | `0x100` |
+| DTB | `0x01f00000` (6821771 bytes) |
+
+Vendor cmdline is `console=ttynull`, `qcom_geni_serial.con_enabled=0`,
+`nosoftlockup`, a 640×400 virtual framebuffer, `bootconfig` and
+`buildvariant=user`. Bootconfig names the USB controller
+`a600000.dwc3` and sets `androidboot.serialconsole=0` and
+`androidboot.hypervisor.protected_vm.supported=true`. The full lines are
+in the dev-doc.
+
+The vendor DTB is 13 FDTs. The sun family, all
+`qcom,board-id = <0x00 0x00>`:
+
+| msm-id | What the model string says |
+| --- | --- |
+| `<0x26a 0x10000>` | Sun SoC (`qcom,sun`) |
+| `<0x26a 0x20000>` | Sun v2 |
+| `<0x100026a 0x10000>` | Sun, alternate thermal |
+| `<0x100026a 0x20000>` | Sun v2, alternate thermal |
+| `<0x27f 0x10000>` | SunP (`qcom,sunp`) |
+| `<0x27f 0x20000>` | SunP v2 |
+| `<0x100027f 0x10000>` | SunP, alternate thermal |
+| `<0x100027f 0x20000>` | SunP v2, alternate thermal |
+
+The same blob also has kera, kerap, tuna, tuna 7 and tunap. Those are
+other SoCs.
+
+`dtbo.img` has 6 entries. The table's id fields are zero; each FDT
+carries the match. All six use `qcom,board-id = <0x40008 0x00>` and the
+eight msm-id pairs above. Entries 0, 1, 2 and 4 are model
+"Sun MTP,dodge T0". Entries 3 and 5 are model "Sun MTP,dodge". Which
+entry this unit is is [I] until the live FDT.
+
+`qcom,dsi-default-panel` on those overlays is
+`dsi_vtdr6130_amoled_video`, a Visionox video-mode DSC panel. Its first
+timing is 1080×2400 at 144 Hz. `oplus,dsi-panel-primary` lists that node
+plus five command-mode panels: AA545 P 3 A0005, BF262 P 3 A0021, and
+three AA569 P 3 A0019 nodes (evb, evt, and plain). Two DSI controllers
+(`qcom,dsi-ctrl-hw-v2.9`) and two PHYs (`qcom,dsi-phy-v7.2`). Which
+panel this unit is is [I]. Phase 5's "120 Hz" waits on that answer.
+
+Wi-Fi is the node `qcom,cnss-peach`, `supported-ids = <0x110e>`, at
+`0xb0000000`. Bluetooth on the same overlay is `qcom,peach-bt`. Peach is
+the DT name.
+
+`cont_splash_region` is `reg = <0x00 0xfc800000 0x00 0x2b00000>` (43 MiB
+at `0xfc800000`). `ramoops-region` in the sun base is 2.25 MiB
+(`0x240000`), `no-map`, with `alloc-ranges` and no fixed base.
+`qcom,ramoops` sets `pmsg-size` to 2 MiB and `console-size` to 256 KiB.
+A rooted `/proc/iomem` confirms the live addresses before either region
+is copied into our DTB (§5.1).
+
 ### Phase 1 — Read the boot chain, unlock, root, capture
 
 Pass: `~/android/reference/dodge-cph2653/` holds `getvar` and the
-partition map. Build id recorded next to the SOTA string. The live FDT
+partition map. The build id is already recorded (§2); phase 1 checks
+the current slot's bootloader version against the OTA. The live FDT
 needs root, which stock does not have until the rooted capture below.
 
 Then, on a go-ahead: `fastboot flashing unlock`. Data is gone after that.
@@ -553,7 +661,7 @@ one shortens the next debug:
 
 | After | Continue | Stop |
 | --- | --- | --- |
-| Phase 0 | The OTA's images match the build id; the dodge DTB builds | No OTA for this build can be found |
+| Phase 0 | The OTA's images match the build id (met 2026-10-15); the dodge DTB builds | No OTA for this build can be found |
 | Phase 1 | Fastboot answers before and after unlock; `adb reboot bootloader` works from OxygenOS; the rooted capture exists | Product id is unexpected, the bootloader does not match the OTA, or patched `init_boot` loops and the stock one does not restore it |
 | Phase 2 | `fastboot boot` over the cable was temporary, and the kernel printed a banner | The next step wants an XBL or ABL write |
 | Phase 3 | SSH from `fastboot boot`, and a reboot returns to fastboot | The boot image has to be flashed to learn anything |
@@ -578,13 +686,13 @@ belong in the plan.
 
 ## 9. Open on this phone
 
-- The OxygenOS build id next to SOTA `B100P01(BRB1GDPR)` (Settings,
-  About), and the bootloader version of each slot (§3.3).
+- The bootloader version of each slot (§3.3). The OxygenOS build id is
+  §2.
 - Whether `fastboot boot` is still temporary on this August 2026 firmware.
   Abrecht proved it on `16.0.2.402`. Phase 2's stock `boot.img` try
   answers it.
-- The GPT names, and whether `recovery` is a real partition (Lineage
-  flashes one).
+- The GPT names, and whether `recovery` is a real partition (the OTA has
+  a `recovery.img`; Lineage flashes one).
 - Why a packed mainline `boot.img` hung for Abrecht: §5.3's list, one
   try per suspect. The cable is the path either way.
 - Whether ABL takes the DTB from a header v2 image under `fastboot boot`,
@@ -592,13 +700,17 @@ belong in the plan.
 - Whether our kernel's `reboot-to bootloader` reaches fastboot on this
   ABL (`qcom-pon` reboot mode), which would retire OxygenOS as the way
   back.
+- Which vendor FDT and which dtbo entry (T0 or later) ABL picks, and
+  which panel on the primary list this unit is (§6).
+- The ramoops physical address. The OTA gives the size and a dynamic
+  range (§6). A rooted `/proc/iomem` is the check.
 
-Answered offline from the OTA (phase 0b), not from the phone: the panel
-compatible, the Wi-Fi chip, header versions, msm-id / board-id, the
-splash framebuffer and the ramoops region. Confirmed against the running
-phone by the rooted capture (phase 1): which DTB ABL picked, the rails
-and clocks the panel, touch and USB need, and which firmware files the
-running system loaded.
+Answered from the OTA on 2026-10-15 (phase 0b): header versions, page
+size, `vendor_boot` geometry, vendor cmdline, msm-id / board-id, the
+dtbo entries, the panel list, the Wi-Fi node's compatible and id, the
+splash region and the ramoops size. The rooted capture (phase 1) is what
+says which of those the running system uses, plus the rails and clocks
+the panel, touch and USB need, and which firmware files were loaded.
 
 ## 10. Sources
 
@@ -625,5 +737,8 @@ the same list with the role each one plays.
 - XDA anti-rollback thread, January 2026. OnePlus's August 2026 SOTA
   announcement for `B100P01` (the GDPR variant is the EU track of that
   update).
+- EU OTA catalog for model CPH2653 (roms.danielspringer.at), read
+  2026-10-15. The zip's own metadata is the check; the catalog is how
+  the row was chosen. Signed download URLs are not recorded.
 - Mainline `arch/arm64/boot/dts/qcom/sm8750.dtsi` (SoC, not the phone).
   Adreno 830 DRM series on the list, August 2026.
