@@ -577,6 +577,11 @@ was not read. The live FDT needs root, which stock does not have until
 the rooted capture below.
 
 Then, on a go-ahead: `fastboot flashing unlock`. Data is gone after that.
+Tried once on 2026-10-15. ABL answered `Flashing Unlock is not allowed`
+and `unlocked` stayed `no`
+([dev-docs/2026-10-15-unlock-refused.md](dev-docs/2026-10-15-unlock-refused.md)).
+The OEM unlocking switch in Developer options has to be on before that
+command is sent again. Do not substitute `fastboot oem unlock`.
 Fastboot must still answer, and Volume Up + Volume Down + Power must still
 reach it.
 
