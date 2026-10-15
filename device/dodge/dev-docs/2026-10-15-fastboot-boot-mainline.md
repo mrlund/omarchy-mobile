@@ -30,7 +30,10 @@ replace it.
 ## Learning
 
 This is §5.3 step 1. ABL accepted the boot command and did not start
-the image. The DTB in it has no `qcom,msm-id` or `qcom,board-id`. The
-live FDT carries all eight sun/sunp pairs and `qcom,board-id`
-`<0x40008 0x00>`, so the next image adds those values and does not
-collapse the pairs. Flashing `vendor_boot` is not the next step.
+the image. The screen showed the OnePlus logo and the words "fastboot
+mode" for about a minute, then OxygenOS. That was `fastboot reboot`,
+not a kernel console. The DTB in that image has no `qcom,msm-id` or
+`qcom,board-id`. The live FDT carries all eight sun/sunp pairs and
+`qcom,board-id` `<0x40008 0x00>`, so the next image adds those values
+and does not collapse the pairs. Flashing `vendor_boot` is not the
+next step.
