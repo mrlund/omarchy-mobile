@@ -6,8 +6,8 @@ the phone so it can be patched. Do not flash.
 **Phone.** CPH2653, build `CPH2653_16.0.10.501(EX01)`, slot `_a`,
 verified boot `orange`, `ro.boot.flash.locked=0`.
 **Kernel.** No kernel of ours.
-**Result.** The app installed and the stock image is in Download. The
-patch and the flash have not happened.
+**Result.** The app installed, the image was patched in the app, and the
+patched file checks out. It has not been flashed.
 
 ## What we did
 
@@ -27,9 +27,17 @@ the same header recorded in phase 0b.
 
 ## Learning
 
-The next human step is in the Magisk app: Install, then Select and
-Patch a File, then `Download/init_boot.img`. Not Direct Install. The
-patched file comes back to
-`~/android/reference/dodge-cph2653/root/` and is checked with
-`unpack_bootimg` before any flash. The flash, when it happens, names
-`init_boot_a`.
+The patch was done in the app with Select and Patch a File. The output
+`magisk_patched-30700_KE4JS.img` was pulled to
+`~/android/reference/dodge-cph2653/root/`. It is 8388608 bytes, the same
+padded size as stock, sha256
+`161e4178fddfefd6b61b0d6011df9372806d6739cbd3cce42049816aa577a981`.
+`unpack_bootimg` still reads header version 4, kernel size 0, os version
+15.0.0, patch level 2026-08. The ramdisk is LZ4 legacy, as stock was,
+and is smaller (2409501 bytes against stock's 2720723) because Magisk
+recompressed it. The cpio contains `.backup/.magisk` and
+`overlay.d/sbin/magisk.xz`. That is a Magisk init ramdisk, not a format
+change. The file stays out of git.
+
+The flash, when it happens, names `init_boot_a` and then reboots. Stock
+`init_boot.img` is the rollback.
