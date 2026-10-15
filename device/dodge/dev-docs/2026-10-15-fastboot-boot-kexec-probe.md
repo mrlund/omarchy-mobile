@@ -34,7 +34,8 @@ fastboot device for the next 480 s, and none a moment after that. The
 screen stayed on the OnePlus logo and "fastboot mode". Holding Power
 did not change it, and reseat had not yet been tried. The laptop still
 saw no USB device at that report. A later reseat still showed no
-OnePlus device on the bus.
+OnePlus device on the bus. Power held about 30 s, and Volume Down plus
+Power, did not change the frame. The three-key combo had not been tried.
 
 ## Learning
 
