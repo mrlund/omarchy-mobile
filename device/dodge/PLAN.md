@@ -792,9 +792,9 @@ belong in the plan.
 
 - The bootloader version of each slot (§3.3). `getvar version-bootloader`
   was empty on 2026-10-15, on slot A. The OxygenOS build id is §2.
-- Whether `fastboot boot` is still temporary on this August 2026 firmware.
-  Abrecht proved it on `16.0.2.402`. Phase 2's stock `boot.img` try
-  answers it.
+- Whether `fastboot boot` of a packed mainline image is temporary. The
+  stock `boot.img` try on 2026-10-15 was temporary: `boot_a` was not
+  written, and the next cold boot was normal OxygenOS.
 - Whether the two slots' boot images are the same build. The names are
   known (2026-10-15): `recovery_a` and `recovery_b` are real, 100 MiB,
   and there is no `vendor_kernel_boot`. Slot B is unbootable.
