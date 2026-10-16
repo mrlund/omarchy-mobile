@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-16 | [reboot-bootloader](2026-10-16-reboot-bootloader.md) | `reboot-to bootloader` from stage 2 lands in fastboot. No OxygenOS boot. Two earlier tries returned to OxygenOS. |
 | 2026-10-16 | [framebuffer](2026-10-16-framebuffer.md) | Panel shows the console: a row of Tux logos, then the kernel log in the 8×16 font. |
 | 2026-10-16 | [ufs-probe](2026-10-16-ufs-probe.md) | UFS up. Six disks, 139 partitions, all read-only, nothing mounted. GPT names `modemst1`, `modemst2`, `fsg`, `fsc`. |
 | 2026-10-16 | [dodge-try-chain](2026-10-16-dodge-try-chain.md) | `tools/dodge-try chain` SSH at 27 s, `soc@0`, splash map installed. Ten faults at 0.130 s, then none. |
