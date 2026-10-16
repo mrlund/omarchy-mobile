@@ -51,6 +51,7 @@ and stay out of git.
 | Date | Entry | Result |
 | --- | --- | --- |
 | 2026-10-16 | [desk-check-display-touch-gpu](2026-10-16-desk-check-display-touch-gpu.md) | Panel (AA569) and touch (S3910) drivers in our tree, not enabled. No Adreno 830. Hyprland on `simpledrm` + llvmpipe reported working once. Panel VCI held at 1.8 V, stock 3.0 V. |
+| 2026-10-16 | [flash-boot-a](2026-10-16-flash-boot-a.md) | `boot_a` flash of the chain image returned to fastboot in 5 s. Stock `boot_a` restored. Arch is back via `fastboot boot`. |
 | 2026-10-16 | [reboot-to-from-arch](2026-10-16-reboot-to-from-arch.md) | `reboot-to bootloader` from the Arch root enters fastboot. systemd's `reboot bootloader` does not. |
 | 2026-10-16 | [arch-second-boot](2026-10-16-arch-second-boot.md) | Second `fastboot boot` returns to Arch. The setup wizard in between did not replace the file system. `reboot bootloader` from Arch did not enter fastboot. |
 | 2026-10-16 | [userdata-grow](2026-10-16-userdata-grow.md) | Root file system grown to 453 GiB. No `ufshcd` error. Nothing flashed. |
