@@ -122,7 +122,11 @@ handoff is superseded: its USB theories were tested against stock's DTB
    Phase 3.5 is met. With `omamobile.userdata-rw`, only `sda15` is
    writable and nothing is mounted
    ([../dev-docs/2026-10-16-userdata-rw.md](../dev-docs/2026-10-16-userdata-rw.md)).
-   Formatting `userdata` has not been started. ramoops, the
+   Base Arch Linux ARM is now `/` on `sda15`, reached by `fastboot
+   boot`, not flashed
+   ([../dev-docs/2026-10-16-arch-userdata.md](../dev-docs/2026-10-16-arch-userdata.md)).
+   Rebuild the stage 2 initramfs with `tools/dodge-try pack` before
+   `tools/dodge-chain pack` when the init changes. ramoops, the
    watchdog and UFS
    load checks run alongside phase 4. Nothing is flashed.
 
