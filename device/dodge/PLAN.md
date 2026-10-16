@@ -868,10 +868,14 @@ runs alongside phase 4 instead of in front of it. All of it is
 Gates:
 
 1. **Reboot straight to fastboot.** The dodge DTB already has
-   `pmk8550`'s `nvmem-reboot-mode` (`mode-bootloader = <0x02>`), but
-   `NVMEM_REBOOT_MODE` and `POWER_RESET_QCOM_PON` are `=m`. Build both
-   in, add them to `NEED_Y`, and run `reboot bootloader` from stage 2
-   (`LINUX_REBOOT_CMD_RESTART2`, not busybox `reboot -f`). Pass:
+   `pmk8550`'s `nvmem-reboot-mode` (`mode-bootloader = <0x02>`, cell
+   `reboot-reason@48` in the SPMI SDAM), but `NVMEM_REBOOT_MODE`,
+   `NVMEM_SPMI_SDAM` and `POWER_RESET_QCOM_PON` are `=m` and the ramdisk
+   loads no modules. Build all three in and add them to `NEED_Y`.
+   Busybox `reboot` cannot pass a reason, so put a `reboot-to` helper
+   (`LINUX_REBOOT_CMD_RESTART2`, as
+   `packages/omamobile-device-cheetah/src/reboot-to.c`) in the ramdisk
+   and run `reboot-to bootloader` from stage 2. Pass:
    fastboot answers with no OxygenOS boot. Once OxygenOS is gone this is
    the unattended way back, and it also cuts each try by about 30 s.
    Risk: low; the kernel writes the reboot-reason byte, as stock does.
@@ -885,8 +889,8 @@ Gates:
    `PARTNAME` and stops if that name matches anything other than exactly
    one partition. One boot where it only logs `would allow sda15
    (userdata)` and every disk stays read-only, then phase 4 makes that
-   one partition writable. `modemst1`, `modemst2`, `fsg`, `fsc`,
-   `persist` and everything on `sdb`-`sde` stay read-only for good.
+   one partition writable. Every other partition stays read-only for
+   good, `modemst1`, `modemst2`, `fsg`, `fsc` and `persist` among them.
 
 Alongside phase 4, not blocking it:
 

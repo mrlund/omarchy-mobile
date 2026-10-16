@@ -110,9 +110,10 @@ handoff is superseded: its USB theories were tested against stock's DTB
    Phase 3's pass line is met. A flash is phase 4 and waits for an
    explicit yes.
 
-5. Phase 3.5 in [../PLAN.md](../PLAN.md): reboot to fastboot from stage
-   2, ramoops on our DTB, the watchdog question, the button drill, UFS
-   read checks and the allowlist, all without a flash.
+5. Phase 3.5 in [../PLAN.md](../PLAN.md): three gates before phase 4,
+   `reboot-to bootloader` from stage 2, the button drill and the
+   `userdata` allowlist. ramoops, the watchdog and UFS load checks run
+   alongside phase 4.
 
 `tools/dodge-chain boot` now saves `dmesg` to `logs/` and checks
 `soc@0` as soon as SSH answers.
