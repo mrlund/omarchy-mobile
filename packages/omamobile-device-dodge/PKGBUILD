@@ -25,6 +25,12 @@ package() {
     "$pkgdir/usr/lib/NetworkManager/conf.d/10-omamobile-usb.conf"
   install -Dm644 "$startdir/sshd-omamobile.conf" \
     "$pkgdir/etc/ssh/sshd_config.d/omamobile.conf"
+  install -Dm644 "$startdir/sshd.sysusers" \
+    "$pkgdir/usr/lib/sysusers.d/sshd.conf"
+  # The console prompt has no keyboard on this phone, and it is
+  # Before=sysinit, so it holds the boot ahead of sshd.
+  install -d "$pkgdir/etc/systemd/system"
+  ln -s /dev/null "$pkgdir/etc/systemd/system/systemd-firstboot.service"
   install -Dm644 "$startdir/omamobile-mirrorlist" \
     "$pkgdir/etc/pacman.d/omamobile-mirrorlist"
   install -Dm644 "$startdir/LICENSE" \
