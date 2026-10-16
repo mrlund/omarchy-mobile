@@ -45,6 +45,7 @@ NEED_Y=(
   USB_LIBCOMPOSITE USB_CONFIGFS USB_CONFIGFS_NCM USB_CONFIGFS_ACM
   USB_DWC3 USB_DWC3_QCOM SM_TCSRCC_8750
   PHY_QCOM_QMP PHY_QCOM_QMP_COMBO PHY_QCOM_M31_EUSB PHY_QCOM_EUSB2_REPEATER
+  PHY_QCOM_QMP_UFS SCSI_UFS_QCOM
   DRM DRM_SIMPLEDRM FRAMEBUFFER_CONSOLE
   PSTORE PSTORE_RAM PSTORE_CONSOLE PSTORE_PMSG
   QCOM_WDT
@@ -105,11 +106,9 @@ cmd_config() {
   fi
   line=$(config_symbol PANIC_TIMEOUT)
   [[ $line == "CONFIG_PANIC_TIMEOUT=10" ]] || die "panic timeout is '$line', want 10"
-  # The first ramdisk does not mount UFS. A built-in qcom host would
-  # enumerate disks before the guard is trusted. Modular is the intent.
-  line=$(config_symbol SCSI_UFS_QCOM)
-  [[ $line == "CONFIG_SCSI_UFS_QCOM=m" ]] \
-    || die "SCSI_UFS_QCOM is '$line'; the first image wants it modular"
+  # SCSI_UFS_QCOM and PHY_QCOM_QMP_UFS are in NEED_Y. Disks exist before
+  # PID 1; the init's first action after the mounts is blockdev --setro,
+  # and the ramdisk never mounts them.
   say "config ok ($KERNEL_OUT/.config)"
 }
 

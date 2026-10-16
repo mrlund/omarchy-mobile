@@ -151,7 +151,10 @@ version.
 Calibration partitions (`modemst1`, `modemst2`, `fsg`, `fsc`, `persist`,
 and whatever the map adds) stay unread and unwritten until a radio plan
 says otherwise. Wiping them does not help iteration and can turn a living
-phone into one with no radio identity. [I] on the names.
+phone into one with no radio identity. The GPT names the first four, on
+`sdf`, and `persist` is `sda2`
+([dev-docs/2026-10-16-ufs-probe.md](dev-docs/2026-10-16-ufs-probe.md)).
+Fastboot `getvar` did not list those four names.
 
 ### 3.3 Slots and updates
 
@@ -638,9 +641,10 @@ Fastboot `product` is `sun`. `current-slot` is `a`. Slot B is
 unbootable (§3.3). `version-bootloader` and `version-baseband` are
 empty, and the OTA metadata has no bootloader version, so that
 comparison is still open. `recovery_a` and `recovery_b` exist, 100 MiB
-each. There is no `vendor_kernel_boot`. No partition is named
-`modemst1`, `modemst2`, `fsg`, `fsc` or `efs`. `persist` is present and
-was not read. The live FDT needs root, which stock does not have until
+each. There is no `vendor_kernel_boot`. Fastboot's variable list named
+no `modemst1`, `modemst2`, `fsg`, `fsc` or `efs`. The GPT does name the
+first four, on `sdf`; there is still no `efs`. `persist` (`sda2`) was
+not read. The live FDT needs root, which stock does not have until
 the rooted capture below.
 
 Then, on a go-ahead: `fastboot flashing unlock`. Data is gone after that.
@@ -834,9 +838,12 @@ pack stage 2, reboot to fastboot, `fastboot boot` the header v4 chain).
 Kernel `6.16.0-g02a028467db0` #4, 27 s after Booting OKAY, `soc@0`
 present, `DTB_OPTS=splash`. The splash identity map is installed
 (`0xfc800000-0xff2fffff direct` on the display group). Ten SID 0x800
-faults at 0.130 s, none after. UFS is still a module and not loaded, so
-storage is untouched. The panel still shows ABL's last frame
-([dev-docs/2026-10-16-dodge-try-chain.md](dev-docs/2026-10-16-dodge-try-chain.md)).
+faults at 0.130 s, none after. UFS then enumerated under the same chain
+with `SCSI_UFS_QCOM=y` and `omamobile.ufs-probe`: six disks, 139
+partitions, every one read-only, nothing mounted
+([dev-docs/2026-10-16-ufs-probe.md](dev-docs/2026-10-16-ufs-probe.md)).
+The panel still shows ABL's last frame. The framebuffer console in the
+pass line above is still open.
 
 The first initramfs already marks every disk read-only, with an empty
 allowlist. Cheetah's allowlist (the slot images and `userdata`) is copied
