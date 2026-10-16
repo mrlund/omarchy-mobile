@@ -16,7 +16,10 @@ fb       reserve ABL's splash region and add a simple-framebuffer there
 Both were tried once and showed nothing; they are kept for retries.
 peripheral  dr_mode = "peripheral" and no usb-role-switch on the dwc3
             node. The role otherwise comes from pmic_glink, which this
-            initramfs does not load.
+            initramfs does not load. Tried; still no UDC.
+hs          peripheral, and drop the usb3-phy so dwc3 does not wait
+            on the combo PHY. The init that only sleeps and resets is
+            the one to boot with this.
 """
 import re
 import subprocess
@@ -70,11 +73,30 @@ if "ramoops" in opts:
 		};
 """)
 
-if "peripheral" in opts:
-    if ours.count('dr_mode = "otg";') != 1 or ours.count("usb-role-switch;") != 1:
+def force_peripheral(s):
+    if s.count('dr_mode = "otg";') != 1 or s.count("usb-role-switch;") != 1:
         raise SystemExit("expected exactly one otg dr_mode and one usb-role-switch")
-    ours = ours.replace('dr_mode = "otg";', 'dr_mode = "peripheral";', 1)
-    ours = re.sub(r"\n[ \t]*usb-role-switch;\n", "\n", ours, count=1)
+    s = s.replace('dr_mode = "otg";', 'dr_mode = "peripheral";', 1)
+    return re.sub(r"\n[ \t]*usb-role-switch;\n", "\n", s, count=1)
+
+
+if "peripheral" in opts or "hs" in opts:
+    ours = force_peripheral(ours)
+
+if "hs" in opts:
+    m = re.search(
+        r'phys = <(0x[0-9a-fA-F]+)[^>]*>;\n(\s*)phy-names = "usb2-phy", "usb3-phy";',
+        ours)
+    if not m:
+        raise SystemExit("expected usb2-phy and usb3-phy on one phys entry")
+    ours = (ours[:m.start()]
+            + f'phys = <{m.group(1)}>;\n{m.group(2)}phy-names = "usb2-phy";'
+            + ours[m.end():])
+    # The dwc3 node is the only one with this SID. Dropping it avoids
+    # waiting on apps_smmu after kexec.
+    if 'iommus = <0x23 0x40 0x00>;' not in ours:
+        raise SystemExit("expected the dwc3 iommus entry")
+    ours = ours.replace('\n\t\t\t\tiommus = <0x23 0x40 0x00>;\n', '\n', 1)
 
 if "fb" in opts:
     ours = insert_in(ours, "reserved-memory {", """
