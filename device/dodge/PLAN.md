@@ -904,9 +904,12 @@ Gates:
    (userdata)` and every disk stays read-only, then phase 4 makes that
    one partition writable. Every other partition stays read-only for
    good, `modemst1`, `modemst2`, `fsg`, `fsc` and `persist` among them.
-   The init logs that line and never calls `setrw`. Written
-   2026-10-16, not booted yet: the phone was left in fastboot while
-   the human was away.
+   The init logs that line and never calls `setrw`.
+   Met 2026-10-16 on kernel #8: `would allow sda15 (userdata)` at
+   1.66 s, 145 block devices all `ro=1`, nothing mounted
+   ([dev-docs/2026-10-16-userdata-allowlist.md](dev-docs/2026-10-16-userdata-allowlist.md)).
+   The three gates are met. Formatting `userdata` is phase 4 and has
+   not been started.
 
 Alongside phase 4, not blocking it:
 

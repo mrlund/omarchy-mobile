@@ -116,8 +116,11 @@ handoff is superseded: its USB theories were tested against stock's DTB
    Gate 2 is met: Volume Down held through power-off, then Power,
    reaches fastboot
    ([../dev-docs/2026-10-16-fastboot-buttons.md](../dev-docs/2026-10-16-fastboot-buttons.md)).
-   Gate 3 is the
-   userdata allowlist, still read-only. ramoops, the watchdog and UFS
+   Gate 3 is met: `would allow sda15 (userdata)`, every disk
+   read-only
+   ([../dev-docs/2026-10-16-userdata-allowlist.md](../dev-docs/2026-10-16-userdata-allowlist.md)).
+   Phase 3.5 is met. Formatting `userdata` is phase 4. ramoops, the
+   watchdog and UFS
    load checks run alongside phase 4. Nothing is flashed.
 
 `tools/dodge-chain boot` now saves `dmesg` to `logs/` and checks
