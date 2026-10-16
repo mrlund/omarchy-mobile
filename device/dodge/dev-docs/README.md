@@ -51,6 +51,7 @@ and stay out of git.
 | Date | Entry | Result |
 | --- | --- | --- |
 | 2026-10-16 | [desk-check-display-touch-gpu](2026-10-16-desk-check-display-touch-gpu.md) | Panel (AA569) and touch (S3910) drivers in our tree, not enabled. No Adreno 830. Hyprland on `simpledrm` + llvmpipe reported working once. Panel VCI held at 1.8 V, stock 3.0 V. |
+| 2026-10-16 | [userdata-grow](2026-10-16-userdata-grow.md) | Root file system grown to 453 GiB. No `ufshcd` error. Nothing flashed. |
 | 2026-10-16 | [arch-userdata](2026-10-16-arch-userdata.md) | Arch Linux ARM is `/` on `sda15` via `fastboot boot`. Other disks read-only. Not the Omarchy image. Nothing flashed. |
 | 2026-10-16 | [userdata-rw](2026-10-16-userdata-rw.md) | `sda15` writable, `/dev/sda` removed, every other disk read-only. Nothing mounted or formatted. |
 | 2026-10-16 | [userdata-allowlist](2026-10-16-userdata-allowlist.md) | `would allow sda15 (userdata)`. 145 block devices, all read-only. Nothing mounted. |
