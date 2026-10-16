@@ -135,7 +135,8 @@ mkdir -p /etc/dropbear
 dropbear -R -E -s -p 22 2>/dev/null && say "ssh: root@172.16.42.1"
 ( while true; do setsid getty -n -l /bin/sh 115200 ttyGS0 vt100; sleep 1; done ) &
 
-. /lib/omamobile-ufs.sh
+# A missing file makes busybox's `.` exit the shell, and PID 1 must not.
+[ -r /lib/omamobile-ufs.sh ] && . /lib/omamobile-ufs.sh
 if ! command -v ufs_userdata_decision >/dev/null 2>&1; then
   echo "omamobile: STOP userdata allowlist library missing" > /dev/kmsg
 fi
