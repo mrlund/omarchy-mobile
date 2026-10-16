@@ -79,7 +79,25 @@ tested against stock's DTB (see the file-load dev-doc).
 1. Stop the SMMU fault storm from the splash buffer (SID 0x800, IOVA in
    `0xfc800000`+0x2b00000): reserve the region and give the display
    stream an identity mapping, as other mainline Qualcomm phones do for
-   `cont_splash`, or turn the MDP off before the SMMU takes over.
+   `cont_splash`, or turn the MDP off before the SMMU takes over. The
+   faults name a context bank (`cb=5`), so the SID is already attached
+   to a domain, most likely through the `mdss` node's `iommus`; check
+   which device owns SID 0x800 in the DTB before choosing.
+
+Working notes for these steps:
+
+- Use `CHAIN_OUT=~/android/mainline/out-dodge-rdinit`. That build is
+  current. The default `out-dodge-chain` builds a whole kernel first.
+- Order: `tools/dodge-try pack` (stage 2), then `tools/dodge-chain boot`.
+  Before trusting a DTB change, confirm stage 2 runs it:
+  `ssh root@172.16.42.1 'ls /sys/firmware/devicetree/base'` must show
+  `soc@0`.
+- Back to OxygenOS from an SSH session:
+  `ssh root@172.16.42.1 'echo b > /proc/sysrq-trigger'`. OxygenOS
+  answers on adb about 15 s later. Then `adb reboot bootloader` for the
+  next try.
+- Save `dmesg` into `logs/` right after SSH comes up. The fault storm
+  can push the boot lines out of the 128 KiB log buffer.
 2. Let `tools/dodge-try` build and boot the chain image, so phase 3's
    loop is one command, and add `rscpd`/`hs` to its docs only if needed.
 3. Phase 3's storage step: UFS with the read-only guard (PLAN.md).
