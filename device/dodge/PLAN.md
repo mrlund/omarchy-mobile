@@ -879,6 +879,13 @@ Gates:
    fastboot answers with no OxygenOS boot. Once OxygenOS is gone this is
    the unattended way back, and it also cuts each try by about 30 s.
    Risk: low; the kernel writes the reboot-reason byte, as stock does.
+   Met 2026-10-16 on kernel #7: fastboot (`product: sun`, slot `a`)
+   about 12 s after `reboot-to bootloader`, and adb did not come up.
+   Two tries before that returned to OxygenOS. The helper's first
+   `_start` read argv after its prologue, and `nvmem-reboot-mode` in
+   6.16 writes 4 bytes into the 1-byte SDAM cell, which rejects the
+   write
+   ([dev-docs/2026-10-16-reboot-bootloader.md](dev-docs/2026-10-16-reboot-bootloader.md)).
 2. **Button drill (the human, once).** From a hung or powered-off
    phone, with the cable in, the combination that reaches fastboot.
    Volume Up + Volume Down + Power powered a hung phone off on

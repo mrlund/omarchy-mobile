@@ -51,6 +51,7 @@ NEED_Y=(
   QCOM_WDT
   SOFTLOCKUP_DETECTOR BOOTPARAM_SOFTLOCKUP_PANIC
   DETECT_HUNG_TASK BOOTPARAM_HUNG_TASK_PANIC
+  NVMEM_SPMI_SDAM NVMEM_REBOOT_MODE POWER_RESET_QCOM_PON
 )
 
 say() { printf '\e[1m==> %s\e[0m\n' "$*"; }
@@ -161,6 +162,13 @@ cmd_initramfs() {
   done
   install -m 755 "$INIT" "$stage/init"
   sh -n "$stage/init"
+  # aarch64, no libc. Do not run the binary on the laptop: it reboots.
+  mkdir -p "$stage/usr/bin"
+  clang -target aarch64-linux-musl -fuse-ld=lld -nostdlib -static -ffreestanding \
+    -fno-stack-protector -fno-asynchronous-unwind-tables -Oz \
+    -o "$stage/usr/bin/reboot-to" "$ROOT/device/dodge/initramfs/reboot-to.c" \
+    || die "reboot-to failed to build"
+  [[ -x $stage/usr/bin/reboot-to ]] || die "reboot-to was not installed"
   local pubs=("$HOME"/.ssh/*.pub)
   [[ -f ${pubs[0]} ]] || die "no $HOME/.ssh/*.pub to install as authorized_keys"
   mkdir -p "$stage/root/.ssh"
