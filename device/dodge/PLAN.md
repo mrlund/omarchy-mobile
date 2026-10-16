@@ -925,8 +925,12 @@ Alongside phase 4, not blocking it:
   `vccq2-supply` warnings are expected on upstream SM8x50.
 
 Phase 4 can go straight to Arch on `userdata` under `fastboot boot`
-(4a). Flashing `boot_a` (4b) waits until 4a boots Arch reliably; keep
-the OTA's stock `boot.img` and its sha256 on the laptop for rollback.
+(4a). Flashing `boot_a` (4b) was tried once on 2026-10-16. The write
+returned OKAY and the reboot came back to fastboot in 5 s, so stock
+`boot_a` was restored. `fastboot boot` of the same image still
+reaches Arch
+([dev-docs/2026-10-16-flash-boot-a.md](dev-docs/2026-10-16-flash-boot-a.md)).
+The OTA `boot.img` and its sha256 stay on the laptop for rollback.
 Base Arch Linux ARM is on `sda15` as of 2026-10-16, reached by
 `fastboot boot`, with sshd up and every other disk read-only. The
 file system was then grown to 453 GiB
