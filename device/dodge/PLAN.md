@@ -961,6 +961,19 @@ aquamarine's renderer retry loop (CPU, log size). The device package
 `omamobile-device-dodge` starts here with nothing enabled that can hang
 a boot.
 
+Status 2026-10-16, evening: Omarchy 4.0.4 is `/` on `sda15` and `sshd`
+accepts a key at `root@172.16.42.1`. The timezone screen was
+`systemd-firstboot`, waiting on the console because `machine-id` was
+still `uninitialized`, which is before `sysinit` and before `sshd`.
+That root is seeded now (timezone `Europe/Copenhagen`, keymap `us`,
+root password still locked). OpenSSH 10.6 with `UsePAM no` refuses
+that locked account, and `openssh` 10.6p1-2 does not ship the `sshd`
+privilege-separation user. The device package now ships the user and
+masks `systemd-firstboot`. Kernel modules stay in
+`6.16.0-gb3ee311dab85.held`. Hyprland is not up. `plymouth-start` stays
+masked.
+[dev-docs/2026-10-16-ssh-firstboot.md](dev-docs/2026-10-16-ssh-firstboot.md).
+
 Carried from the phase 3.5 review (2026-10-16):
 
 - The allowlist's STOP must block. When `userdata` becomes writable,
