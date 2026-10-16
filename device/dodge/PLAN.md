@@ -933,7 +933,9 @@ file system was then grown to 453 GiB
 ([dev-docs/2026-10-16-userdata-grow.md](dev-docs/2026-10-16-userdata-grow.md)).
 A second `fastboot boot` of the same image returned to that root
 after the OxygenOS setup wizard had appeared. `reboot bootloader`
-from Arch did not enter fastboot; the button path did
+from Arch did not enter fastboot; the button path did.
+`reboot-to bootloader` copied onto that root does enter fastboot
+([dev-docs/2026-10-16-reboot-to-from-arch.md](dev-docs/2026-10-16-reboot-to-from-arch.md)).
 ([dev-docs/2026-10-16-arch-second-boot.md](dev-docs/2026-10-16-arch-second-boot.md)).
 The signed Omarchy image is not built: `keys/` is absent
 ([dev-docs/2026-10-16-arch-userdata.md](dev-docs/2026-10-16-arch-userdata.md)).
