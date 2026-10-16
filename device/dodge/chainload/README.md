@@ -24,7 +24,7 @@ one `fastboot boot` and no flash. The why is in
 
 [stage2-dtb.py](stage2-dtb.py) makes stage 2's DTB: the dodge DTB with
 the phone's own memory map in `memory` (ABL fills that node, kexec does
-not), plus `ramoops`, `fb`, or `peripheral` if asked. `peripheral` sets
+not), plus `ramoops`, `splash`, `fb`, or `peripheral` if asked. `peripheral` sets
 the dwc3 node to `dr_mode = "peripheral"` and drops `usb-role-switch`.
 
 ```sh
@@ -109,6 +109,13 @@ handoff is superseded: its USB theories were tested against stock's DTB
    The panel shows a row of Tux logos and the 180×198 kernel log.
    Phase 3's pass line is met. A flash is phase 4 and waits for an
    explicit yes.
+
+5. Phase 3.5 in [../PLAN.md](../PLAN.md): reboot to fastboot from stage
+   2, ramoops on our DTB, the watchdog question, the button drill, UFS
+   read checks and the allowlist, all without a flash.
+
+`tools/dodge-chain boot` now saves `dmesg` to `logs/` and checks
+`soc@0` as soon as SSH answers.
 
 Working notes:
 
