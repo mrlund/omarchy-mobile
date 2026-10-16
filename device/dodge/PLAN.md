@@ -842,8 +842,11 @@ faults at 0.130 s, none after. UFS then enumerated under the same chain
 with `SCSI_UFS_QCOM=y` and `omamobile.ufs-probe`: six disks, 139
 partitions, every one read-only, nothing mounted
 ([dev-docs/2026-10-16-ufs-probe.md](dev-docs/2026-10-16-ufs-probe.md)).
-The panel still shows ABL's last frame. The framebuffer console in the
-pass line above is still open.
+`simpledrm` then bound that splash buffer: `/dev/fb0` is 1440×3168 and
+printk switched to a 180×198 colour console. The buffer holds text-like
+pixels. Whether the command-mode panel is scanning it has not been
+confirmed by eye
+([dev-docs/2026-10-16-framebuffer.md](dev-docs/2026-10-16-framebuffer.md)).
 
 The first initramfs already marks every disk read-only, with an empty
 allowlist. Cheetah's allowlist (the slot images and `userdata`) is copied

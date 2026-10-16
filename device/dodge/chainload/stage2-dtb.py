@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Make the stage 2 DTB for the dodge kexec chain-loader.
 
-Usage: stage2-dtb.py <built dodge.dtb> <live.dtb> <out.dtb> [ramoops] [fb] [peripheral] [hs] [rscpd]
+Usage: stage2-dtb.py <built dodge.dtb> <live.dtb> <out.dtb> [ramoops] [splash] [fb] [peripheral] [hs] [rscpd]
 
 ABL fills the `memory` node at boot and kexec does not, so its reg is
 taken from the phone's live FDT (/sys/firmware/fdt from a rooted
@@ -11,10 +11,13 @@ map. `memory@a0000000` keeps size 0.
 
 ramoops  add a ramoops node at OxygenOS's ramoops address and layout
          (dev-docs/2026-10-15-fastboot-boot-kexec-ramoops.md)
-fb       reserve ABL's splash region and add a simple-framebuffer there
-         (dev-docs/2026-10-15-fastboot-boot-kexec-fb.md)
-Both were booted on 2026-10-15, when stage 2 still ran on stock's DTB
-(kexec_file_load), so neither has really been tried.
+fb       add a simple-framebuffer over ABL's splash buffer. With splash,
+         that option's reservation is reused. Without it, fb reserves
+         the same region itself. The 2026-10-15 boot of this node ran
+         on stock's DTB, so it has not been tried on ours
+         (dev-docs/2026-10-15-fastboot-boot-kexec-fb.md).
+ramoops was booted on 2026-10-15, also on stock's DTB, so it has not
+really been tried either.
 peripheral  dr_mode = "peripheral" and no usb-role-switch on the dwc3
             node. The role otherwise comes from pmic_glink, which this
             initramfs does not load. Not needed: otg works on our DTB.
@@ -136,7 +139,10 @@ if "rscpd" in opts:
     ours = ours[:i + m.start()] + ours[i + m.end():]
 
 if "fb" in opts:
-    ours = insert_in(ours, "reserved-memory {", """
+    # splash already reserves this region and asks for the identity map.
+    # A second node at the same address is a broken DTB.
+    if "splash" not in opts:
+        ours = insert_in(ours, "reserved-memory {", """
 		splash@fc800000 {
 			reg = <0x00 0xfc800000 0x00 0x2b00000>;
 			no-map;
