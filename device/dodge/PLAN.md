@@ -904,6 +904,9 @@ Gates:
    (userdata)` and every disk stays read-only, then phase 4 makes that
    one partition writable. Every other partition stays read-only for
    good, `modemst1`, `modemst2`, `fsg`, `fsc` and `persist` among them.
+   The init logs that line and never calls `setrw`. Written
+   2026-10-16, not booted yet: the phone was left in fastboot while
+   the human was away.
 
 Alongside phase 4, not blocking it:
 

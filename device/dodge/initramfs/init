@@ -5,9 +5,9 @@
 #
 # Taken from device/cheetah/initramfs/init with the gs201 parts removed:
 # no devmem, no DECON trigger write, no DPP/watchdog register reads.
-# The cheetah storage allowlist and the Arch switch_root are not here.
-# Those arrive when a dodge boot is about to mount UFS (PLAN.md phase 3).
-# This ramdisk keeps every disk read-only and stays in the ramdisk.
+# The Arch switch_root is not here. This ramdisk keeps every disk
+# read-only. It logs which single partition it would later allow
+# (PLAN.md phase 3.5 gate 3) and does not make that partition writable.
 
 export PATH=/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -18,10 +18,10 @@ mkdir -p /dev/pts && mount -t devpts devpts /dev/pts
 mount -t configfs configfs /sys/kernel/config
 mount -t tmpfs tmpfs /run
 
-# Every SCSI disk read-only, before anything else. No allowlist: this
-# image does not mount UFS, and the GPT names are not confirmed yet.
-# A built-in host enumerates disks before this runs. Nothing mounts
-# them. This pass, and the loop below, mark every one read-only.
+# Every SCSI disk read-only, before anything else. A built-in host
+# enumerates disks before this runs. Nothing mounts them. This pass,
+# and the loop below, mark every one read-only, userdata included.
+# The allowlist further down only logs. It never calls setrw.
 ufs_ro_log() { echo "omamobile: ufs-ro: $*" > /dev/kmsg; }
 mkdir -p /run/ufs-ro
 ufs_partname() { sed -n 's/^PARTNAME=//p' "$1/uevent" 2>/dev/null; }
@@ -134,6 +134,48 @@ mkdir -p /etc/dropbear
 # -s: key login only. The image's authorized_keys is the developer's.
 dropbear -R -E -s -p 22 2>/dev/null && say "ssh: root@172.16.42.1"
 ( while true; do setsid getty -n -l /bin/sh 115200 ttyGS0 vt100; sleep 1; done ) &
+
+. /lib/omamobile-ufs.sh
+if ! command -v ufs_userdata_decision >/dev/null 2>&1; then
+  echo "omamobile: STOP userdata allowlist library missing" > /dev/kmsg
+fi
+
+# Log the one userdata partition. Do not make it writable. A count
+# other than 1 is a stop. Wait until the partition list settles.
+(
+  last=-1
+  i=0
+  n=0
+  while [ "$i" -lt 30 ]; do
+    n=$(ls -d /sys/block/sd*/sd* 2>/dev/null | wc -l)
+    [ "$n" -gt 0 ] && [ "$n" = "$last" ] && break
+    last=$n
+    i=$((i + 1))
+    sleep 1
+  done
+  ufs_ro_pass
+  decision=$(ufs_userdata_decision)
+  case $decision in
+    allow\ *)
+      dev=${decision#allow }
+      ufs_ro_log "would allow $dev (userdata)"
+      ;;
+    *)
+      ufs_ro_log "STOP userdata allowlist: $decision"
+      ;;
+  esac
+  bad=0
+  for s in /sys/block/sd* /sys/block/sd*/sd*; do
+    [ -r "$s/ro" ] || continue
+    read -r ro < "$s/ro"
+    [ "$ro" = 1 ] && continue
+    bad=$((bad + 1))
+    ufs_ro_log "STOP /dev/${s##*/} is not read-only"
+  done
+  if [ "$bad" -eq 0 ]; then
+    ufs_ro_log "allowlist check: every disk read-only"
+  fi
+) &
 
 # Read-only disk list when the cmdline has omamobile.ufs-probe.
 grep -q omamobile.ufs-probe /proc/cmdline && (
