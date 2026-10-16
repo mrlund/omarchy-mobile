@@ -908,8 +908,8 @@ Gates:
    Met 2026-10-16 on kernel #8: `would allow sda15 (userdata)` at
    1.66 s, 145 block devices all `ro=1`, nothing mounted
    ([dev-docs/2026-10-16-userdata-allowlist.md](dev-docs/2026-10-16-userdata-allowlist.md)).
-   The three gates are met. Formatting `userdata` is phase 4 and has
-   not been started.
+   The three gates are met. `userdata` was formatted later the same
+   day; see the Arch boot.
 
 Alongside phase 4, not blocking it:
 
@@ -929,7 +929,9 @@ Phase 4 can go straight to Arch on `userdata` under `fastboot boot`
 the OTA's stock `boot.img` and its sha256 on the laptop for rollback.
 Base Arch Linux ARM is on `sda15` as of 2026-10-16, reached by
 `fastboot boot`, with sshd up and every other disk read-only. The
-file system is 2880 MiB and was not grown. The signed Omarchy image
+file system was then grown to 453 GiB
+([dev-docs/2026-10-16-userdata-grow.md](dev-docs/2026-10-16-userdata-grow.md)).
+The signed Omarchy image
 is not built: `keys/` is absent
 ([dev-docs/2026-10-16-arch-userdata.md](dev-docs/2026-10-16-arch-userdata.md)).
 OxygenOS can probably be brought back with a factory reset of
