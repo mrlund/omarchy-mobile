@@ -28,9 +28,9 @@ not), plus `ramoops`, `fb`, or `peripheral` if asked. `peripheral` sets
 the dwc3 node to `dr_mode = "peripheral"` and drops `usb-role-switch`.
 
 ```sh
+tools/dodge-try chain                   # pack stage 2, then dodge-chain boot
+# or, with the phone already in fastboot:
 tools/dodge-try pack                    # stage 2: Image, DTB, initramfs in out-dodge
-tools/dodge-chain pack                  # out-dodge-chain/images/boot-chain.img
-# phone in fastboot, human's go:
 tools/dodge-chain boot                  # pack, fastboot boot, timeline
 ```
 
@@ -73,32 +73,45 @@ init that encodes up to five yes/no tests in its hold time (adb near
 
 ## Next steps (2026-10-16)
 
-SSH works. The 2026-10-15 handoff is superseded: its USB theories were
-tested against stock's DTB (see the file-load dev-doc).
+SSH works, including through `tools/dodge-try chain`. The 2026-10-15
+handoff is superseded: its USB theories were tested against stock's DTB
+(see the file-load dev-doc).
 
-1. The splash reservation is in
-   [../dev-docs/2026-10-16-fastboot-boot-kexec-splash.md](../dev-docs/2026-10-16-fastboot-boot-kexec-splash.md).
-   SID 0x800 is `mdss` (`iommus = <&apps_smmu 0x800 0x2>`). Reserving
-   `0xfc800000` and requesting the identity map stopped the storm (4
-   faults at 0.130 s, none after). The kernel still says it could not
-   establish that direct mapping. Next change: why
-   `iommu_create_device_direct_mappings()` failed. SSH on that boot is
-   still up.
+1. Splash reservation: done
+   ([../dev-docs/2026-10-16-fastboot-boot-kexec-splash.md](../dev-docs/2026-10-16-fastboot-boot-kexec-splash.md),
+   confirmed again by
+   [../dev-docs/2026-10-16-dodge-try-chain.md](../dev-docs/2026-10-16-dodge-try-chain.md)).
+   SID 0x800 is `mdss`. Reserving `0xfc800000` and requesting the
+   identity map stopped the storm. The "could not establish direct
+   mapping" line is the attempt before the domain is attached. After
+   attach, group 5's reserved region is `0xfc800000-0xff2fffff direct`.
+   The faults in the gap before that retry were 4 on the first splash
+   boot and 10 on the chain rebuild, all at 0.130 s, and then none.
 
-Working notes for these steps:
+2. `tools/dodge-try chain` is the one command
+   ([../dev-docs/2026-10-16-dodge-try-chain.md](../dev-docs/2026-10-16-dodge-try-chain.md)).
+   It packs stage 2, returns a live SSH or OxygenOS session to fastboot,
+   and boots the chain. Defaults: `DTB_OPTS=splash`,
+   `CHAIN_OUT=~/android/mainline/out-dodge-rdinit`. SSH at 27 s,
+   `soc@0` present. Do not pass `DTB_OPTS=hs`: that option drops the
+   dwc3 `iommus` entry.
 
-- Use `CHAIN_OUT=~/android/mainline/out-dodge-rdinit`. That build is
-  current. The default `out-dodge-chain` builds a whole kernel first.
-- Order: `tools/dodge-try pack` (stage 2), then `tools/dodge-chain boot`.
-  Before trusting a DTB change, confirm stage 2 runs it:
+3. Next: UFS, still read-only (PLAN.md phase 3). Build
+   `SCSI_UFS_QCOM` and `PHY_QCOM_QMP_UFS` in. Boot with
+   `omamobile.ufs-probe` on the stage 2 cmdline. The init already runs
+   `blockdev --setro` on every disk, and the probe only lists
+   `PARTNAME`. It does not mount.
+
+Working notes:
+
+- `tools/dodge-try chain` uses `CHAIN_OUT=~/android/mainline/out-dodge-rdinit`.
+  A fresh `out-dodge-chain` builds a whole kernel first.
+- Before trusting a DTB change, confirm stage 2 runs it:
   `ssh root@172.16.42.1 'ls /sys/firmware/devicetree/base'` must show
   `soc@0`.
 - Back to OxygenOS from an SSH session:
   `ssh root@172.16.42.1 'echo b > /proc/sysrq-trigger'`. OxygenOS
-  answers on adb about 15 s later. Then `adb reboot bootloader` for the
-  next try.
-- Save `dmesg` into `logs/` right after SSH comes up. The fault storm
-  can push the boot lines out of the 128 KiB log buffer.
-2. Let `tools/dodge-try` build and boot the chain image, so phase 3's
-   loop is one command, and add `rscpd`/`hs` to its docs only if needed.
-3. Phase 3's storage step: UFS with the read-only guard (PLAN.md).
+  answers on adb about 15 s later. `tools/dodge-try chain` does that
+  reboot itself when a session is already up.
+- Save `dmesg` into `logs/` right after SSH comes up. A fault storm can
+  push the boot lines out of the log buffer.
