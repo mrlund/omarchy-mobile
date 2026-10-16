@@ -928,7 +928,8 @@ Phase 4 can go straight to Arch on `userdata` under `fastboot boot`
 (4a). Flashing `boot_a` (4b) was tried once on 2026-10-16. The write
 returned OKAY and the reboot came back to fastboot in 5 s, so stock
 `boot_a` was restored. The image had no AVB footer; `vbmeta` chains
-`boot` to one. A footered image is built and has not been flashed. `fastboot boot` of the same image still
+`boot` to one. The footered image, flashed to `boot_a` the same day,
+reboots into Arch. `fastboot boot` of the same image still
 reaches Arch
 ([dev-docs/2026-10-16-flash-boot-a.md](dev-docs/2026-10-16-flash-boot-a.md)).
 The OTA `boot.img` and its sha256 stay on the laptop for rollback.
