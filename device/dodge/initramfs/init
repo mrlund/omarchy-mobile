@@ -195,6 +195,7 @@ ufs_open_userdata() {
     return 1
   done
   ufs_ro_log "allow $dev (userdata) writable; /dev/$disk node removed"
+  : > /run/omamobile-userdata-ready
   return 0
 }
 (
@@ -210,7 +211,10 @@ ufs_open_userdata() {
   done
   ufs_ro_pass
   if grep -q 'omamobile.userdata-rw' /proc/cmdline; then
-    ufs_open_userdata || ufs_ro_log "allowlist: userdata stayed read-only"
+    ufs_open_userdata || {
+      ufs_ro_log "allowlist: userdata stayed read-only"
+      : > /run/omamobile-userdata-stay
+    }
   else
     decision=$(ufs_userdata_decision)
     case $decision in
@@ -277,6 +281,46 @@ say "ready"
   echo 1 > /proc/sys/kernel/sysrq
   echo c > /proc/sysrq-trigger
 ) &
+
+# Hand over to an ext4 Arch root on the one opened userdata partition.
+# omamobile.initramfs stays here. A missing systemd or a failed mount
+# stays here too. switch_root only works as PID 1.
+boot_arch() {
+  local dev
+  [ -r /run/omamobile-userdata-rw ] || return 0
+  read -r dev < /run/omamobile-userdata-rw
+  dev=/dev/$dev
+  [ -b "$dev" ] || { say "arch: $dev is missing"; return 0; }
+  mkdir -p /newroot
+  mount -t ext4 -o rw,relatime "$dev" /newroot || { say "arch: cannot mount $dev"; return 0; }
+  if [ ! -x /newroot/usr/lib/systemd/systemd ]; then
+    say "arch: no systemd on $dev"
+    umount /newroot
+    return 0
+  fi
+  say "arch: switching to Arch Linux on $dev"
+  kill -9 -1 2>/dev/null
+  sleep 1
+  for m in /dev /proc /sys /run; do
+    mkdir -p "/newroot$m" && mount --move "$m" "/newroot$m"
+  done
+  exec switch_root /newroot /usr/lib/systemd/systemd
+}
+
+if grep -q 'omamobile.userdata-rw' /proc/cmdline &&
+   ! grep -q 'omamobile.initramfs' /proc/cmdline; then
+  i=0
+  while [ "$i" -lt 60 ]; do
+    if [ -e /run/omamobile-userdata-ready ] &&
+       grep -qx configured /sys/class/udc/*/state 2>/dev/null; then
+      break
+    fi
+    [ -e /run/omamobile-userdata-stay ] && break
+    i=$((i + 1))
+    sleep 1
+  done
+  [ -e /run/omamobile-userdata-ready ] && boot_arch
+fi
 
 # PID 1 must never exit. setsid -c makes tty1 its controlling terminal.
 while true; do

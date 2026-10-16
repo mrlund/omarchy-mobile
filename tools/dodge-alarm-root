@@ -1,0 +1,87 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# A base Arch Linux ARM root for the first dodge switch_root.
+# This is not the Omarchy image: tools/build-rootfs needs the signing
+# key in keys/, which is not on this machine. The image is ext4,
+# label omamobile-root, with sshd on usb0 at 172.16.42.1 and no
+# password login. It is written to out/dodge-alarm-root.img (gitignored).
+set -euo pipefail
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
+ROOT=$PWD
+# shellcheck disable=SC1091
+source tools/lib/alarm.sh
+
+out=$ROOT/out/dodge-alarm-root.img
+pubs=("$HOME"/.ssh/*.pub)
+[[ -f ${pubs[0]} ]] || alarm_die "no $HOME/.ssh/*.pub"
+alarm_fetch
+base=$(alarm_base_image)
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+cat "${pubs[@]}" > "$work/authorized_keys"
+cat > "$work/setup.sh" << 'EOF'
+set -euo pipefail
+pacman-key --init
+pacman-key --populate archlinuxarm
+# Landlock is not available under qemu-user. Same switch as tools/lib/alarm-setup.
+grep -q '^DisableSandbox' /etc/pacman.conf ||
+  sed -i '/^\[options\]/a DisableSandbox' /etc/pacman.conf
+pacman -Sy --noconfirm --needed openssh e2fsprogs
+userdel -r alarm >/dev/null 2>&1 || true
+passwd -l root
+mkdir -p /root/.ssh
+install -m 600 /setup/authorized_keys /root/.ssh/authorized_keys
+chmod 700 /root/.ssh
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/omamobile.conf << 'SSHD'
+PermitRootLogin prohibit-password
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+SSHD
+mkdir -p /etc/systemd/network
+cat > /etc/systemd/network/20-usb-gadget.network << 'NET'
+[Match]
+Name=usb0
+
+[Network]
+Address=172.16.42.1/24
+LinkLocalAddressing=no
+DHCP=no
+NET
+echo omamobile > /etc/hostname
+rm -f /etc/ssh/ssh_host_*
+systemctl enable sshd.service systemd-networkd.service
+systemctl mask systemd-networkd-wait-online.service
+# Pack here. The tree is root-owned; the laptop user cannot read it.
+mkdir -p /tmproot/dev /tmproot/proc /tmproot/sys /tmproot/run /tmproot/tmp
+tar -C / --one-file-system \
+  --exclude=./proc --exclude=./sys --exclude=./dev --exclude=./run \
+  --exclude=./tmp --exclude=./setup --exclude=./out --exclude=./tmproot \
+  --exclude=./var/cache/pacman/pkg \
+  -cf - . | tar -C /tmproot -xf -
+chmod 1777 /tmproot/tmp
+used=$(du -sx --block-size=1M /tmproot | cut -f1)
+size=$(( (used * 12 / 10 + 256 + 63) / 64 * 64 ))
+rm -f /out/dodge-alarm-root.img
+truncate -s "${size}M" /out/dodge-alarm-root.img
+mkfs.ext4 -q -L omamobile-root -m 1 -d /tmproot /out/dodge-alarm-root.img
+e2fsck -fn /out/dodge-alarm-root.img >/dev/null
+chown "$OUT_UID:$OUT_GID" /out/dodge-alarm-root.img
+echo "IMAGE_USED=$used IMAGE_SIZE=$size"
+EOF
+chmod 755 "$work/setup.sh"
+alarm_say "Installing sshd into a base Arch root"
+mkdir -p "$ROOT/out"
+name=dodge-alarm-root-$$
+docker rm -f "$name" >/dev/null 2>&1 || true
+docker run --platform linux/arm64 --name "$name" \
+  -v "$work:/setup:ro" \
+  -v "$ALARM_CACHE/pkg:/var/cache/pacman/pkg" \
+  -v "$ROOT/out:/out" \
+  -e OUT_UID="$(id -u)" -e OUT_GID="$(id -g)" \
+  "$base" bash /setup/setup.sh
+docker rm "$name" >/dev/null
+[[ -f $out ]] || alarm_die "no $out"
+alarm_say "Wrote $out"
+ls -lh "$out"
+dumpe2fs -h "$out" | sed -n '1,12p'

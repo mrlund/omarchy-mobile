@@ -927,6 +927,11 @@ Alongside phase 4, not blocking it:
 Phase 4 can go straight to Arch on `userdata` under `fastboot boot`
 (4a). Flashing `boot_a` (4b) waits until 4a boots Arch reliably; keep
 the OTA's stock `boot.img` and its sha256 on the laptop for rollback.
+Base Arch Linux ARM is on `sda15` as of 2026-10-16, reached by
+`fastboot boot`, with sshd up and every other disk read-only. The
+file system is 2880 MiB and was not grown. The signed Omarchy image
+is not built: `keys/` is absent
+([dev-docs/2026-10-16-arch-userdata.md](dev-docs/2026-10-16-arch-userdata.md)).
 OxygenOS can probably be brought back with a factory reset of
 `userdata`; that is not verified and not needed.
 
