@@ -40,9 +40,26 @@ of the partition. Stock `boot.img` has that footer (metadata at offset
 not look like a vbmeta image. Invalid metadata is fatal even when the
 bootloader is unlocked. `fastboot boot` never reads that footer.
 
-`tools/dodge-chain footer` now writes
+`tools/dodge-chain footer` writes
 `out-dodge-chain/images/boot-chain-avb.img`: the same bytes, then a
 SHA256_RSA4096 hash footer, padded to 100663296. Metadata is at offset
 58535936. The signing key is outside the repo
 (`~/android/reference/dodge-cph2653/avb-boot.pem`) and does not match
-the key `vbmeta` chains to. That image has not been flashed.
+the key `vbmeta` chains to.
+
+## Second try, with the footer
+
+`boot-chain-avb.img`, sha256
+`5053f4d543a512f5b496a7c1fae00bc426ebe448afe76dbb812b035ce4ee6f98`.
+`fastboot flash boot_a` at 14:48:51, then `fastboot reboot`. No other
+partition. Slot stayed `a`.
+
+Eight seconds later the phone was not in fastboot. SSH then answered
+as Alpine, and the next connection was Arch Linux ARM. `/` is
+`/dev/sda15` ext4, 452.7 GiB. No failed units. `/dev/sda` is absent.
+Every other partition is read-only. `soc@0` is present. The log has
+`switching to Arch Linux on /dev/sda15`. `reboot-to` is still on the
+root.
+
+`boot_a` is this image now. A normal reboot is no longer the stock
+boot image. The OTA `boot.img` remains the rollback.
