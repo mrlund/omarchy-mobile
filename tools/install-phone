@@ -49,7 +49,7 @@ shopt -s nullglob
 export LC_ALL=C
 
 FASTBOOT=${FASTBOOT:-fastboot}
-SIGNING_KEY=6C84FE3D240709E70E27CC94B301F5EA62B249FE  # Omarchy Mobile package and release key
+SIGNING_KEY=25BDA218F840C6599ED2C9DEB2C953852499B229  # this fork's package and release key
 here=$(cd -- "$(dirname -- "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
 
 say() { printf '\e[1m==> %s\e[0m\n' "$*"; }

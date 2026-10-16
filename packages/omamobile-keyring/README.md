@@ -6,4 +6,6 @@ database, in pacman's keyring format. Installing it runs
 (`omamobile-trusted`), the same way `archlinux-keyring` works.
 
 The private key never leaves the build machine (`keys/`, ignored by git).
-Fingerprint: `6C84FE3D240709E70E27CC94B301F5EA62B249FE`.
+This fork signs with its own key. Replacing `omamobile.gpg` and
+`omamobile-trusted` is the whole rotation; nothing else is pinned to it.
+Fingerprint: `25BDA218F840C6599ED2C9DEB2C953852499B229`.
