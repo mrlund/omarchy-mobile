@@ -11,11 +11,11 @@ map. `memory@a0000000` keeps size 0.
 
 ramoops  add a ramoops node at OxygenOS's ramoops address and layout
          (dev-docs/2026-10-15-fastboot-boot-kexec-ramoops.md)
-fb       add a simple-framebuffer over ABL's splash buffer. With splash,
-         that option's reservation is reused. Without it, fb reserves
-         the same region itself. The 2026-10-15 boot of this node ran
-         on stock's DTB, so it has not been tried on ours
-         (dev-docs/2026-10-15-fastboot-boot-kexec-fb.md).
+splash   reserve ABL's splash buffer with an identity map on mdss
+         (dev-docs/2026-10-16-fastboot-boot-kexec-splash.md)
+fb       add a simple-framebuffer over ABL's splash buffer, reusing
+         splash's reservation if set. Works on our DTB with splash
+         (dev-docs/2026-10-16-framebuffer.md).
 ramoops was booted on 2026-10-15, also on stock's DTB, so it has not
 really been tried either.
 peripheral  dr_mode = "peripheral" and no usb-role-switch on the dwc3

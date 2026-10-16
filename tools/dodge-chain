@@ -25,7 +25,7 @@ CHAIN_OUT="${CHAIN_OUT:-$HOME/android/mainline/out-dodge-chain}"
 JOBS="${JOBS:-$(nproc)}"
 # The phone's live FDT, from the rooted capture. Never committed.
 LIVE_DTB="${LIVE_DTB:-$HOME/android/reference/dodge-cph2653/rooted-2026-10-15-on/live.dtb}"
-# Space-separated stage2-dtb.py options: ramoops, fb, peripheral, hs, rscpd.
+# Space-separated stage2-dtb.py options: ramoops, splash, fb, peripheral, hs, rscpd.
 DTB_OPTS="${DTB_OPTS:-}"
 STAGE2_IMAGE="${STAGE2_IMAGE:-$STAGE2_OUT/arch/arm64/boot/Image}"
 STAGE2_DTB_IN="${STAGE2_DTB_IN:-$STAGE2_OUT/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dtb}"
@@ -159,6 +159,22 @@ usb_ids() {
   done | grep -E '^(18d1|22d9|1d6b:0104)' | tr '\n' ' ' || true
 }
 
+# Save dmesg before a fault storm can push the boot out of the buffer,
+# then check that stage 2 runs our DTB (stock's has no soc@0).
+after_ssh() {
+  local log="$ROOT/logs/dodge-chain-$(date +%Y%m%d-%H%M%S).kmsg"
+  local ssh=(ssh -o ConnectTimeout=5 -o BatchMode=yes -o StrictHostKeyChecking=no
+    -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@172.16.42.1)
+  mkdir -p "$ROOT/logs"
+  "${ssh[@]}" dmesg > "$log" || true
+  say "dmesg in $log"
+  if "${ssh[@]}" test -d /sys/firmware/devicetree/base/soc@0; then
+    say "soc@0 present: stage 2 runs our DTB"
+  else
+    printf '\e[31mwarning:\e[0m no soc@0: stage 2 runs the stock DTB\n' >&2
+  fi
+}
+
 cmd_boot() {
   local n
   n=$(fastboot devices 2>/dev/null | awk 'NF{c++} END{print c+0}')
@@ -179,6 +195,7 @@ cmd_boot() {
     if ((ip > 0)) && ssh -o ConnectTimeout=2 -o BatchMode=yes -o StrictHostKeyChecking=no \
         -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR root@172.16.42.1 true 2>/dev/null; then
       say "t=$((SECONDS - t0))s SSH is up: ssh root@172.16.42.1"
+      after_ssh
       return 0
     fi
     ((a == 1)) && { say "t=$((SECONDS - t0))s OxygenOS is back on adb"; return 0; }
