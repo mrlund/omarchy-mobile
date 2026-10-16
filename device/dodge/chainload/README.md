@@ -101,9 +101,15 @@ handoff is superseded: its USB theories were tested against stock's DTB
    `SCSI_UFS_QCOM` and `PHY_QCOM_QMP_UFS` are built in. With
    `omamobile.ufs-probe` on the stage 2 cmdline the init listed six
    disks and 139 partitions, set every one read-only, and mounted
-   nothing. `modemst1`, `modemst2`, `fsg` and `fsc` are on `sdf`. The
-   framebuffer console is the remaining phase 3 pass line. A flash is
-   phase 4 and waits for an explicit yes.
+   nothing. `modemst1`, `modemst2`, `fsg` and `fsc` are on `sdf`.
+
+4. Framebuffer console, kernel side: done
+   ([../dev-docs/2026-10-16-framebuffer.md](../dev-docs/2026-10-16-framebuffer.md)).
+   `DTB_OPTS='splash fb'` binds `simpledrm` on the splash buffer and
+   printk switches to a 180×198 console. The panel is command mode, so
+   the glass may still be showing ABL's last frame. That look is the
+   remaining phase 3 fact. A flash is phase 4 and waits for an explicit
+   yes.
 
 Working notes:
 
