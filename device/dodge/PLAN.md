@@ -935,7 +935,9 @@ Pass: the three gates recorded as dev-docs.
 ### Phase 4 — Persistent Arch
 
 Pass: one flash of the boot images, Arch (then Omarchy) on `userdata`,
-Hyprland up. Software rendering is enough. The device package
+Hyprland up. Software rendering is enough: Omarchy's Hyprland 0.56.2-4
+has a fix for `simpledrm` plus llvmpipe. Watch the first start for
+aquamarine's renderer retry loop (CPU, log size). The device package
 `omamobile-device-dodge` starts here with nothing enabled that can hang
 a boot.
 
@@ -963,11 +965,11 @@ one shortens the next debug:
 
 | # | Stage | Done when |
 | --- | --- | --- |
-| 1 | Display | The panel's own mode, brightness, 120 Hz, DPMS. Pagani's DSC driver is the shape, not the timings. |
-| 2 | Touch and buttons | `evtest` sees them |
+| 1 | Display | The panel's own mode, brightness, 120 Hz, DPMS. The AA569 driver is in our tree; fix the panel's VCI rail to 3.0 V first ([desk check](dev-docs/2026-10-16-desk-check-display-touch-gpu.md)). |
+| 2 | Touch and buttons | `evtest` sees them. The S3910 driver is in our tree; its Kconfig and Makefile need fixing first. |
 | 3 | Battery and charging | Percent and temperature move. The public report says the gauge sticks at 0%. |
 | 4 | USB-C | A replug comes back |
-| 5 | GPU | Hyprland on Adreno 830. Software rendering stays the fallback. |
+| 5 | GPU | Hyprland on Adreno 830. Waits on the upstream A830 series and Mesa main. Software rendering stays the fallback. |
 | 6 | Wi-Fi and Bluetooth | The chip the DT names. ath12k is the likely driver. Firmware from the owner's image, never committed. |
 | 7 | Haptics, torch | A buzz, a light |
 | 8 | Audio | Speakers under a volume ceiling |
