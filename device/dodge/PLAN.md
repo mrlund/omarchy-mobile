@@ -892,6 +892,12 @@ Gates:
    2026-10-15; write down what then reaches fastboot. Pass: the human
    gets to fastboot without OxygenOS. This is the backstop for every
    later hang, so it is not skipped.
+   Met 2026-10-16 from a real power-off: hold Volume Down before the
+   phone can start, then hold Power as well. Fastboot in about 12 s,
+   no OxygenOS. Pressing the keys only after the screen was black let
+   the cable boot OxygenOS. A hang still powers off with both volumes
+   and Power, then this combo
+   ([dev-docs/2026-10-16-fastboot-buttons.md](dev-docs/2026-10-16-fastboot-buttons.md)).
 3. **The `userdata` allowlist.** The init resolves `userdata` by
    `PARTNAME` and stops if that name matches anything other than exactly
    one partition. One boot where it only logs `would allow sda15

@@ -113,7 +113,10 @@ handoff is superseded: its USB theories were tested against stock's DTB
 5. Phase 3.5 in [../PLAN.md](../PLAN.md). Gate 1 is met:
    `reboot-to bootloader` from stage 2 lands in fastboot
    ([../dev-docs/2026-10-16-reboot-bootloader.md](../dev-docs/2026-10-16-reboot-bootloader.md)).
-   Gate 2 is the button drill and needs the human. Gate 3 is the
+   Gate 2 is met: Volume Down held through power-off, then Power,
+   reaches fastboot
+   ([../dev-docs/2026-10-16-fastboot-buttons.md](../dev-docs/2026-10-16-fastboot-buttons.md)).
+   Gate 3 is the
    userdata allowlist, still read-only. ramoops, the watchdog and UFS
    load checks run alongside phase 4. Nothing is flashed.
 
