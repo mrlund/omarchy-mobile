@@ -931,8 +931,7 @@ Base Arch Linux ARM is on `sda15` as of 2026-10-16, reached by
 `fastboot boot`, with sshd up and every other disk read-only. The
 file system was then grown to 453 GiB
 ([dev-docs/2026-10-16-userdata-grow.md](dev-docs/2026-10-16-userdata-grow.md)).
-The signed Omarchy image
-is not built: `keys/` is absent
+The signed Omarchy image is not built: `keys/` is absent
 ([dev-docs/2026-10-16-arch-userdata.md](dev-docs/2026-10-16-arch-userdata.md)).
 OxygenOS can probably be brought back with a factory reset of
 `userdata`; that is not verified and not needed.
