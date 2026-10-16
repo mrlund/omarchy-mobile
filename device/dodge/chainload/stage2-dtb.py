@@ -101,6 +101,27 @@ if "hs" in opts:
         raise SystemExit("expected the dwc3 iommus entry")
     ours = ours.replace('\n\t\t\t\tiommus = <0x23 0x40 0x00>;\n', '\n', 1)
 
+if "splash" in opts:
+    # SID 0x800 is mdss. ABL leaves it scanning 0xfc800000. The identity
+    # map is what arm-smmu installs from iommu-addresses.
+    if "qcom,sm8750-mdss" not in ours:
+        raise SystemExit("no mdss node")
+    ours = ours.replace(
+        "display-subsystem@ae00000 {",
+        "mdss: display-subsystem@ae00000 {",
+        1)
+    ours = ours.replace(
+        'compatible = "qcom,sm8750-mdss";',
+        'compatible = "qcom,sm8750-mdss";\n\t\t\tmemory-region = <&cont_splash_mem>;',
+        1)
+    ours = insert_in(ours, "reserved-memory {", """
+		cont_splash_mem: splash@fc800000 {
+			reg = <0x00 0xfc800000 0x00 0x2b00000>;
+			no-map;
+			iommu-addresses = <&mdss 0x00 0xfc800000 0x00 0x2b00000>;
+		};
+""")
+
 # The apps RSC's only supplier is PSCI's power-domain-system genpd. After
 # kexec the PSCI cpuidle domain does not bind, so fw_devlink holds the RSC
 # (and RPMh clocks, GCC, regulators, everything after) unprobed. Without

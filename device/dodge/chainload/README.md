@@ -76,13 +76,14 @@ init that encodes up to five yes/no tests in its hold time (adb near
 SSH works. The 2026-10-15 handoff is superseded: its USB theories were
 tested against stock's DTB (see the file-load dev-doc).
 
-1. Stop the SMMU fault storm from the splash buffer (SID 0x800, IOVA in
-   `0xfc800000`+0x2b00000): reserve the region and give the display
-   stream an identity mapping, as other mainline Qualcomm phones do for
-   `cont_splash`, or turn the MDP off before the SMMU takes over. The
-   faults name a context bank (`cb=5`), so the SID is already attached
-   to a domain, most likely through the `mdss` node's `iommus`; check
-   which device owns SID 0x800 in the DTB before choosing.
+1. The splash reservation is in
+   [../dev-docs/2026-10-16-fastboot-boot-kexec-splash.md](../dev-docs/2026-10-16-fastboot-boot-kexec-splash.md).
+   SID 0x800 is `mdss` (`iommus = <&apps_smmu 0x800 0x2>`). Reserving
+   `0xfc800000` and requesting the identity map stopped the storm (4
+   faults at 0.130 s, none after). The kernel still says it could not
+   establish that direct mapping. Next change: why
+   `iommu_create_device_direct_mappings()` failed. SSH on that boot is
+   still up.
 
 Working notes for these steps:
 
