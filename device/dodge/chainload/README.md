@@ -119,7 +119,10 @@ handoff is superseded: its USB theories were tested against stock's DTB
    Gate 3 is met: `would allow sda15 (userdata)`, every disk
    read-only
    ([../dev-docs/2026-10-16-userdata-allowlist.md](../dev-docs/2026-10-16-userdata-allowlist.md)).
-   Phase 3.5 is met. Formatting `userdata` is phase 4. ramoops, the
+   Phase 3.5 is met. With `omamobile.userdata-rw`, only `sda15` is
+   writable and nothing is mounted
+   ([../dev-docs/2026-10-16-userdata-rw.md](../dev-docs/2026-10-16-userdata-rw.md)).
+   Formatting `userdata` has not been started. ramoops, the
    watchdog and UFS
    load checks run alongside phase 4. Nothing is flashed.
 

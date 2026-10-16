@@ -942,8 +942,13 @@ a boot.
 Carried from the phase 3.5 review (2026-10-16):
 
 - The allowlist's STOP must block. When `userdata` becomes writable,
-  any count other than one refuses `setrw` and the mount. Today a STOP
-  only logs, which is safe only because nothing is made writable.
+  any count other than one refuses `setrw` and the mount. Met for
+  `setrw` on 2026-10-16: `omamobile.userdata-rw` opened only `sda15`,
+  removed `/dev/sda`, and left every other disk read-only. Nothing
+  was mounted or formatted
+  ([dev-docs/2026-10-16-userdata-rw.md](dev-docs/2026-10-16-userdata-rw.md)).
+  A bad count was not booted; the laptop test covers zero and two.
+  The mount is still refused because this init does not mount.
 - A hang is two steps: Volume Up + Volume Down + Power to power off,
   then keep Volume Down held and add Power. Releasing everything in
   between lets the cable boot `boot_a`. Not yet tried from a real hang.
