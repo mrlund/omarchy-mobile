@@ -452,9 +452,17 @@ Two fallbacks, still over the same cable, still with no extra hardware:
    not a readable log. Stock names the working controller
    `a600000.dwc3` and the glue `a600000.ssusb`
    ([dev-docs/2026-10-15-no-unattended-boot.md](dev-docs/2026-10-15-no-unattended-boot.md)).
+   On 2026-10-16 all of that turned out to be stage 2 on stock's DTB:
+   kexec-tools 2.0.32 tried `kexec_file_load` first, which ignores
+   `--dtb` on arm64. The probe hangs were a cpio without `/proc`, and
+   `CONFIG_SM_TCSRCC_8750` (the PHYs' reference clock) was a module
+   ([dev-docs/2026-10-16-fastboot-boot-kexec-file-load.md](dev-docs/2026-10-16-fastboot-boot-kexec-file-load.md)).
+   With `kexec -c` and that clock built in, the unchanged dodge DTB gave
+   a gadget and SSH 27 s after `Booting OKAY`
+   ([dev-docs/2026-10-16-fastboot-boot-kexec-ssh-up.md](dev-docs/2026-10-16-fastboot-boot-kexec-ssh-up.md)).
    The chain-loader is `tools/dodge-chain` and
-   [chainload/](chainload/README.md), which also holds the timing bands
-   and the next steps.
+   [chainload/](chainload/README.md), which also holds the timing bands,
+   the probe init and the next steps.
 
    If ABL refuses a v2 image under `fastboot boot`, the next step is
    flashing `vendor_boot` with our DTB (on the active slot, with the
@@ -800,6 +808,11 @@ That init kexec'd our kernel with our DTB and a stage 2 init holding
 With the dodge-try initramfs as stage 2, no USB came up; the timing
 fits no UDC registering
 ([dev-docs/2026-10-15-fastboot-boot-kexec-ssh.md](dev-docs/2026-10-15-fastboot-boot-kexec-ssh.md)).
+Those stage 2 boots ran on stock's DTB (`kexec_file_load`). With
+`kexec -c` and the TCSR clock built in, phase 2's pass was met on
+2026-10-16: our kernel, our DTB and our initramfs over one `fastboot
+boot`, SSH at 27 s, nothing flashed
+([dev-docs/2026-10-16-fastboot-boot-kexec-ssh-up.md](dev-docs/2026-10-16-fastboot-boot-kexec-ssh-up.md)).
 
 Then: an image we packed (the unchanged `sm8750-mainline` dodge build is
 enough) comes up on the panel or on the USB serial gadget, and §5.2's way
@@ -815,6 +828,12 @@ boot path we maintain.
 Pass: `ssh root@172.16.42.1` from a kernel we built, booted with
 `fastboot boot`, storage still read-only. Console on the framebuffer.
 `panic=10`.
+
+Status 2026-10-16: SSH met through the kexec chain (`tools/dodge-chain
+boot`), kernel `6.16.0-g02a028467db0`. UFS is still a module and not
+loaded, so storage is untouched. No framebuffer console yet: the panel
+is command mode, and the splash buffer faults in the SMMU
+([dev-docs/2026-10-16-fastboot-boot-kexec-ssh-up.md](dev-docs/2026-10-16-fastboot-boot-kexec-ssh-up.md)).
 
 The first initramfs already marks every disk read-only, with an empty
 allowlist. Cheetah's allowlist (the slot images and `userdata`) is copied

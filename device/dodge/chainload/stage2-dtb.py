@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 """Make the stage 2 DTB for the dodge kexec chain-loader.
 
-Usage: stage2-dtb.py <built dodge.dtb> <live.dtb> <out.dtb> [ramoops] [fb] [peripheral]
+Usage: stage2-dtb.py <built dodge.dtb> <live.dtb> <out.dtb> [ramoops] [fb] [peripheral] [hs] [rscpd]
 
 ABL fills the `memory` node at boot and kexec does not, so its reg is
 taken from the phone's live FDT (/sys/firmware/fdt from a rooted
@@ -13,13 +13,16 @@ ramoops  add a ramoops node at OxygenOS's ramoops address and layout
          (dev-docs/2026-10-15-fastboot-boot-kexec-ramoops.md)
 fb       reserve ABL's splash region and add a simple-framebuffer there
          (dev-docs/2026-10-15-fastboot-boot-kexec-fb.md)
-Both were tried once and showed nothing; they are kept for retries.
+Both were booted on 2026-10-15, when stage 2 still ran on stock's DTB
+(kexec_file_load), so neither has really been tried.
 peripheral  dr_mode = "peripheral" and no usb-role-switch on the dwc3
             node. The role otherwise comes from pmic_glink, which this
-            initramfs does not load. Tried; still no UDC.
+            initramfs does not load. Not needed: otg works on our DTB.
 hs          peripheral, and drop the usb3-phy so dwc3 does not wait
-            on the combo PHY. The init that only sleeps and resets is
-            the one to boot with this.
+            on the combo PHY. Also drops the dwc3 iommus entry, which
+            blocks its DMA under ARM_SMMU_DISABLE_BYPASS_BY_DEFAULT.
+rscpd       drop power-domains from the apps RSC, so RPMh does not wait
+            on PSCI's cpuidle genpd, which does not bind after kexec.
 """
 import re
 import subprocess
@@ -97,6 +100,19 @@ if "hs" in opts:
     if 'iommus = <0x23 0x40 0x00>;' not in ours:
         raise SystemExit("expected the dwc3 iommus entry")
     ours = ours.replace('\n\t\t\t\tiommus = <0x23 0x40 0x00>;\n', '\n', 1)
+
+# The apps RSC's only supplier is PSCI's power-domain-system genpd. After
+# kexec the PSCI cpuidle domain does not bind, so fw_devlink holds the RSC
+# (and RPMh clocks, GCC, regulators, everything after) unprobed. Without
+# power-domains rpmh-rsc uses its CPU PM notifier instead
+# (dev-docs/2026-10-16-fastboot-boot-kexec-rsc.md).
+if "rscpd" in opts:
+    i, j = node_span(ours, "\n\t\trsc@16500000 {")
+    # Three tabs: the RSC's own property, not a child's.
+    m = re.search(r"\n\t\t\tpower-domains = <0x[0-9a-f]+>;", ours[i:j])
+    if not m:
+        raise SystemExit("expected power-domains on the apps RSC")
+    ours = ours[:i + m.start()] + ours[i + m.end():]
 
 if "fb" in opts:
     ours = insert_in(ours, "reserved-memory {", """

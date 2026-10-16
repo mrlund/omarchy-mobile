@@ -34,3 +34,9 @@ next attended boot is the sleep-and-sysrq init, which is known to
 reset, with one devicetree change aimed at the glue probe (clocks,
 interconnect, or resets in `dwc3-qcom-legacy`), and success seen as
 `1d6b:0104` before the sleep ends.
+
+**Correction (2026-10-16).** The probes did not hang because they read
+USB sysfs: their cpio had no `/proc`, so the reset writes went nowhere
+([2026-10-16-fastboot-boot-kexec-file-load.md](2026-10-16-fastboot-boot-kexec-file-load.md)).
+The rule above is withdrawn. A stage 2 init must still be able to reset
+on its own.

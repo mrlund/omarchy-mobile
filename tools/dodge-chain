@@ -5,6 +5,7 @@
 #
 #   tools/dodge-chain pack   stage 2 DTB, stage 1 kernel, boot-chain.img
 #   tools/dodge-chain boot   pack, fastboot boot, then a timeline
+#   tools/dodge-chain probe  a timing-coded stage 2 initrd (chainload/probe-init)
 #
 # ABL does not start header v2 images under fastboot boot, and ignores a
 # ramdisk in an uploaded v4 boot.img (device/dodge/PLAN.md §5.3). So
@@ -24,7 +25,7 @@ CHAIN_OUT="${CHAIN_OUT:-$HOME/android/mainline/out-dodge-chain}"
 JOBS="${JOBS:-$(nproc)}"
 # The phone's live FDT, from the rooted capture. Never committed.
 LIVE_DTB="${LIVE_DTB:-$HOME/android/reference/dodge-cph2653/rooted-2026-10-15-on/live.dtb}"
-# Space-separated stage2-dtb.py options: ramoops, fb, peripheral, hs.
+# Space-separated stage2-dtb.py options: ramoops, fb, peripheral, hs, rscpd.
 DTB_OPTS="${DTB_OPTS:-}"
 STAGE2_IMAGE="${STAGE2_IMAGE:-$STAGE2_OUT/arch/arm64/boot/Image}"
 STAGE2_DTB_IN="${STAGE2_DTB_IN:-$STAGE2_OUT/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dtb}"
@@ -40,10 +41,12 @@ die() { printf '\e[31merror:\e[0m %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<USAGE
-Usage: tools/dodge-chain <pack|boot>
+Usage: tools/dodge-chain <pack|boot|probe>
 
   pack   Stage 2 DTB (live memory map, DTB_OPTS), stage 1 kernel with the
          built-in chain-loader, and \$CHAIN_OUT/images/boot-chain.img. No phone.
+  probe  \$CHAIN_OUT/probe.cpio from chainload/probe-init and \$PROBE_PATHS
+         (one test per line). Use it as STAGE2_INITRD. No phone.
   boot   pack, then fastboot boot and print a timeline until adb, SSH or
          ${DEADLINE}s. Talks to the phone. Never flashes.
 
@@ -127,6 +130,28 @@ EOF
   ls -l "$out"
 }
 
+cmd_probe() {
+  [[ -f ${PROBE_PATHS:-} ]] || die "set PROBE_PATHS to a file of tests (see chainload/probe-init)"
+  local gen="$STAGE2_OUT/usr/gen_init_cpio" x="$CHAIN_OUT/chain/x" list="$CHAIN_OUT/probe.list"
+  [[ -x $gen ]] || die "missing $gen (run tools/dodge-try pack first)"
+  [[ -x $x/bin/busybox.static ]] || die "missing $x/bin/busybox.static (run pack once)"
+  (($(grep -cvE '^(#|$)' "$PROBE_PATHS") <= 5)) || die "at most five tests"
+  # /proc, /sys and /dev must be in the cpio, or the reset never happens.
+  cat > "$list" <<LIST
+dir /dev 0755 0 0
+nod /dev/console 0600 0 0 c 5 1
+dir /proc 0755 0 0
+dir /sys 0755 0 0
+dir /bin 0755 0 0
+file /bin/busybox $x/bin/busybox.static 0755 0 0
+file /init $ROOT/device/dodge/chainload/probe-init 0755 0 0
+file /probe-paths $PROBE_PATHS 0644 0 0
+LIST
+  "$gen" "$list" > "$CHAIN_OUT/probe.cpio"
+  say "Wrote $CHAIN_OUT/probe.cpio. adb near 72 + 8*v s after Booting OKAY:"
+  grep -vE '^(#|$)' "$PROBE_PATHS" | awk '{printf "  bit %d (+%d s): %s\n", NR-1, 8*2^(NR-1), $0}'
+}
+
 usb_ids() {
   local d
   for d in /sys/bus/usb/devices/*; do
@@ -166,6 +191,7 @@ cmd_boot() {
 case "${1:-}" in
   pack) cmd_pack ;;
   boot) cmd_boot ;;
+  probe) cmd_probe ;;
   -h|--help|help) usage ;;
   *) usage >&2; exit 2 ;;
 esac

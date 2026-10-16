@@ -50,6 +50,8 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-16 | [fastboot-boot-kexec-ssh-up](2026-10-16-fastboot-boot-kexec-ssh-up.md) | **SSH from our kernel, DTB and initramfs** via one `fastboot boot`, nothing flashed. UDC `a600000.usb` high-speed. Splash SMMU faults. |
+| 2026-10-16 | [fastboot-boot-kexec-file-load](2026-10-16-fastboot-boot-kexec-file-load.md) | kexec-tools used `kexec_file_load`, so stage 2 always ran on stock's DTB. Fixed with `-c`. Probe hangs were a cpio without `/proc`. TCSR clock built in. |
 | 2026-10-16 | [fastboot-boot-kexec-hs](2026-10-15-fastboot-boot-kexec-hs.md) | HS-only peripheral, then the same with no SMMU mapping. Both no gadget; OxygenOS at 137 s. |
 | 2026-10-15 | [no-unattended-boot](2026-10-15-no-unattended-boot.md) | Phone back after three-key power-off. No more boots that touch USB sysfs unless someone can reset. |
 | 2026-10-15 | [fastboot-boot-kexec-probe2](2026-10-15-fastboot-boot-kexec-probe2.md) | Shorter probe with a panic backup. Still no USB after 280 s. |

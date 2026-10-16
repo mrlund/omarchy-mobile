@@ -15,8 +15,10 @@ one `fastboot boot` and no flash. The why is in
    `rdinit=/omamobile/init panic=10` and a built-in initramfs. The
    kernel unpacks the built-in one first and ABL's over it, so
    everything of ours lives under `/omamobile/`.
-3. [init](init) runs `kexec -l --dtb` (the `kexec_load` path;
-   `kexec_file_load` cannot change the DTB on arm64) and `kexec -e`.
+3. [init](init) runs `kexec -c -l --dtb` and `kexec -e`. `-c` forces
+   `kexec_load`: kexec-tools 2.0.32 otherwise tries `kexec_file_load`
+   first, which on arm64 ignores `--dtb` and hands stage 2 stock's FDT.
+   Until 2026-10-16 every stage 2 ran on stock's DTB because of this.
 4. Stage 2 is our kernel on our DTB with our initramfs, by default
    `tools/dodge-try`'s.
 
@@ -32,15 +34,19 @@ tools/dodge-chain pack                  # out-dodge-chain/images/boot-chain.img
 tools/dodge-chain boot                  # pack, fastboot boot, timeline
 ```
 
+With the default stage 2 this ends in SSH at about 27 s
+([../dev-docs/2026-10-16-fastboot-boot-kexec-ssh-up.md](../dev-docs/2026-10-16-fastboot-boot-kexec-ssh-up.md)).
+
 Variables: `STAGE2_INITRD`, `STAGE2_CMDLINE`, `DTB_OPTS`, `CHAIN_OUT`,
 `LIVE_DTB` (the rooted capture's live FDT, never committed). The first
 `pack` in a fresh `CHAIN_OUT` builds a whole kernel.
 
-## Reading the result
+## Reading the result without SSH
 
-There is no log yet. Every try ends with a reset into OxygenOS, and the
-time from `Booting OKAY` to adb says where it stopped. OxygenOS takes
-about 13 s from a reset to adb. Measured on 2026-10-15:
+When SSH does not come up, the time from `Booting OKAY` to adb says
+where it stopped. OxygenOS takes about 13 s from a reset to adb.
+Measured on 2026-10-15 (stage 2 then ran on stock's DTB; on our DTB
+stage 2 reaches its init a few seconds later):
 
 | adb after `Booting OKAY` | Meaning |
 | --- | --- |
@@ -55,28 +61,25 @@ about 13 s from a reset to adb. Measured on 2026-10-15:
 | about 248 s | stage 1: `kexec -l` failed |
 | never | a hang without panic: the human holds Power about 30 s |
 
-A new stage 2 init must keep its own bands clear of these.
+A new stage 2 init must keep its own bands clear of these, and its
+cpio must carry `/proc`, `/sys` and `/dev`, or its reset never happens.
 
-## Handoff: next steps (written 2026-10-16)
+For more than one fact per boot, [probe-init](probe-init) is a stage 2
+init that encodes up to five yes/no tests in its hold time (adb near
+`72 + 8 × v` s on stock's DTB; calibrate on ours with a known bit).
+`PROBE_PATHS=file tools/dodge-chain probe` packs it, then boot with
+`STAGE2_INITRD=$CHAIN_OUT/probe.cpio`. Put an identity test first
+(`/sys/firmware/devicetree/base/soc@0`).
 
-State: stage 2 runs our init on our DTB, and USB never registers a
-device controller. Tried and closed, do not repeat as the next boot:
+## Next steps (2026-10-16)
 
-- ramoops at 0x880000000: OxygenOS pstore stayed empty after that boot.
-  A later plain reboot does leave `console-ramoops-0`, and the bytes
-  are not a readable log.
-- simple-framebuffer on the splash: command-mode panel did not change.
-- `peripheral` alone, then HS-only plus peripheral, then that plus no
-  dwc3 `iommus`: all no gadget, OxygenOS back at 125–137 s.
-- timing probes that stat `a600000.usb`: did not return on USB. Recovery
-  was Volume Up + Volume Down + Power (powers off), then plug in the
-  cable. Do not boot those inits unless someone is there.
+SSH works. The 2026-10-15 handoff is superseded: its USB theories were
+tested against stock's DTB (see the file-load dev-doc).
 
-One change per boot, the human's go before each `fastboot boot`, a
-dev-docs entry after each. Nothing is flashed. The init that only
-sleeps and writes sysrq does return. The open question is why the glue
-never publishes a gadget, without reading those USB sysfs nodes from
-stage 2.
-
-Once SSH answers: `dmesg` into `logs/`, quote the USB lines in the
-dev-doc after checking them for identifiers.
+1. Stop the SMMU fault storm from the splash buffer (SID 0x800, IOVA in
+   `0xfc800000`+0x2b00000): reserve the region and give the display
+   stream an identity mapping, as other mainline Qualcomm phones do for
+   `cont_splash`, or turn the MDP off before the SMMU takes over.
+2. Let `tools/dodge-try` build and boot the chain image, so phase 3's
+   loop is one command, and add `rscpd`/`hs` to its docs only if needed.
+3. Phase 3's storage step: UFS with the read-only guard (PLAN.md).
