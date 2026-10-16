@@ -939,6 +939,18 @@ Hyprland up. Software rendering is enough. The device package
 `omamobile-device-dodge` starts here with nothing enabled that can hang
 a boot.
 
+Carried from the phase 3.5 review (2026-10-16):
+
+- The allowlist's STOP must block. When `userdata` becomes writable,
+  any count other than one refuses `setrw` and the mount. Today a STOP
+  only logs, which is safe only because nothing is made writable.
+- A hang is two steps: Volume Up + Volume Down + Power to power off,
+  then keep Volume Down held and add Power. Releasing everything in
+  between lets the cable boot `boot_a`. Not yet tried from a real hang.
+- The kernel commit `b3ee311da` (nvmem-reboot-mode) credits "Jennifer
+  Berringer's smaller-magic series". Confirm the series exists and link
+  it, or drop the line, before the commit goes upstream.
+
 ### Phase 5 — Subsystems, one at a time
 
 Each gets `device/dodge/<NAME>-PLAN.md` before code. Order, because each
