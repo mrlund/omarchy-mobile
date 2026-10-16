@@ -440,6 +440,18 @@ Two fallbacks, still over the same cable, still with no extra hardware:
    Forcing `dr_mode = "peripheral"` and dropping `usb-role-switch`
    still produced no UDC; OxygenOS was back at 125 s
    ([dev-docs/2026-10-15-fastboot-boot-kexec-peripheral.md](dev-docs/2026-10-15-fastboot-boot-kexec-peripheral.md)).
+   HS-only plus that peripheral change, and then the same with the
+   dwc3 `iommus` entry removed, both came back at 137 s with no gadget
+   ([dev-docs/2026-10-15-fastboot-boot-kexec-hs.md](dev-docs/2026-10-15-fastboot-boot-kexec-hs.md)).
+   Two inits that stat the USB sysfs nodes never returned on USB and
+   needed Volume Up + Volume Down + Power, which powers the phone off;
+   the panel had kept the fastboot frame
+   ([dev-docs/2026-10-15-fastboot-boot-kexec-probe.md](dev-docs/2026-10-15-fastboot-boot-kexec-probe.md),
+   [dev-docs/2026-10-15-fastboot-boot-kexec-probe2.md](dev-docs/2026-10-15-fastboot-boot-kexec-probe2.md)).
+   An OxygenOS reboot does leave `console-ramoops-0`, and the bytes are
+   not a readable log. Stock names the working controller
+   `a600000.dwc3` and the glue `a600000.ssusb`
+   ([dev-docs/2026-10-15-no-unattended-boot.md](dev-docs/2026-10-15-no-unattended-boot.md)).
    The chain-loader is `tools/dodge-chain` and
    [chainload/](chainload/README.md), which also holds the timing bands
    and the next steps.

@@ -57,60 +57,26 @@ about 13 s from a reset to adb. Measured on 2026-10-15:
 
 A new stage 2 init must keep its own bands clear of these.
 
-## Handoff: next steps (written 2026-10-15)
+## Handoff: next steps (written 2026-10-16)
 
 State: stage 2 runs our init on our DTB, and USB never registers a
-device controller. Two log paths without USB showed nothing:
-ramoops at OxygenOS's address, and a simple-framebuffer on the
-command-mode panel. One change per boot, the human's go before each
-`fastboot boot`, a dev-docs entry and a `logs/dodge-tries.tsv` row
-after each. Nothing is flashed; stage 1 stays as it is.
+device controller. Tried and closed, do not repeat as the next boot:
 
-`peripheral` was tried on 2026-10-15 and OxygenOS was back at 125 s,
-the no-UDC band
-([../dev-docs/2026-10-15-fastboot-boot-kexec-peripheral.md](../dev-docs/2026-10-15-fastboot-boot-kexec-peripheral.md)).
-The role switch was not the whole holdup. Two later inits that stat
-the USB sysfs nodes did not return on USB at all and needed the
-three-key power-off
-([../dev-docs/2026-10-15-no-unattended-boot.md](../dev-docs/2026-10-15-no-unattended-boot.md)).
-Do not boot those again unless someone is there. The next attended
-boot uses the sleep-and-sysrq init, which does return.
+- ramoops at 0x880000000: OxygenOS pstore stayed empty after that boot.
+  A later plain reboot does leave `console-ramoops-0`, and the bytes
+  are not a readable log.
+- simple-framebuffer on the splash: command-mode panel did not change.
+- `peripheral` alone, then HS-only plus peripheral, then that plus no
+  dwc3 `iommus`: all no gadget, OxygenOS back at 125–137 s.
+- timing probes that stat `a600000.usb`: did not return on USB. Recovery
+  was Volume Up + Volume Down + Power (powers off), then plug in the
+  cable. Do not boot those inits unless someone is there.
 
-1. **Does OxygenOS keep its own pstore across a plain reboot?** As
-   root, `ls /sys/fs/pstore` after a plain `adb reboot` (a reboot: ask
-   first). Stock loads `qcom_dynamic_ramoops` and found nothing after
-   our resets. If `console-ramoops-0` is there, go to 2; if not, skip
-   to 3.
-2. **Stage 2 reset as a warm reset.** `DTB_OPTS=ramoops` and
-   `STAGE2_CMDLINE` plus `reboot=warm`, which makes arm64 use PSCI
-   `SYSTEM_RESET2` warm reset where firmware supports it. Pass:
-   OxygenOS's `/sys/fs/pstore/console-ramoops-0` holds stage 2's
-   kernel log. Read the USB lines from it and go to 4.
-3. **A timing-coded USB probe as stage 2's init.** Replace
-   `STAGE2_INITRD` with a small cpio whose `/init` mounts `proc`,
-   `sysfs` and `debugfs`, waits 40 s, reads three facts and holds
-   `20 + 15 × v` s before `echo b > /proc/sysrq-trigger`, where
-   v = b0 + 2·b1 + 4·b2:
-   - b0: the dwc3 core device `/sys/bus/platform/devices/a600000.usb`
-     exists (the qcom glue `a6f8800.usb` probed);
-   - b1: it has a `driver` link (dwc3 bound);
-   - b2: `/sys/class/udc` is not empty.
-   adb then lands at about 83 + 15 × v s (83 to 188 s), clear of the
-   other bands. Second run, same scheme: whether
-   `/sys/kernel/debug/devices_deferred` names `a6f8800.usb`, the HS PHY
-   (`88e3000.phy`), the QMP PHY (`88e8000.phy`), or the PMIC eUSB2
-   repeater (`phy@fd00` under the pmih0108 SPMI node). Check the device
-   names in sysfs format against the built DTB before trusting a bit.
-4. **The fix the facts point to**, one per boot, as a
-   `stage2-dtb.py` option:
-   - dwc3 bound but no UDC: `usb_1_dwc3` to `dr_mode = "peripheral"`
-     without `usb-role-switch`. Its role comes from `pmic_glink`,
-     which is `=m`, needs the ADSP, and is never loaded here.
-   - dwc3 unbound: the PHY or repeater that `devices_deferred` names
-     (supplies, SPMI, `apps_smmu` after kexec).
-   - glue not probed: its clocks, GDSC, interconnects or
-     `required-opps`.
-5. **Once SSH answers:** `dmesg` into `logs/`, quote the USB lines in
-   the dev-doc (check them for identifiers), then let
-   `tools/dodge-try` build the chain image so phase 3's loop is one
-   command.
+One change per boot, the human's go before each `fastboot boot`, a
+dev-docs entry after each. Nothing is flashed. The init that only
+sleeps and writes sysrq does return. The open question is why the glue
+never publishes a gadget, without reading those USB sysfs nodes from
+stage 2.
+
+Once SSH answers: `dmesg` into `logs/`, quote the USB lines in the
+dev-doc after checking them for identifiers.
