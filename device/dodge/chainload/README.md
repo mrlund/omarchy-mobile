@@ -96,11 +96,14 @@ handoff is superseded: its USB theories were tested against stock's DTB
    `soc@0` present. Do not pass `DTB_OPTS=hs`: that option drops the
    dwc3 `iommus` entry.
 
-3. Next: UFS, still read-only (PLAN.md phase 3). Build
-   `SCSI_UFS_QCOM` and `PHY_QCOM_QMP_UFS` in. Boot with
-   `omamobile.ufs-probe` on the stage 2 cmdline. The init already runs
-   `blockdev --setro` on every disk, and the probe only lists
-   `PARTNAME`. It does not mount.
+3. UFS read-only probe: done
+   ([../dev-docs/2026-10-16-ufs-probe.md](../dev-docs/2026-10-16-ufs-probe.md)).
+   `SCSI_UFS_QCOM` and `PHY_QCOM_QMP_UFS` are built in. With
+   `omamobile.ufs-probe` on the stage 2 cmdline the init listed six
+   disks and 139 partitions, set every one read-only, and mounted
+   nothing. `modemst1`, `modemst2`, `fsg` and `fsc` are on `sdf`. The
+   framebuffer console is the remaining phase 3 pass line. A flash is
+   phase 4 and waits for an explicit yes.
 
 Working notes:
 

@@ -20,8 +20,8 @@ mount -t tmpfs tmpfs /run
 
 # Every SCSI disk read-only, before anything else. No allowlist: this
 # image does not mount UFS, and the GPT names are not confirmed yet.
-# The qcom UFS host is a module in the first config, so this may see
-# nothing. It still runs, in case a later config enumerates disks.
+# A built-in host enumerates disks before this runs. Nothing mounts
+# them. This pass, and the loop below, mark every one read-only.
 ufs_ro_log() { echo "omamobile: ufs-ro: $*" > /dev/kmsg; }
 mkdir -p /run/ufs-ro
 ufs_partname() { sed -n 's/^PARTNAME=//p' "$1/uevent" 2>/dev/null; }

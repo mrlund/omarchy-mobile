@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-16 | [ufs-probe](2026-10-16-ufs-probe.md) | UFS up. Six disks, 139 partitions, all read-only, nothing mounted. GPT names `modemst1`, `modemst2`, `fsg`, `fsc`. |
 | 2026-10-16 | [dodge-try-chain](2026-10-16-dodge-try-chain.md) | `tools/dodge-try chain` SSH at 27 s, `soc@0`, splash map installed. Ten faults at 0.130 s, then none. |
 | 2026-10-16 | [fastboot-boot-kexec-ssh-up](2026-10-16-fastboot-boot-kexec-ssh-up.md) | **SSH from our kernel, DTB and initramfs** via one `fastboot boot`, nothing flashed. UDC `a600000.usb` high-speed. Splash SMMU faults. |
 | 2026-10-16 | [fastboot-boot-kexec-file-load](2026-10-16-fastboot-boot-kexec-file-load.md) | kexec-tools used `kexec_file_load`, so stage 2 always ran on stock's DTB. Fixed with `-c`. Probe hangs were a cpio without `/proc`. TCSR clock built in. |
