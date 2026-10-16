@@ -57,14 +57,17 @@ die() { printf '\e[31merror:\e[0m %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<USAGE
-Usage: tools/dodge-try <config|pack|boot>
+Usage: tools/dodge-try <config|pack|boot|chain>
 
   config   Merge kernel/configs/omamobile-dodge.config onto arm64 defconfig
            and check the loop symbols. No phone.
   pack     config, then Image, the dodge DTB, the initramfs and a header v2
            boot.img under \$KERNEL_OUT. No phone.
-  boot     pack, then fastboot boot that image and wait for SSH. This talks
-           to the phone. It never flashes.
+  boot     pack, then fastboot boot that header v2 image and wait for SSH.
+           This talks to the phone. It never flashes. ABL does not start v2.
+  chain    pack stage 2, then tools/dodge-chain boot (header v4 plus kexec).
+           If stage 2 or OxygenOS is up, reboot to fastboot first. Default
+           DTB_OPTS=splash. Never flashes.
 
 KERNEL_DIR=$KERNEL_DIR
 KERNEL_OUT=$KERNEL_OUT
@@ -309,10 +312,39 @@ cmd_boot() {
   exit 1
 }
 
+phone_back() {
+  [[ $(adb_count) == 1 || $(fastboot_count) == 1 ]]
+}
+
+cmd_chain() {
+  cmd_pack
+  local chain_out="${CHAIN_OUT:-$HOME/android/mainline/out-dodge-rdinit}"
+  if ssh_up; then
+    say "stage 2 is up; rebooting it"
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+      -o ConnectTimeout=5 -o BatchMode=yes root@172.16.42.1 \
+      'echo b > /proc/sysrq-trigger' || true
+    wait_until 40 phone_back || die "the phone did not return after the reboot"
+  fi
+  if [[ $(adb_count) == 1 ]]; then
+    say "rebooting OxygenOS to fastboot"
+    adb reboot bootloader
+  fi
+  local i
+  for i in $(seq 1 25); do
+    [[ $(fastboot_count) == 1 ]] && break
+    sleep 2
+  done
+  [[ $(fastboot_count) == 1 ]] || die "not in fastboot"
+  DTB_OPTS="${DTB_OPTS:-splash}" CHAIN_OUT="$chain_out" \
+    "$ROOT/tools/dodge-chain" boot
+}
+
 case "${1:-}" in
   config) cmd_config ;;
   pack) cmd_pack ;;
   boot) cmd_boot ;;
+  chain) cmd_chain ;;
   -h|--help|help) usage ;;
   *) usage >&2; exit 2 ;;
 esac

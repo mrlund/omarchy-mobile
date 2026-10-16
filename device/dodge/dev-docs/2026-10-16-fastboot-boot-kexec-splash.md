@@ -35,9 +35,9 @@ boot filled the log from about 20 s and suppressed 90263 callbacks.
 
 ## Learning
 
-Reserving the splash and requesting the identity map stops the storm
-even though the map was not installed. The four early faults are the
-transactions that landed before the context bank settled, or the
-display stopped after them. The next change is why
-`iommu_create_device_direct_mappings()` failed, not another region.
-SSH is still up on this boot.
+The warning is the first mapping attempt, which arm-smmu cannot do
+before the domain is attached. The core retries after attach. On the
+live session the display group's reserved region is
+`0xfc800000-0xff2fffff direct`. The map is installed. The four faults
+are the gap before that retry. At uptime 268 s the fault count was
+still 4.

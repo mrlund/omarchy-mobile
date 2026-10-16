@@ -829,11 +829,14 @@ Pass: `ssh root@172.16.42.1` from a kernel we built, booted with
 `fastboot boot`, storage still read-only. Console on the framebuffer.
 `panic=10`.
 
-Status 2026-10-16: SSH met through the kexec chain (`tools/dodge-chain
-boot`), kernel `6.16.0-g02a028467db0`. UFS is still a module and not
-loaded, so storage is untouched. No framebuffer console yet: the panel
-is command mode, and the splash buffer faults in the SMMU
-([dev-docs/2026-10-16-fastboot-boot-kexec-ssh-up.md](dev-docs/2026-10-16-fastboot-boot-kexec-ssh-up.md)).
+Status 2026-10-16: SSH met through `tools/dodge-try chain` (one command:
+pack stage 2, reboot to fastboot, `fastboot boot` the header v4 chain).
+Kernel `6.16.0-g02a028467db0` #4, 27 s after Booting OKAY, `soc@0`
+present, `DTB_OPTS=splash`. The splash identity map is installed
+(`0xfc800000-0xff2fffff direct` on the display group). Ten SID 0x800
+faults at 0.130 s, none after. UFS is still a module and not loaded, so
+storage is untouched. The panel still shows ABL's last frame
+([dev-docs/2026-10-16-dodge-try-chain.md](dev-docs/2026-10-16-dodge-try-chain.md)).
 
 The first initramfs already marks every disk read-only, with an empty
 allowlist. Cheetah's allowlist (the slot images and `userdata`) is copied
