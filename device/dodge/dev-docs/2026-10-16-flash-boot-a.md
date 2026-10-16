@@ -33,6 +33,16 @@ the chain image then reached Arch Linux ARM on `/dev/sda15`, 452.7 GiB.
 ## Learning
 
 `fastboot boot` of this kernel-only v4 image is not the same as a
-normal boot of that image from `boot_a`. The flash path is closed
-until we know what ABL checks on a reboot that it does not check on
-`fastboot boot`. `boot_a` is the stock image again.
+normal boot of that image from `boot_a`. ABL came back to fastboot in
+5 s, before the kernel. `vbmeta` chains `boot` to a footer at the end
+of the partition. Stock `boot.img` has that footer (metadata at offset
+36753408). `boot-chain.img` has none: `avbtool info_image` says it does
+not look like a vbmeta image. Invalid metadata is fatal even when the
+bootloader is unlocked. `fastboot boot` never reads that footer.
+
+`tools/dodge-chain footer` now writes
+`out-dodge-chain/images/boot-chain-avb.img`: the same bytes, then a
+SHA256_RSA4096 hash footer, padded to 100663296. Metadata is at offset
+58535936. The signing key is outside the repo
+(`~/android/reference/dodge-cph2653/avb-boot.pem`) and does not match
+the key `vbmeta` chains to. That image has not been flashed.

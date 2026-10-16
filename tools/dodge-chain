@@ -6,6 +6,9 @@
 #   tools/dodge-chain pack   stage 2 DTB, stage 1 kernel, boot-chain.img
 #   tools/dodge-chain boot   pack, fastboot boot, then a timeline
 #   tools/dodge-chain probe  a timing-coded stage 2 initrd (chainload/probe-init)
+#   tools/dodge-chain footer boot-chain-avb.img: the pack image plus an
+#                            AVB hash footer padded to the boot partition.
+#                            For a boot_a flash. Does not replace boot-chain.img.
 #
 # ABL does not start header v2 images under fastboot boot, and ignores a
 # ramdisk in an uploaded v4 boot.img (device/dodge/PLAN.md §5.3). So
@@ -32,6 +35,9 @@ STAGE2_DTB_IN="${STAGE2_DTB_IN:-$STAGE2_OUT/arch/arm64/boot/dts/qcom/sm8750-onep
 STAGE2_INITRD="${STAGE2_INITRD:-$STAGE2_OUT/initramfs.cpio.lz4}"
 STAGE2_CMDLINE="${STAGE2_CMDLINE:-rdinit=/init clk_ignore_unused pd_ignore_unused panic=10 console=tty0}"
 STAGE1_CMDLINE="rdinit=/omamobile/init panic=10"
+# boot_a is 96 MiB. vbmeta chains that partition to its own AVB footer.
+BOOT_PARTITION_SIZE=100663296
+AVB_BOOT_KEY="${AVB_BOOT_KEY:-$HOME/android/reference/dodge-cph2653/avb-boot.pem}"
 ALPINE_VER=3.24.2
 ALPINE_SUM=9bf70a7f18ea44094cbb5f70c58f9af129c8214745743db0e68e5502cc2ce773
 DEADLINE="${DEADLINE:-280}"
@@ -41,12 +47,15 @@ die() { printf '\e[31merror:\e[0m %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<USAGE
-Usage: tools/dodge-chain <pack|boot|probe>
+Usage: tools/dodge-chain <pack|boot|probe|footer>
 
   pack   Stage 2 DTB (live memory map, DTB_OPTS), stage 1 kernel with the
          built-in chain-loader, and \$CHAIN_OUT/images/boot-chain.img. No phone.
   probe  \$CHAIN_OUT/probe.cpio from chainload/probe-init and \$PROBE_PATHS
          (one test per line). Use it as STAGE2_INITRD. No phone.
+  footer Copy images/boot-chain.img to images/boot-chain-avb.img and append
+         a signed AVB hash footer padded to the 96 MiB boot partition.
+         The key is \$AVB_BOOT_KEY (outside the repo). No phone.
   boot   pack, then fastboot boot and print a timeline until adb, SSH or
          ${DEADLINE}s. Talks to the phone. Never flashes.
 
@@ -130,6 +139,40 @@ EOF
   ls -l "$out"
 }
 
+cmd_footer() {
+  command -v avbtool >/dev/null || die "avbtool is not installed"
+  command -v openssl >/dev/null || die "openssl is not installed"
+  local src="$CHAIN_OUT/images/boot-chain.img"
+  local out="$CHAIN_OUT/images/boot-chain-avb.img"
+  [[ -f $src ]] || die "missing $src (run pack first)"
+  local src_bytes
+  src_bytes=$(stat -c %s "$src")
+  (( src_bytes < BOOT_PARTITION_SIZE )) || die "$src is already ${src_bytes} bytes"
+  if [[ ! -f $AVB_BOOT_KEY ]]; then
+    say "Generating $AVB_BOOT_KEY"
+    mkdir -p "$(dirname "$AVB_BOOT_KEY")"
+    openssl genrsa -out "$AVB_BOOT_KEY" 4096
+    chmod 600 "$AVB_BOOT_KEY"
+  fi
+  cp -- "$src" "$out"
+  # Our key does not match the key vbmeta chains to. An unlocked
+  # bootloader is supposed to allow that. The footer is what was missing:
+  # a normal boot reads metadata from the end of boot_a.
+  avbtool add_hash_footer --image "$out" --partition_name boot \
+    --partition_size "$BOOT_PARTITION_SIZE" --algorithm SHA256_RSA4096 \
+    --key "$AVB_BOOT_KEY" --rollback_index 0 \
+    --prop com.android.build.boot.os_version:15 \
+    --prop com.android.build.boot.security_patch:2026-08-01
+  local out_bytes
+  out_bytes=$(stat -c %s "$out")
+  (( out_bytes == BOOT_PARTITION_SIZE )) || die "$out is $out_bytes bytes, want $BOOT_PARTITION_SIZE"
+  cmp -n "$src_bytes" "$src" "$out"
+  avbtool info_image --image "$out" >/dev/null
+  say "Footer on $out"
+  avbtool info_image --image "$out" | sed -n '1,20p'
+  sha256sum "$out"
+}
+
 cmd_probe() {
   [[ -f ${PROBE_PATHS:-} ]] || die "set PROBE_PATHS to a file of tests (see chainload/probe-init)"
   local gen="$STAGE2_OUT/usr/gen_init_cpio" x="$CHAIN_OUT/chain/x" list="$CHAIN_OUT/probe.list"
@@ -209,6 +252,7 @@ case "${1:-}" in
   pack) cmd_pack ;;
   boot) cmd_boot ;;
   probe) cmd_probe ;;
+  footer) cmd_footer ;;
   -h|--help|help) usage ;;
   *) usage >&2; exit 2 ;;
 esac
