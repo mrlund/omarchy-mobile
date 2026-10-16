@@ -105,11 +105,10 @@ handoff is superseded: its USB theories were tested against stock's DTB
 
 4. Framebuffer console, kernel side: done
    ([../dev-docs/2026-10-16-framebuffer.md](../dev-docs/2026-10-16-framebuffer.md)).
-   `DTB_OPTS='splash fb'` binds `simpledrm` on the splash buffer and
-   printk switches to a 180×198 console. The panel is command mode, so
-   the glass may still be showing ABL's last frame. That look is the
-   remaining phase 3 fact. A flash is phase 4 and waits for an explicit
-   yes.
+   `DTB_OPTS='splash fb'` binds `simpledrm` on the splash buffer.
+   The panel shows a row of Tux logos and the 180×198 kernel log.
+   Phase 3's pass line is met. A flash is phase 4 and waits for an
+   explicit yes.
 
 Working notes:
 

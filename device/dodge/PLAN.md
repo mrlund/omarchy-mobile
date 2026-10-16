@@ -843,10 +843,10 @@ with `SCSI_UFS_QCOM=y` and `omamobile.ufs-probe`: six disks, 139
 partitions, every one read-only, nothing mounted
 ([dev-docs/2026-10-16-ufs-probe.md](dev-docs/2026-10-16-ufs-probe.md)).
 `simpledrm` then bound that splash buffer: `/dev/fb0` is 1440×3168 and
-printk switched to a 180×198 colour console. The buffer holds text-like
-pixels. Whether the command-mode panel is scanning it has not been
-confirmed by eye
+printk switched to a 180×198 colour console. The panel scans it. By
+eye: a row of Tux logos, then the kernel log in the 8×16 font
 ([dev-docs/2026-10-16-framebuffer.md](dev-docs/2026-10-16-framebuffer.md)).
+Phase 3's pass line is met. A flash is phase 4.
 
 The first initramfs already marks every disk read-only, with an empty
 allowlist. Cheetah's allowlist (the slot images and `userdata`) is copied

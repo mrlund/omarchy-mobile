@@ -6,8 +6,8 @@
 **Phone.** CPH2653, build `CPH2653_16.0.10.501(EX01)`, slot `_a`.
 **Kernel.** `6.16.0-g02a028467db0` #5, the same build as the UFS probe.
 `DTB_OPTS='splash fb'`. Stage 2 cmdline still has `omamobile.ufs-probe`.
-**Result.** SSH at 26 s. `simpledrm` bound `/dev/fb0` and printk switched
-to a 180×198 colour console. What the panel showed is not recorded yet.
+**Result.** SSH at 26 s. The panel shows the console: a row of Tux
+logos, then the kernel log in the 8×16 font.
 
 ## What we did
 
@@ -49,10 +49,13 @@ font.
 
 ## Learning
 
-Our DTB does give the kernel a framebuffer console. The 2026-10-15
-"the panel did not change" result did not test this node.
+The panel is scanning this buffer. Watched by eye after SSH was up: a
+row of Tux logos along the top, then a lot of very small text. The
+logos are the kernel's boot logo, and the text is the 180×198 console,
+so `a8r8g8b8` at 1440×3168 is close enough to be readable. The 8×16
+font is why it looks tiny on this panel. ABL left the display
+controller scanning the splash, command mode or not.
 
-The panel is command mode. A frame reaches it only if the display
-controller is still scanning this buffer. The kernel has drawn the
-console into the buffer. Whether the glass shows that console, the old
-logo, or black is the one fact this log does not have.
+The 2026-10-15 "the panel did not change" result did not test this
+node. Phase 3's console line is met. A larger font can wait. A flash
+of the boot images is phase 4 and waits for an explicit yes.
