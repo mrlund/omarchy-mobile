@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-16 | [userdata-rw](2026-10-16-userdata-rw.md) | `sda15` writable, `/dev/sda` removed, every other disk read-only. Nothing mounted or formatted. |
 | 2026-10-16 | [userdata-allowlist](2026-10-16-userdata-allowlist.md) | `would allow sda15 (userdata)`. 145 block devices, all read-only. Nothing mounted. |
 | 2026-10-16 | [fastboot-buttons](2026-10-16-fastboot-buttons.md) | Volume Down held through power-off, then Power: fastboot in about 12 s. No OxygenOS. |
 | 2026-10-16 | [reboot-bootloader](2026-10-16-reboot-bootloader.md) | `reboot-to bootloader` from stage 2 lands in fastboot. No OxygenOS boot. Two earlier tries returned to OxygenOS. |
