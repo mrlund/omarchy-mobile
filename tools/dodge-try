@@ -161,7 +161,10 @@ cmd_initramfs() {
     fi
   done
   install -m 755 "$INIT" "$stage/init"
+  mkdir -p "$stage/lib"
+  install -m 644 "$ROOT/device/dodge/initramfs/ufs.sh" "$stage/lib/omamobile-ufs.sh"
   sh -n "$stage/init"
+  sh -n "$stage/lib/omamobile-ufs.sh"
   # aarch64, no libc. Do not run the binary on the laptop: it reboots.
   mkdir -p "$stage/usr/bin"
   clang -target aarch64-linux-musl -fuse-ld=lld -nostdlib -static -ffreestanding \
