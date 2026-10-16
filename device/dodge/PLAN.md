@@ -846,7 +846,9 @@ partitions, every one read-only, nothing mounted
 printk switched to a 180×198 colour console. The panel scans it. By
 eye: a row of Tux logos, then the kernel log in the 8×16 font
 ([dev-docs/2026-10-16-framebuffer.md](dev-docs/2026-10-16-framebuffer.md)).
-Phase 3's pass line is met. A flash is phase 4.
+Phase 3's pass line is met. A reboot from this kernel is sysrq back to
+OxygenOS; fastboot is `adb reboot bootloader` after that, which is how
+`tools/dodge-try chain` gets the cable back. A flash is phase 4.
 
 The first initramfs already marks every disk read-only, with an empty
 allowlist. Cheetah's allowlist (the slot images and `userdata`) is copied

@@ -61,7 +61,7 @@ and stay out of git.
 | 2026-10-15 | [fastboot-boot-kexec-probe2](2026-10-15-fastboot-boot-kexec-probe2.md) | Shorter probe with a panic backup. Still no USB after 280 s. |
 | 2026-10-15 | [fastboot-boot-kexec-probe](2026-10-15-fastboot-boot-kexec-probe.md) | Ramoops file after an OxygenOS reboot is not a readable log. USB timing probe did not return within 8 min. |
 | 2026-10-15 | [fastboot-boot-kexec-peripheral](2026-10-15-fastboot-boot-kexec-peripheral.md) | Stage 2 dwc3 forced to peripheral, role switch removed. Still no UDC; OxygenOS at 125 s. |
-| 2026-10-15 | [fastboot-boot-kexec-fb](2026-10-15-fastboot-boot-kexec-fb.md) | simple-framebuffer on ABL's splash buffer. Command-mode panel did not change; 136 s, no USB. |
+| 2026-10-15 | [fastboot-boot-kexec-fb](2026-10-15-fastboot-boot-kexec-fb.md) | simple-framebuffer packed, but stage 2 was still on stock's DTB. Panel unchanged; 136 s, no USB. Retried on our DTB on 2026-10-16. |
 | 2026-10-15 | [fastboot-boot-kexec-ramoops](2026-10-15-fastboot-boot-kexec-ramoops.md) | Stage 2 ramoops at OxygenOS's 0x880000000. Same no-USB boot (136 s); OxygenOS pstore empty. |
 | 2026-10-15 | [fastboot-boot-kexec-ssh](2026-10-15-fastboot-boot-kexec-ssh.md) | kexec into the dodge-try initramfs. No USB; back at 137 s, the no-UDC panic path. |
 | 2026-10-15 | [fastboot-boot-kexec](2026-10-15-fastboot-boot-kexec.md) | Built-in init kexecs our kernel with our DTB. Stage 2 held 60 s; OxygenOS back at 82 s. Self-contained boot, no flash. |

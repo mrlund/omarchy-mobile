@@ -1,6 +1,11 @@
 <!-- SPDX-License-Identifier: MIT -->
 # 2026-10-15 — simple-framebuffer on ABL's splash buffer: no change on screen
 
+Superseded as a test of our DTB. Stage 2 that day ran on stock's FDT,
+so this node was never loaded. Tried again on our DTB on 2026-10-16,
+the panel showed the console
+([2026-10-16-framebuffer.md](2026-10-16-framebuffer.md)).
+
 **Goal.** A console on the panel, so stage 2's log (and the init's USB
 report before it panics) can be read off the screen. Do not flash.
 **Phone.** CPH2653, build `CPH2653_16.0.10.501(EX01)`, slot `_a`,
