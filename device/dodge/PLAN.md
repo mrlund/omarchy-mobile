@@ -364,7 +364,9 @@ How a failed try gets back to fastboot depends on where it failed:
 
 So a failed kernel costs a reset and an OxygenOS boot, not a hand on the
 phone, as long as OxygenOS stays bootable and adb-authorized (§3.2) and
-the kernel has its watchdog (§5.1). `172.16.42.1` matches the rest of
+the kernel has its watchdog (§5.1). Once phase 4 replaces OxygenOS, the
+way back is `reboot bootloader` and the button drill (phase 3.5).
+`172.16.42.1` matches the rest of
 this repo, so `tools/phone-ssh` works unchanged.
 
 On the desk: the phone and one USB-C cable. The first session confirms
@@ -857,87 +859,55 @@ about to mount UFS.
 
 ### Phase 3.5 — Before the first flash (proposed 2026-10-16, not started)
 
-Phase 3 ends on a loop that needs nobody at the phone: a crash or sysrq
-resets into OxygenOS, and `adb reboot bootloader` brings the cable back.
-Phase 4 breaks that loop twice. A Linux `userdata` means OxygenOS no
-longer boots (it most likely stops at a factory-reset prompt, which
-would format our root), and a flashed `boot_a` means a reset starts our
-kernel again, not OxygenOS. Before either one, a crash of ours has to
-leave a log, and a reset has to be able to reach fastboot without
-OxygenOS. Everything here is `fastboot boot` of the chain. Nothing is
-flashed, and storage stays read-only. One change per boot, as before.
+OxygenOS and its `userdata` may go (the human, 2026-10-16: no data on
+the phone matters). What must not go is fastboot and the partitions
+that cannot be replaced. So 3.5 has three gates, and everything else
+runs alongside phase 4 instead of in front of it. All of it is
+`fastboot boot` of the chain, nothing flashed.
+
+Gates:
 
 1. **Reboot straight to fastboot.** The dodge DTB already has
    `pmk8550`'s `nvmem-reboot-mode` (`mode-bootloader = <0x02>`), but
    `NVMEM_REBOOT_MODE` and `POWER_RESET_QCOM_PON` are `=m`. Build both
-   in and add them to `NEED_Y`. From stage 2 SSH, run
-   `reboot bootloader` (the `LINUX_REBOOT_CMD_RESTART2` call, not busybox
-   `reboot -f`, which hangs on cheetah).
-   Expect: fastboot answers without an OxygenOS boot. Stop: a hang, or
-   OxygenOS. Rollback: none needed; a hang is the button case below.
-   Risk: low. It writes the reboot-reason byte in PMIC SDAM through the
-   kernel driver, which stock's own `reboot bootloader` writes too.
-   `tools/dodge-try chain` then uses this instead of the OxygenOS round
-   trip.
-2. **ramoops on our DTB.** `DTB_OPTS='splash fb ramoops'`, the
-   2026-10-15 node at OxygenOS's own region (0x880000000), never tried
-   on our DTB. Pass 1: `/sys/fs/pstore` mounts and the region shows in
-   `/proc/iomem` as reserved. Pass 2, next boot: write a marker to
-   `/dev/kmsg`, then `reboot bootloader` (step 1), chain again, and read
-   `console-ramoops-0` from stage 2. Pass: the marker. Then the same with
-   `echo c > /proc/sysrq-trigger`: that resets into OxygenOS, which may
-   reuse the region. Read it there with Magisk `su` first; if OxygenOS
-   overwrote it, record that, and phase 4's crash path is "reboot to
-   fastboot, chain, read pstore" only. Stop: the region overlaps
-   anything in the live `/proc/iomem` other than a reservation. Risk:
-   low (RAM only).
-3. **Watchdog: research, no boot.** Stock's only watchdog is the empty
-   `/hypervisor/qcom,gh-watchdog` (§5.1). Gunyah owns the apps watchdog
-   and stock pets it by hypercall. Our kernel never pets it and stage 2
-   stayed up past 268 s, so after kexec it is not biting. Look for an
-   upstream Gunyah watchdog driver and its binding. If there is none,
-   phase 4 ships without a watchdog: `panic=10`,
-   `BOOTPARAM_HUNG_TASK_PANIC` and `softlockup_panic=1` cover hangs that
-   still run the scheduler, and step 4 covers the rest. Do not write
-   watchdog registers from userspace.
-4. **Hard-hang drill (the human, once).** From power-off, with the
-   cable in, the combination that reaches fastboot. On 2026-10-15,
-   Volume Up + Volume Down + Power powered a hung phone off, and Power
-   alone and Volume Down + Power did nothing. Pass: the human can get a
-   hung phone to fastboot without OxygenOS, and the sequence is written
-   here.
-5. **UFS ready for writes, read-only.** Over SSH: the gear and lanes
-   the link reached (`/sys/bus/platform/devices/1d84000.ufs/`), the
-   `reference_clock_frequency` attribute (settles whether the
-   `bRefClkFreq` write in
-   [dev-docs/2026-10-16-ufs-probe.md](dev-docs/2026-10-16-ufs-probe.md)
-   happened), and a 2 GiB sequential read of `userdata`
-   (`dd if=/dev/sda15 of=/dev/null bs=1M count=2048`, by `PARTNAME`,
-   not by number). Pass: no `ufshcd` error lines, no host reset. The
-   missing `vdd-hba-supply` and `vccq2-supply` warnings are expected on
-   upstream SM8x50 (no such rails); check that `vcc` and `vccq` are
-   claimed in `regulator_summary`. Never read `modemst1`, `modemst2`,
-   `fsg`, `fsc` or `persist`. Risk: low (reads of a partition that is
-   becoming ours).
-6. **The dodge storage allowlist, offline then one boot.** The init
-   resolves `userdata` by `PARTNAME` and refuses to proceed if that name
-   matches anything other than exactly one partition. In 3.5 it only
-   logs `would allow sda15 (userdata)`; every disk stays read-only.
-   Pass: that line, and 145 `ro=1`. Making it writable is phase 4.
+   in, add them to `NEED_Y`, and run `reboot bootloader` from stage 2
+   (`LINUX_REBOOT_CMD_RESTART2`, not busybox `reboot -f`). Pass:
+   fastboot answers with no OxygenOS boot. Once OxygenOS is gone this is
+   the unattended way back, and it also cuts each try by about 30 s.
+   Risk: low; the kernel writes the reboot-reason byte, as stock does.
+2. **Button drill (the human, once).** From a hung or powered-off
+   phone, with the cable in, the combination that reaches fastboot.
+   Volume Up + Volume Down + Power powered a hung phone off on
+   2026-10-15; write down what then reaches fastboot. Pass: the human
+   gets to fastboot without OxygenOS. This is the backstop for every
+   later hang, so it is not skipped.
+3. **The `userdata` allowlist.** The init resolves `userdata` by
+   `PARTNAME` and stops if that name matches anything other than exactly
+   one partition. One boot where it only logs `would allow sda15
+   (userdata)` and every disk stays read-only, then phase 4 makes that
+   one partition writable. `modemst1`, `modemst2`, `fsg`, `fsc`,
+   `persist` and everything on `sdb`-`sde` stay read-only for good.
 
-Then the human decides, not a boot:
+Alongside phase 4, not blocking it:
 
-- Is OxygenOS's `userdata` (460 GiB, `sda15`) given up? Phase 4 erases
-  it, and OxygenOS stops being the way back. The alternative is to keep
-  phase 4 on `fastboot boot` of the chain with Arch on `userdata`
-  (4a), and flash `boot_a` only later (4b). In 4a a reset goes to
-  ABL, which tries OxygenOS, so step 1 and step 4 are the way back.
-- Before 4b: the OTA's stock `boot.img` for `boot_a` is on the laptop
-  and its sha256 is in the plan, so rollback is one
-  `fastboot flash boot_a` from the combination in step 4.
+- ramoops on our DTB (`DTB_OPTS='splash fb ramoops'`). Read it back
+  after `reboot bootloader` and a new chain. Wanted before the first
+  hang we cannot explain.
+- Watchdog: look for an upstream Gunyah watchdog driver for stock's
+  `/hypervisor/qcom,gh-watchdog`. Until then `panic=10`, hung-task
+  panic and the button drill cover hangs.
+- UFS under load: the first phase 4 boot reads back the link gear,
+  `reference_clock_frequency`, and checks `dmesg` for `ufshcd` errors
+  after `mkfs` and the rootfs copy. The `vdd-hba-supply` and
+  `vccq2-supply` warnings are expected on upstream SM8x50.
 
-Pass: steps 1, 2, 4, 5 and 6 recorded as dev-docs, step 3 written up,
-and the human's answer above.
+Phase 4 can go straight to Arch on `userdata` under `fastboot boot`
+(4a). Flashing `boot_a` (4b) waits until 4a boots Arch reliably; keep
+the OTA's stock `boot.img` and its sha256 on the laptop for rollback.
+OxygenOS can probably be brought back with a factory reset of
+`userdata`; that is not verified and not needed.
+
+Pass: the three gates recorded as dev-docs.
 
 ### Phase 4 — Persistent Arch
 
