@@ -31,7 +31,10 @@ in the top right, and the screensaver.
 ## Learning
 
 Software rendering on this panel is a live session, not only a
-reported one. Scale landed on 1, so the UI may be small on
-1440×3168. Leave the unit disabled until the picture is confirmed.
+reported one. Scale landed on 1 and the notifications were tiny.
+`hl.monitor` then set scale 2 (logical 720×1584), and
+`monitors.lua` keeps that for the next start of this config. Scale 3
+would be the 480-wide phone layout. Leave the unit disabled until
+the picture is confirmed.
 The real panel driver is still the later step, and it still wants
 the VCI rail at 3.0 V before `DRM_MSM` is enabled.
