@@ -985,8 +985,10 @@ touch driver was then built and loaded on its own, with the GPI DMA
 and GENI SPI modules and not the rest of the held tree. Hyprland
 lists `touchpanel`. The human confirmed a tap works. Wi-Fi's PCIe root port then bound
 after `phy-qcom-qmp-pcie` was loaded from the held tree. `lspci`
-shows only the root port. The radio's `wcn7880-pmu` node is disabled
-and has no driver, so the chip is not powered.
+shows only the root port. The radio's power node was then enabled as `qcom,wcn7850-pmu` and
+flashed in `boot_a`. A PCI rescan shows `17cb:110e`. ath12k in this
+tree does not claim that id.
+[dev-docs/2026-10-17-wifi-endpoint.md](dev-docs/2026-10-17-wifi-endpoint.md).
 [dev-docs/2026-10-17-wifi-pcie.md](dev-docs/2026-10-17-wifi-pcie.md).
 [dev-docs/2026-10-17-touch-s3910.md](dev-docs/2026-10-17-touch-s3910.md).
 [dev-docs/2026-10-17-desktop-at-boot.md](dev-docs/2026-10-17-desktop-at-boot.md).
