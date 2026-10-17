@@ -972,7 +972,10 @@ privilege-separation user. The device package now ships the user and
 masks `systemd-firstboot`. Kernel modules stay in
 `6.16.0-gb3ee311dab85.held`. Hyprland is not up. `plymouth-start` stays
 masked. On 2026-10-17 `resize2fs` grew that root from 10.5 GiB to
-453 GiB while it was mounted. Nothing was flashed.
+453 GiB while it was mounted. Nothing was flashed. The same day the
+account `ml` was added (uid 1000, groups wheel audio video input,
+password locked, SSH key). Hyprland 0.56.2 is installed and was not
+started.
 [dev-docs/2026-10-17-omarchy-grow.md](dev-docs/2026-10-17-omarchy-grow.md).
 [dev-docs/2026-10-16-ssh-firstboot.md](dev-docs/2026-10-16-ssh-firstboot.md).
 
