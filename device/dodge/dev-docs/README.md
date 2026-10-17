@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-17 | [ath12k-110e](2026-10-17-ath12k-110e.md) | ath12k binds `17cb:110e` and rejects SOC version major `0xf` before firmware. |
 | 2026-10-17 | [wifi-endpoint](2026-10-17-wifi-endpoint.md) | After a `boot_a` flash, `lspci` shows `17cb:110e`. ath12k does not claim that id. |
 | 2026-10-17 | [wifi-pwrseq-kexec](2026-10-17-wifi-pwrseq-kexec.md) | kexec of a DTB that enables the 7850 power node. SSH not back; USB has no carrier. |
 | 2026-10-17 | [wifi-pcie](2026-10-17-wifi-pcie.md) | PCIe root port is up. No Wi-Fi endpoint. The WCN7880 PMU has no driver and is disabled. |
