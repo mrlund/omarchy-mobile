@@ -34,7 +34,9 @@ STAGE2_IMAGE="${STAGE2_IMAGE:-$STAGE2_OUT/arch/arm64/boot/Image}"
 STAGE2_DTB_IN="${STAGE2_DTB_IN:-$STAGE2_OUT/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dtb}"
 STAGE2_INITRD="${STAGE2_INITRD:-$STAGE2_OUT/initramfs.cpio.lz4}"
 STAGE2_CMDLINE="${STAGE2_CMDLINE:-rdinit=/init clk_ignore_unused pd_ignore_unused panic=10 console=tty0}"
-STAGE1_CMDLINE="rdinit=/omamobile/init panic=10"
+# Stage 1 must not enable LPIs. It kexecs stage 2, and a GIC that
+# has already turned LPIs on will not give stage 2 a clean ITS.
+STAGE1_CMDLINE="rdinit=/omamobile/init panic=10 irqchip.gicv3_nolpi=1"
 # boot_a is 96 MiB. vbmeta chains that partition to its own AVB footer.
 BOOT_PARTITION_SIZE=100663296
 AVB_BOOT_KEY="${AVB_BOOT_KEY:-$HOME/android/reference/dodge-cph2653/avb-boot.pem}"
