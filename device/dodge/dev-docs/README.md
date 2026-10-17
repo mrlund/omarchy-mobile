@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-17 | [ath12k-tme](2026-10-17-ath12k-tme.md) | Pagani's peach port says the mode timeout is a missing TME-Lite download. The firmware rejects that QMI (`err 83`) and resets. No `wlan`. |
 | 2026-10-17 | [ath12k-amss](2026-10-17-ath12k-amss.md) | Stock `amss20.bin` reaches AMSS and QMI reports the firmware build. No `wlan`. A second load oopsed; ath12k stays bound. |
 | 2026-10-17 | [ath12k-110e](2026-10-17-ath12k-110e.md) | Clean LPIs. Stock `amss20.bin` reaches the SBL wait, then times out. No `wlan` interface. |
 | 2026-10-17 | [wifi-endpoint](2026-10-17-wifi-endpoint.md) | After a `boot_a` flash, `lspci` shows `17cb:110e`. ath12k does not claim that id. |

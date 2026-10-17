@@ -4,6 +4,23 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-17: the mode timeout is after a rejected TME-Lite download
+
+- **The same PCI id is ported on the OnePlus 13s.**
+  `renhiyama/pagani-linux` commit `c49d202` sends
+  `tmel_peach_20.elf` over QMI before board data, skips a
+  separate M3, and runs cold-boot calibration (WLAN mode 7)
+  before mission mode. It names that as the fix for set-mode
+  `-110`.
+- **This phone's firmware rejects the TME-Lite request**
+  (`result 1, err 83`) and then resets (`ignore reset dev
+  flags`). Mode 0 and mode 7 both time out. The stock board ELF
+  (`board.bin`, 125420 bytes) was sent and the reset still
+  happened. No `wlan`.
+- **Do not `insmod` ath12k twice on one boot.** The second load
+  oopses in `mhi_queue_skb`. The module is bound. The desktop
+  is up.
+
 ## 2026-10-17: peach Wi-Fi firmware reaches AMSS
 
 - **`amss20.bin` is two ELF files.** The first 512 KiB is an ARM
