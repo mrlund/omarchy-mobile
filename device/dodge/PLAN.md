@@ -1002,6 +1002,10 @@ bound. Do not load it again on this boot. Matching stock's 876 mV
 rails, 1312 mV on S7I, and the `wcn_sw` pins did not change the
 `err 83` result. Slot A is not marked successful, so ABL allows
 seven boots and then stays in fastboot.
+Sending the 36-bit stage-1 aperture in host cap made the
+firmware reset before it acknowledged memory. The request is
+type 1, type 4, and type 11 (4 KB), and type 11 was allocated.
+[dev-docs/2026-10-17-ath12k-ddr.md](dev-docs/2026-10-17-ath12k-ddr.md).
 [dev-docs/2026-10-17-ath12k-rails.md](dev-docs/2026-10-17-ath12k-rails.md).
 [dev-docs/2026-10-17-ath12k-tme.md](dev-docs/2026-10-17-ath12k-tme.md).
 [dev-docs/2026-10-17-ath12k-amss.md](dev-docs/2026-10-17-ath12k-amss.md).

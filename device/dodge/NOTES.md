@@ -4,6 +4,11 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-17: a 36-bit DMA window resets peach before TME
+
+- **The firmware asks for three memory segments:** type 1 (7.4 MB), type 4 (4.1 MB), and type 11 (4 KB). Each received a DMA address. Type 11 was already allocated by the driver.
+- **Advertising the stage-1 aperture (`0` size `0x1000000000`) makes the firmware reset** before it acknowledges that memory. No TME request on that boot. The module that does not send the window is on disk and is not loaded. ath12k stays bound.
+
 ## 2026-10-17: stock rails do not clear TME error 83
 
 - **S5F and S4D at 876 mV, S7I at 1312 mV, and `wcn_sw` / `wcn_sw_ctrl` still get TME-Lite `err 83`.** The firmware resets and mode 7 times out. No `wlan`. ath12k stays bound.
