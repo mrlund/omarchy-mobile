@@ -4,6 +4,12 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-17: stock rails do not clear TME error 83
+
+- **S5F and S4D at 876 mV, S7I at 1312 mV, and `wcn_sw` / `wcn_sw_ctrl` still get TME-Lite `err 83`.** The firmware resets and mode 7 times out. No `wlan`. ath12k stays bound.
+- **Slot A has a seven-boot budget.** Linux never sets `boot_a`'s success bit, so a later restart drops into fastboot with the slot unbootable. `fastboot set_active a` restores the tries without touching slot B. The storage guard refuses the GPT write that would mark the boot successful. Do not restart until that bit is set.
+- **Do not `insmod` ath12k twice on one boot.**
+
 ## 2026-10-17: the mode timeout is after a rejected TME-Lite download
 
 - **The same PCI id is ported on the OnePlus 13s.**
