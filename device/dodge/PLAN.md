@@ -978,7 +978,7 @@ password locked, SSH key). Hyprland 0.56.2 was then started once on
 simpledrm through `omamobile-hyprland.service` (not enabled). It owns
 `Unknown-1` at 1440×3168. The aquamarine retry loop did not appear.
 The human sees a slice of the wallpaper, notifications, and the
-screensaver.
+screensaver. Monitor scale was then raised from 1 to 2.
 [dev-docs/2026-10-17-hyprland-simpledrm.md](dev-docs/2026-10-17-hyprland-simpledrm.md).
 [dev-docs/2026-10-17-omarchy-grow.md](dev-docs/2026-10-17-omarchy-grow.md).
 [dev-docs/2026-10-16-ssh-firstboot.md](dev-docs/2026-10-16-ssh-firstboot.md).
