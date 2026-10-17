@@ -998,7 +998,11 @@ There is still no `wlan` interface. The WLAN mode request times
 out after the firmware rejects the TME-Lite QMI (`err 83`) and
 resets. The same sequence is what the OnePlus 13s peach port
 uses. Reloading ath12k on the same boot oopses. The module is
-bound. Do not load it again on this boot.
+bound. Do not load it again on this boot. Matching stock's 876 mV
+rails, 1312 mV on S7I, and the `wcn_sw` pins did not change the
+`err 83` result. Slot A is not marked successful, so ABL allows
+seven boots and then stays in fastboot.
+[dev-docs/2026-10-17-ath12k-rails.md](dev-docs/2026-10-17-ath12k-rails.md).
 [dev-docs/2026-10-17-ath12k-tme.md](dev-docs/2026-10-17-ath12k-tme.md).
 [dev-docs/2026-10-17-ath12k-amss.md](dev-docs/2026-10-17-ath12k-amss.md).
 [dev-docs/2026-10-17-ath12k-110e.md](dev-docs/2026-10-17-ath12k-110e.md).
