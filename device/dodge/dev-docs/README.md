@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-17 | [omarchy-grow](2026-10-17-omarchy-grow.md) | Omarchy root grown online to 453 GiB. No `ufshcd` error. Nothing flashed. |
 | 2026-10-16 | [ssh-firstboot](2026-10-16-ssh-firstboot.md) | SSH to Omarchy works. The timezone screen was `systemd-firstboot`, now seeded. |
 | 2026-10-16 | [desk-check-display-touch-gpu](2026-10-16-desk-check-display-touch-gpu.md) | Panel (AA569) and touch (S3910) drivers in our tree, not enabled. No Adreno 830. Hyprland on `simpledrm` + llvmpipe reported working once. Panel VCI held at 1.8 V, stock 3.0 V. |
 | 2026-10-16 | [omarchy-screen](2026-10-16-omarchy-screen.md) | Omarchy is on the screen after the modules were held back. SSH is still refused. |

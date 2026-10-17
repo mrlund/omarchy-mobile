@@ -971,7 +971,9 @@ that locked account, and `openssh` 10.6p1-2 does not ship the `sshd`
 privilege-separation user. The device package now ships the user and
 masks `systemd-firstboot`. Kernel modules stay in
 `6.16.0-gb3ee311dab85.held`. Hyprland is not up. `plymouth-start` stays
-masked.
+masked. On 2026-10-17 `resize2fs` grew that root from 10.5 GiB to
+453 GiB while it was mounted. Nothing was flashed.
+[dev-docs/2026-10-17-omarchy-grow.md](dev-docs/2026-10-17-omarchy-grow.md).
 [dev-docs/2026-10-16-ssh-firstboot.md](dev-docs/2026-10-16-ssh-firstboot.md).
 
 Carried from the phase 3.5 review (2026-10-16):
