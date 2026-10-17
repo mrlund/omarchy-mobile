@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-17 | [ath12k-ddr](2026-10-17-ath12k-ddr.md) | A 36-bit host DMA window resets the firmware before the memory response. Type 11 (4 KB) was requested and allocated. No `wlan`. |
 | 2026-10-17 | [ath12k-rails](2026-10-17-ath12k-rails.md) | Stock voltages and switch pins still get TME-Lite `err 83`. No `wlan`. Slot A ran out of boot tries; `set_active a` restored them. |
 | 2026-10-17 | [ath12k-tme](2026-10-17-ath12k-tme.md) | Pagani's peach port says the mode timeout is a missing TME-Lite download. The firmware rejects that QMI (`err 83`) and resets. No `wlan`. |
 | 2026-10-17 | [ath12k-amss](2026-10-17-ath12k-amss.md) | Stock `amss20.bin` reaches AMSS and QMI reports the firmware build. No `wlan`. A second load oopsed; ath12k stays bound. |
