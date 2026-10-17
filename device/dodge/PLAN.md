@@ -994,9 +994,12 @@ ARM SBL and BHIe takes the firmware that starts at 512 KiB.
 `BHI_EXECENV` is already SBL when the host starts waiting, so the
 90 s timeout was a missed event, not a chip that stayed in PBL.
 That path reaches AMSS and QMI reports the peach firmware build.
-There is still no `wlan` interface. The WLAN mode request timed
-out, and reloading ath12k on the same boot oopsed. The module is
-bound. Do not unload it and do not reboot this boot from software.
+There is still no `wlan` interface. The WLAN mode request times
+out after the firmware rejects the TME-Lite QMI (`err 83`) and
+resets. The same sequence is what the OnePlus 13s peach port
+uses. Reloading ath12k on the same boot oopses. The module is
+bound. Do not load it again on this boot.
+[dev-docs/2026-10-17-ath12k-tme.md](dev-docs/2026-10-17-ath12k-tme.md).
 [dev-docs/2026-10-17-ath12k-amss.md](dev-docs/2026-10-17-ath12k-amss.md).
 [dev-docs/2026-10-17-ath12k-110e.md](dev-docs/2026-10-17-ath12k-110e.md).
 [dev-docs/2026-10-17-wifi-endpoint.md](dev-docs/2026-10-17-wifi-endpoint.md).
