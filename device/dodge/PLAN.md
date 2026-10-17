@@ -983,7 +983,11 @@ screensaver font to 9. `omamobile-hyprland.service` is enabled for
 multi-user, so the next boot returns to this session. The S3910
 touch driver was then built and loaded on its own, with the GPI DMA
 and GENI SPI modules and not the rest of the held tree. Hyprland
-lists `touchpanel`. The human confirmed a tap works.
+lists `touchpanel`. The human confirmed a tap works. Wi-Fi's PCIe root port then bound
+after `phy-qcom-qmp-pcie` was loaded from the held tree. `lspci`
+shows only the root port. The radio's `wcn7880-pmu` node is disabled
+and has no driver, so the chip is not powered.
+[dev-docs/2026-10-17-wifi-pcie.md](dev-docs/2026-10-17-wifi-pcie.md).
 [dev-docs/2026-10-17-touch-s3910.md](dev-docs/2026-10-17-touch-s3910.md).
 [dev-docs/2026-10-17-desktop-at-boot.md](dev-docs/2026-10-17-desktop-at-boot.md).
 [dev-docs/2026-10-17-hyprland-simpledrm.md](dev-docs/2026-10-17-hyprland-simpledrm.md).

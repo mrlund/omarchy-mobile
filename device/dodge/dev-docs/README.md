@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-17 | [wifi-pcie](2026-10-17-wifi-pcie.md) | PCIe root port is up. No Wi-Fi endpoint. The WCN7880 PMU has no driver and is disabled. |
 | 2026-10-17 | [touch-s3910](2026-10-17-touch-s3910.md) | S3910 touch works on the simpledrm desktop. Panel driver still off. |
 | 2026-10-17 | [desktop-at-boot](2026-10-17-desktop-at-boot.md) | Hyprland unit enabled for multi-user. Not restarted. Next boot returns to this desktop. |
 | 2026-10-17 | [hyprland-simpledrm](2026-10-17-hyprland-simpledrm.md) | Hyprland on simpledrm. The human sees wallpaper, notifications, and the screensaver. |
