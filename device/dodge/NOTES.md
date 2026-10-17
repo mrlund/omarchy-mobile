@@ -4,6 +4,21 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-17: peach Wi-Fi firmware reaches AMSS
+
+- **`amss20.bin` is two ELF files.** The first 512 KiB is an ARM
+  SBL. The WLAN firmware ELF starts at offset 512 KiB. BHIe has to
+  send that second file on its own.
+- **`BHI_EXECENV` is already SBL when MHI prints the wait.** The
+  event-ring packet does not arrive. Reading the register and
+  continuing is what gets the chip to AMSS. QMI then reports
+  `WLAN.GNG.1.0-03342`. No `wlan` interface yet. The mode request
+  timed out after a warning for memory type 11.
+- **Do not reload ath12k on this boot.** A second `insmod` oopsed
+  in `mhi_queue_skb` and the SMMU faulted (SID `0x1401`). The
+  module is bound and the desktop is up. Leave it. If the session
+  dies, `sync` then `echo b > /proc/sysrq-trigger`.
+
 ## 2026-10-17: the Omarchy root fills userdata
 
 - **`resize2fs` online took `/dev/sda15` from 10.5 GiB to 453 GiB**

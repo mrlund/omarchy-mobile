@@ -988,7 +988,16 @@ after `phy-qcom-qmp-pcie` was loaded from the held tree. `lspci`
 shows only the root port. The radio's power node was then enabled as `qcom,wcn7850-pmu` and
 flashed in `boot_a`. A PCI rescan shows `17cb:110e`. ath12k claims that id. The version
 read through `0x310c` is all ones; through `0x3278` it is WCN7850
-hw2.0. QMI then defers until `qrtr` is loaded.
+hw2.0. QMI then defers until `qrtr` is loaded. With `qrtr`
+first, stock `peach/amss20.bin` is a two-ELF image: BHI takes the
+ARM SBL and BHIe takes the firmware that starts at 512 KiB.
+`BHI_EXECENV` is already SBL when the host starts waiting, so the
+90 s timeout was a missed event, not a chip that stayed in PBL.
+That path reaches AMSS and QMI reports the peach firmware build.
+There is still no `wlan` interface. The WLAN mode request timed
+out, and reloading ath12k on the same boot oopsed. The module is
+bound. Do not unload it and do not reboot this boot from software.
+[dev-docs/2026-10-17-ath12k-amss.md](dev-docs/2026-10-17-ath12k-amss.md).
 [dev-docs/2026-10-17-ath12k-110e.md](dev-docs/2026-10-17-ath12k-110e.md).
 [dev-docs/2026-10-17-wifi-endpoint.md](dev-docs/2026-10-17-wifi-endpoint.md).
 [dev-docs/2026-10-17-wifi-pcie.md](dev-docs/2026-10-17-wifi-pcie.md).
