@@ -4,6 +4,13 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-17: the Omarchy root fills userdata
+
+- **`resize2fs` online took `/dev/sda15` from 10.5 GiB to 453 GiB**
+  (120554767 blocks of 4 KiB, the whole partition). The image had
+  `resize_inode` and 1024 reserved GDT blocks. No `ufshcd` error.
+  The 2026-10-16 grow was the Arch root this image replaced.
+
 ## 2026-10-16: SSH, and the timezone screen
 
 - **The timezone screen is `systemd-firstboot`.** Its description is
