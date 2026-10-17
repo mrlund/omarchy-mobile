@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-17 | [user-ml](2026-10-17-user-ml.md) | User `ml` exists, password locked, SSH key login works. Hyprland not started. |
 | 2026-10-17 | [omarchy-grow](2026-10-17-omarchy-grow.md) | Omarchy root grown online to 453 GiB. No `ufshcd` error. Nothing flashed. |
 | 2026-10-16 | [ssh-firstboot](2026-10-16-ssh-firstboot.md) | SSH to Omarchy works. The timezone screen was `systemd-firstboot`, now seeded. |
 | 2026-10-16 | [desk-check-display-touch-gpu](2026-10-16-desk-check-display-touch-gpu.md) | Panel (AA569) and touch (S3910) drivers in our tree, not enabled. No Adreno 830. Hyprland on `simpledrm` + llvmpipe reported working once. Panel VCI held at 1.8 V, stock 3.0 V. |
