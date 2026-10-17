@@ -50,7 +50,9 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
-| 2026-10-17 | [hyprland-simpledrm](2026-10-17-hyprland-simpledrm.md) | Hyprland on simpledrm. The human sees wallpaper, notifications, and the screensaver. Not enabled for the next boot. |
+| 2026-10-17 | [touch-s3910](2026-10-17-touch-s3910.md) | S3910 registers as `touchpanel`. Hyprland lists it. Panel driver still off. |
+| 2026-10-17 | [desktop-at-boot](2026-10-17-desktop-at-boot.md) | Hyprland unit enabled for multi-user. Not restarted. Next boot returns to this desktop. |
+| 2026-10-17 | [hyprland-simpledrm](2026-10-17-hyprland-simpledrm.md) | Hyprland on simpledrm. The human sees wallpaper, notifications, and the screensaver. |
 | 2026-10-17 | [user-ml](2026-10-17-user-ml.md) | User `ml` exists, password locked, SSH key login works. Hyprland not started. |
 | 2026-10-17 | [omarchy-grow](2026-10-17-omarchy-grow.md) | Omarchy root grown online to 453 GiB. No `ufshcd` error. Nothing flashed. |
 | 2026-10-16 | [ssh-firstboot](2026-10-16-ssh-firstboot.md) | SSH to Omarchy works. The timezone screen was `systemd-firstboot`, now seeded. |
