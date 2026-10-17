@@ -5,8 +5,8 @@
 held kernel modules.
 **Phone.** OnePlus 13 CPH2653. Omarchy 4.0.4. User `ml`.
 **Kernel.** `6.16.0-gb3ee311dab85`
-**Result.** Hyprland 0.56.2 is running and owns the panel. The human
-has not yet said what the glass shows.
+**Result.** Pass. The human sees a slice of the Omarchy wallpaper,
+notifications at the top right, and the screensaver.
 
 ## What we did
 
@@ -25,6 +25,8 @@ which this framebuffer has no EDID to give. Quickshell is running.
 `hyprctl clients` lists no windows. Hyprland's CPU fell from about
 94% at startup to about 37%. The log was 51 KiB and still growing
 slowly, not the unbounded aquamarine retry. No coredump was recorded.
+The human then saw a slice of the Omarchy background, notifications
+in the top right, and the screensaver.
 
 ## Learning
 
