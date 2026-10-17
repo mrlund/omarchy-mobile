@@ -974,8 +974,10 @@ masks `systemd-firstboot`. Kernel modules stay in
 masked. On 2026-10-17 `resize2fs` grew that root from 10.5 GiB to
 453 GiB while it was mounted. Nothing was flashed. The same day the
 account `ml` was added (uid 1000, groups wheel audio video input,
-password locked, SSH key). Hyprland 0.56.2 is installed and was not
-started.
+password locked, SSH key). Hyprland 0.56.2 was then started once on
+simpledrm through `omamobile-hyprland.service` (not enabled). It owns
+`Unknown-1` at 1440×3168. The aquamarine retry loop did not appear.
+[dev-docs/2026-10-17-hyprland-simpledrm.md](dev-docs/2026-10-17-hyprland-simpledrm.md).
 [dev-docs/2026-10-17-omarchy-grow.md](dev-docs/2026-10-17-omarchy-grow.md).
 [dev-docs/2026-10-16-ssh-firstboot.md](dev-docs/2026-10-16-ssh-firstboot.md).
 
