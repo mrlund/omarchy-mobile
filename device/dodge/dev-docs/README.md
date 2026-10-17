@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-17 | [wifi-pwrseq-kexec](2026-10-17-wifi-pwrseq-kexec.md) | kexec of a DTB that enables the 7850 power node. SSH not back; USB has no carrier. |
 | 2026-10-17 | [wifi-pcie](2026-10-17-wifi-pcie.md) | PCIe root port is up. No Wi-Fi endpoint. The WCN7880 PMU has no driver and is disabled. |
 | 2026-10-17 | [touch-s3910](2026-10-17-touch-s3910.md) | S3910 touch works on the simpledrm desktop. Panel driver still off. |
 | 2026-10-17 | [desktop-at-boot](2026-10-17-desktop-at-boot.md) | Hyprland unit enabled for multi-user. Not restarted. Next boot returns to this desktop. |
