@@ -4,6 +4,10 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-19: the QDSS config is rejected too
+
+- **`qdss_trace_config_v2.cfg` (6241 bytes) is answered with QMI error 90.** Regdb, `bdwlan.b0e`, and `phy_ucode20.elf` were sent first. The firmware still resets about 195 ms after the board file, the same interval as the probe that did not send this file. Mode 7 times out. ath12k stays bound.
+
 ## 2026-10-19: aux is not advertised, and the reset remains
 
 - **Target cap `fw_caps` is `0xf`.** Bit 6, the aux feature, is clear, so aux was not sent. Regdb (24278 bytes), `bdwlan.b0e`, and `phy_ucode20.elf` were sent. The firmware still resets about 160 ms later and mode 7 times out. ath12k stays bound.
