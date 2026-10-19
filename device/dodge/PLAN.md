@@ -1018,6 +1018,9 @@ Mode 0 times out. The boot try count hit zero and
 `fastboot set_active a` restored seven tries.
 `phy_ucode20.elf` is accepted as the M3 image. Aux returns
 QMI error 90, incompatible state, and the firmware still resets.
+Stock's 30 mA load on L2F and L3F puts those LDOs in high-power
+mode and does not change `fw_caps` (`0xf`) or the aux-MAC assert.
+[dev-docs/2026-10-19-ath12k-io-load.md](dev-docs/2026-10-19-ath12k-io-load.md).
 [dev-docs/2026-10-19-ath12k-phy.md](dev-docs/2026-10-19-ath12k-phy.md).
 [dev-docs/2026-10-17-ath12k-skip-tme.md](dev-docs/2026-10-17-ath12k-skip-tme.md).
 [dev-docs/2026-10-17-ath12k-ddr2.md](dev-docs/2026-10-17-ath12k-ddr2.md).

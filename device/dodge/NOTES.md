@@ -4,6 +4,11 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-19: IO LDO high-power mode does not clear the aux assert
+
+- **L2F and L3F at stock's 30 mA sit in high-power mode.** `fw_caps` stays `0xf`. Aux is still QMI error 90, and the dump asserts in the same aux-MAC wakeup (`line#192`). Mode 0 times out. No `wlan`. ath12k stays bound.
+- **The restart before that probe found slot A out of tries.** `fastboot set_active a` (already current) restored seven. Slot B stayed unbootable. The success bit is still clear.
+
 ## 2026-10-19: mission mode crashes the same way
 
 - **Mode 0, with ini and config, still times out.** The firmware enters RDDM about 160 ms after the rejected aux download. Host feature `0x58` does not change `fw_caps` (`0xf`). HW_XPA in the board response is 1, matching stock. ath12k stays bound.
