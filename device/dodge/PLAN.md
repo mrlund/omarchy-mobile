@@ -1012,6 +1012,11 @@ before WLAN enable. TME-Lite is still `err 83`. The stock
 node has no open-loop CPR table.
 Stock's combined window, start 0 size `0x68000000`, also
 resets the firmware before the memory acknowledgement.
+Skipping TME-Lite, then sending ini and config, still
+resets the firmware about 190 ms after the board file.
+Mode 0 times out. The boot try count hit zero and
+`fastboot set_active a` restored seven tries.
+[dev-docs/2026-10-17-ath12k-skip-tme.md](dev-docs/2026-10-17-ath12k-skip-tme.md).
 [dev-docs/2026-10-17-ath12k-ddr2.md](dev-docs/2026-10-17-ath12k-ddr2.md).
 [dev-docs/2026-10-17-ath12k-pdc.md](dev-docs/2026-10-17-ath12k-pdc.md).
 [dev-docs/2026-10-17-ath12k-dma28.md](dev-docs/2026-10-17-ath12k-dma28.md).
