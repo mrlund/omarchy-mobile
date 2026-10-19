@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-19 | [battery-i2c](2026-10-19-battery-i2c.md) | `0x55` NACKs. `0x36` returns `0xffff`. PMIC alarms probe in stage 0. No percent. |
 | 2026-10-19 | [ath12k-io-load](2026-10-19-ath12k-io-load.md) | L2F and L3F at stock's 30 mA, high-power mode. `fw_caps` stays `0xf`. Same aux-MAC assert. No `wlan`. |
 | 2026-10-19 | [ath12k-phy](2026-10-19-ath12k-phy.md) | `phy_ucode20.elf` is accepted. Aux returns QMI error 90. The firmware still resets. No `wlan`. |
 | 2026-10-17 | [ath12k-skip-tme](2026-10-17-ath12k-skip-tme.md) | Skipping TME-Lite, with ini and config accepted, still resets the firmware. Mode 0 times out. No `wlan`. Slot A tries were restored. |
