@@ -4,6 +4,10 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-17: stock's DMA window also resets peach early
+
+- **Host cap `ddr_range` start 0 size `0x68000000`, with the segments inside it, resets the firmware** before the memory acknowledgement. Same shape as the 36-bit aperture. The module on disk does not send the field. ath12k stays bound.
+
 ## 2026-10-17: stock PDC messages still get TME error 83
 
 - **The AOSS accepted stock's four `wlan_pdc` strings for S5F** (mode, voltage enable, 876 mV up and down) before WLAN enable. There is no `qcom,vreg_ol_cpr` in the stock node. TME-Lite is still `err 83`. No `wlan`. ath12k stays bound.
