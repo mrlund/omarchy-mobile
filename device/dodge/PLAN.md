@@ -1005,6 +1005,9 @@ seven boots and then stays in fastboot.
 Sending the 36-bit stage-1 aperture in host cap made the
 firmware reset before it acknowledged memory. The request is
 type 1, type 4, and type 11 (4 KB), and type 11 was allocated.
+A 28-bit DMA mask moved those segments to `0x0e800000` and
+below. TME-Lite is still `err 83`.
+[dev-docs/2026-10-17-ath12k-dma28.md](dev-docs/2026-10-17-ath12k-dma28.md).
 [dev-docs/2026-10-17-ath12k-ddr.md](dev-docs/2026-10-17-ath12k-ddr.md).
 [dev-docs/2026-10-17-ath12k-rails.md](dev-docs/2026-10-17-ath12k-rails.md).
 [dev-docs/2026-10-17-ath12k-tme.md](dev-docs/2026-10-17-ath12k-tme.md).
