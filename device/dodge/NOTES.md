@@ -4,6 +4,10 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-17: stock PDC messages still get TME error 83
+
+- **The AOSS accepted stock's four `wlan_pdc` strings for S5F** (mode, voltage enable, 876 mV up and down) before WLAN enable. There is no `qcom,vreg_ol_cpr` in the stock node. TME-Lite is still `err 83`. No `wlan`. ath12k stays bound.
+
 ## 2026-10-17: low DMA addresses still get TME error 83
 
 - **A 28-bit DMA mask put the three firmware segments at `0x0e800000`, `0x0e400000`, and `0x0e3ff000`.** That is inside stock's low window. The firmware reached TME-Lite and answered `err 83` again, then reset. No `wlan`. ath12k stays bound.
