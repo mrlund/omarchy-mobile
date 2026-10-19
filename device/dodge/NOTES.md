@@ -4,6 +4,12 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-19: the firmware asserts in the aux MAC wakeup
+
+- **The BDF response says `host bdf data 0x1`, HW_XPA set.** That matches stock's `HW_XPA: 1`.
+- **The reset is RDDM.** The crash dump asserts in `cmnos_assert_patched.c:604`, recorded as `Asserted in:0x1a9046c:0x1a90c80, line#192`. The strings beside it are `whal_aux_mac_trigger_wakeup` and the aux PLL ready bits.
+- **Host feature bit 6 does not change `fw_caps`.** It stays `0xf`. Sending `aux_ucode20.elf` anyway is still QMI error 90. The QDSS config is error 90 too. ath12k stays bound. The dump is in `~/android/reference/dodge-cph2653/stock-session-2026-10-19/devcd1.bin`.
+
 ## 2026-10-19: the QDSS config is rejected too
 
 - **`qdss_trace_config_v2.cfg` (6241 bytes) is answered with QMI error 90.** Regdb, `bdwlan.b0e`, and `phy_ucode20.elf` were sent first. The firmware still resets about 195 ms after the board file, the same interval as the probe that did not send this file. Mode 7 times out. ath12k stays bound.
