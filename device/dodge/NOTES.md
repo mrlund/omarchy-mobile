@@ -4,6 +4,11 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-19: the DT fuel gauge does not answer
+
+- **`ti,bq27541` at I2C `0x55` NACKs.** The bus at `98c000` comes up. Address `0x36` ACKs and returns `0xffff`. Stock's percent path is `oplus_adsp_gauge` behind `oplus,virtual_gauge`, not this node.
+- **The PMIC temperature alarms probe.** All nine sit in stage 0, which this driver reports as 37.0 °C. They are not loaded at boot.
+
 ## 2026-10-19: IO LDO high-power mode does not clear the aux assert
 
 - **L2F and L3F at stock's 30 mA sit in high-power mode.** `fw_caps` stays `0xf`. Aux is still QMI error 90, and the dump asserts in the same aux-MAC wakeup (`line#192`). Mode 0 times out. No `wlan`. ath12k stays bound.

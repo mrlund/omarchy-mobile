@@ -1059,7 +1059,11 @@ Carried from the phase 3.5 review (2026-10-16):
 ### Phase 5 — Subsystems, one at a time
 
 Each gets `device/dodge/<NAME>-PLAN.md` before code. Order, because each
-one shortens the next debug:
+one shortens the next debug. On 2026-10-19 the fuel-gauge node
+`ti,bq27541` at `0x55` did not answer; stock's percent path is
+`oplus_adsp_gauge`. The PMIC temperature alarms probe and sit in
+stage 0
+([dev-docs/2026-10-19-battery-i2c.md](dev-docs/2026-10-19-battery-i2c.md)).
 
 | # | Stage | Done when |
 | --- | --- | --- |
