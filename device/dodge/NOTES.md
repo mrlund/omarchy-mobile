@@ -4,6 +4,10 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-19: peach PHY ucode is accepted, aux is not
+
+- **`phy_ucode20.elf` downloads with no M3 error.** `aux_ucode20.elf` is rejected with QMI error 90, incompatible state. The firmware still resets and mode 7 times out. The board file in that probe was stock `bdwlan.b0e`. ath12k stays bound. The phone clock was set to 2026-10-19 16:54 CEST; NTP is off.
+
 ## 2026-10-17: skipping TME-Lite does not stop the reset
 
 - **With `skip_tme=1`, ini and config are accepted and the firmware still resets** about 190 ms after the board file. Mode 0 then times out. The same reset happens when TME-Lite is sent and rejected. ath12k stays bound.
