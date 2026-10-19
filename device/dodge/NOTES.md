@@ -4,6 +4,11 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-17: skipping TME-Lite does not stop the reset
+
+- **With `skip_tme=1`, ini and config are accepted and the firmware still resets** about 190 ms after the board file. Mode 0 then times out. The same reset happens when TME-Lite is sent and rejected. ath12k stays bound.
+- **The boot try count hit zero** during these restarts. `fastboot set_active a` put seven tries back. Slot B was left unbootable. The success bit is still clear.
+
 ## 2026-10-17: stock's DMA window also resets peach early
 
 - **Host cap `ddr_range` start 0 size `0x68000000`, with the segments inside it, resets the firmware** before the memory acknowledgement. Same shape as the 36-bit aperture. The module on disk does not send the field. ath12k stays bound.
