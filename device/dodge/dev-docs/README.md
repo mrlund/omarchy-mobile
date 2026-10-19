@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-17 | [ath12k-pdc](2026-10-17-ath12k-pdc.md) | Stock's four S5F PDC messages were acknowledged before WLAN enable. TME-Lite is still `err 83`. No `wlan`. |
 | 2026-10-17 | [ath12k-dma28](2026-10-17-ath12k-dma28.md) | A 28-bit DMA mask put the firmware segments in the low 256 MiB. TME-Lite is still `err 83`. No `wlan`. |
 | 2026-10-17 | [ath12k-ddr](2026-10-17-ath12k-ddr.md) | A 36-bit host DMA window resets the firmware before the memory response. Type 11 (4 KB) was requested and allocated. No `wlan`. |
 | 2026-10-17 | [ath12k-rails](2026-10-17-ath12k-rails.md) | Stock voltages and switch pins still get TME-Lite `err 83`. No `wlan`. Slot A ran out of boot tries; `set_active a` restored them. |
