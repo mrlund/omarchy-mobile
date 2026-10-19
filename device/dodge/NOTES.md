@@ -4,6 +4,10 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-17: low DMA addresses still get TME error 83
+
+- **A 28-bit DMA mask put the three firmware segments at `0x0e800000`, `0x0e400000`, and `0x0e3ff000`.** That is inside stock's low window. The firmware reached TME-Lite and answered `err 83` again, then reset. No `wlan`. ath12k stays bound.
+
 ## 2026-10-17: a 36-bit DMA window resets peach before TME
 
 - **The firmware asks for three memory segments:** type 1 (7.4 MB), type 4 (4.1 MB), and type 11 (4 KB). Each received a DMA address. Type 11 was already allocated by the driver.
