@@ -4,6 +4,10 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-19: mission mode crashes the same way
+
+- **Mode 0, with ini and config, still times out.** The firmware enters RDDM about 160 ms after the rejected aux download. Host feature `0x58` does not change `fw_caps` (`0xf`). HW_XPA in the board response is 1, matching stock. ath12k stays bound.
+
 ## 2026-10-19: the firmware asserts in the aux MAC wakeup
 
 - **The BDF response says `host bdf data 0x1`, HW_XPA set.** That matches stock's `HW_XPA: 1`.
