@@ -1010,6 +1010,9 @@ below. TME-Lite is still `err 83`.
 Stock's four S5F PDC strings were acknowledged by the AOSS
 before WLAN enable. TME-Lite is still `err 83`. The stock
 node has no open-loop CPR table.
+Stock's combined window, start 0 size `0x68000000`, also
+resets the firmware before the memory acknowledgement.
+[dev-docs/2026-10-17-ath12k-ddr2.md](dev-docs/2026-10-17-ath12k-ddr2.md).
 [dev-docs/2026-10-17-ath12k-pdc.md](dev-docs/2026-10-17-ath12k-pdc.md).
 [dev-docs/2026-10-17-ath12k-dma28.md](dev-docs/2026-10-17-ath12k-dma28.md).
 [dev-docs/2026-10-17-ath12k-ddr.md](dev-docs/2026-10-17-ath12k-ddr.md).
