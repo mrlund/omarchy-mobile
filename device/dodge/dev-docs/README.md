@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-19 | [ath12k-phy](2026-10-19-ath12k-phy.md) | `phy_ucode20.elf` is accepted. Aux returns QMI error 90. The firmware still resets. No `wlan`. |
 | 2026-10-17 | [ath12k-skip-tme](2026-10-17-ath12k-skip-tme.md) | Skipping TME-Lite, with ini and config accepted, still resets the firmware. Mode 0 times out. No `wlan`. Slot A tries were restored. |
 | 2026-10-17 | [ath12k-ddr2](2026-10-17-ath12k-ddr2.md) | Stock's combined DMA window (`0` size `0x68000000`) resets the firmware before the memory acknowledgement. No `wlan`. |
 | 2026-10-17 | [ath12k-pdc](2026-10-17-ath12k-pdc.md) | Stock's four S5F PDC messages were acknowledged before WLAN enable. TME-Lite is still `err 83`. No `wlan`. |
