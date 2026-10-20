@@ -6,7 +6,9 @@
 **Kernel.** `6.16.0-gb3ee311dab85`
 **Result.** `APM_CMD_GET_SPF_STATE` returns after the audio
 heap is assigned to the LPASS and ADSP-heap VMIDs. The open
-`adsprpcd` stays up. There is no ALSA card. Do not play audio.
+`adsprpcd` stays up. Later the same day a bring-up card module
+and our own topology gave card 0, `OnePlus-dodge`, with one
+playback PCM. No audio has been played (see "The card" below).
 
 ## What we did
 
@@ -62,3 +64,62 @@ still no ALSA card, and the soundwire controllers stay
 disabled. Do not play audio until a card exists and a
 volume ceiling is set. Stock's 12 MiB remote-heap region
 is not in this DTB.
+
+## The card
+
+**Speakers on stock.** The live DT names two `awinic,aw882xx_smartpa`
+amplifiers on the hub I2C at `0x990000` (`i2c_hub_4`), addresses
+`0x34` and `0x35`, reset on TLMM 2 and 164. They take Secondary MI2S
+on TLMM `i2s1`: gpio121 `sck`, gpio122 `data0`, gpio123 `ws`,
+gpio124 `data1`. The stock card says `qcom,msm-mi2s-master` (the
+SoC drives the clocks), `qcom,wsa-max-devs = 0`, and WSA2 carries
+the haptics. The headset codec is a WCD939x on the RX/TX
+soundwire. None of the amplifiers' bus is enabled in our DTB.
+
+**No DT change.** The running kernel has no `OF_OVERLAY`, so the
+card is built in a module instead of a `qcom,sm8750-sndcard` node:
+[`audio/dodge-snd/dodge-snd.c`](../audio/dodge-snd/dodge-snd.c).
+One DPCM back end, `SEC_MI2S_RX`, the ASoC dummy codec, and the
+q6apm component (`gprsvc:service:2:1`) as platform. The
+q6apm `dais` and `bedais` nodes were already in the DTB;
+`q6apm-dai`, `q6apm-lpass-dais` and `q6prm-clocks` bound when
+loaded from the held tree.
+
+**Topology.** [`audio/OnePlus-dodge.m4`](../audio/OnePlus-dodge.m4)
+is MultiMedia1 playback into a Secondary MI2S device graph, SD0,
+LPASS 11.0 containers, from linux-msm/audioreach-topology. The
+kernel asks for `qcom/<driver_name>/<card name>-tplg.bin`, so the
+file is `/lib/firmware/qcom/sm8750/OnePlus-dodge-tplg.bin`. A DT card
+with `model = "OnePlus-dodge"` will load the same file. `alsatplg`
+warns that `Secondary MI2S Playback` is undefined; the stream
+widget comes from the back-end DAI at run time.
+
+**First load.** Card 0 `sm8750 - OnePlus-dodge`, `pcmC0D0p`, the
+controls `SECONDARY_MI2S_RX Audio Mixer MultiMedia1` and the
+MultiMedia1 volume. No playback.
+
+**The I2S clocks.** In this tree `q6i2s_ops` has no `.set_fmt`, so
+the I2S module's `ws_src` stays external (0) and nothing drives
+BCLK or WS. Upstream fixed the same symptom for Senary MI2S on the
+Fairphone (Gen. 6) with `snd_soc_dai_set_fmt(cpu, BP_FP)` in the
+sc8280xp machine driver, which needs `.set_fmt` on the I2S ops. The
+patched `q6apm-lpass-dais.ko` adds it, and the card's link format
+is `I2S | NB_NF | BC_FC` (codec consumer), so the CPU side gets
+`BP_FP`.
+
+**The oops.** Swapping modules meant `rmmod dodge_snd`. That left
+`q6apm_dai` with a reference and its component still bound to a
+`(null)` card, so the new card failed with `-19`. Unbinding
+`q6apm-dai` through sysfs then oopsed in
+`snd_soc_unregister_component_by_driver` (the topology's front-end
+DAIs). The phone stayed up and SSH worked. Never unload the card
+or unbind q6apm-dai after the topology has loaded; reboot instead.
+
+**Before the reboot.** `/tmp` on the phone is tmpfs. The open
+FastRPC build and `fastrpc-audio.ko` lived there, so they were
+copied to `/root/audio/`.
+[`audio/audio-bringup.sh`](../audio/audio-bringup.sh) is the
+whole order: ADSP running, `fastrpc-audio.ko audio_heap_vmids=1`,
+`adsprpcd`, wait for the heap assign, `apr`, q6dsp common, q6apm,
+q6prm and its clocks, `q6apm-dai`, the patched
+`q6apm-lpass-dais`, then the card.
