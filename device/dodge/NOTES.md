@@ -4,6 +4,19 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: audio from the module tree, and a UCM profile
+
+- **Nothing loads from `/root/audio` any more.** The patched `fastrpc`, `q6apm-lpass-dais` and `snd-soc-sc8280xp` modules, and the amplifier driver (now in the kernel as `snd-soc-aw882308`, `CONFIG_SND_SOC_AW882308=m`), were built in `out-dodge` and installed into the held module tree. The originals are kept in `/root/held-orig` on the phone. The Image did not change: all four are modules.
+  - `adsprpcd` and its two libraries are now in `/usr/local/lib/omamobile/fastrpc`, and the script is `/usr/local/lib/omamobile/audio-bringup.sh`. The unit runs it with no arguments.
+  - The script now requires the DT sound node. The `dodge-snd` and `new_device` fallbacks are gone. `device/dodge/audio/aw882308` and `dodge-snd` stay in the repo, because the kernel commits are not published yet.
+  - `/root/audio` was renamed to `/root/audio.old` to prove that nothing uses it.
+- **The machine driver no longer adds `Headphone Jack` or `Mic Jack`.** sc8280xp returns before the WCD jack setup on MI2S links.
+- **Verified after a plain reboot at 12:00 CEST:** the unit was active and the four modules were loaded from the tree, with `audio_heap_vmids=Y`. The controls are only the two Amp Volumes, the route and the stream volume. `aplay` played the tone with both amplifiers at SYSST 0x0315.
+- **UCM: `ucm2/OnePlus/dodge/`**, linked from `conf.d/sm8750/OnePlus-dodge.conf` (card driver `sm8750`, long name `OnePlus-dodge`). It has the HiFi verb and the Speaker device on `hw:CARD,0`, and it turns on the `SECONDARY_MI2S_RX Audio Mixer MultiMedia1` route. The amplifier gain stays at the driver default (attenuation 700).
+  - After restarting WirePlumber and PipeWire, `wpctl status` lists the sink `Built-in Audio Speaker playback` (`alsa_output.platform-sound.HiFi__Speaker__sink`), which is the default.
+  - `pw-play -a --format s16 --rate 48000 --channels 2` ran a tone through it: PCM RUNNING at S16_LE/48 kHz, and both amplifiers at 0x0315. `pw-play` needs `-a` for raw files.
+- **Kernel commits:** 31 on `omamobile-dodge` over 16cf517b2781, local only. A `git format-patch` copy is in `~/android/mainline/patches-dodge`, outside the repo.
+
 ## 2026-10-20: a DT sound card
 
 - **The DTB has a `sound` node:** `qcom,sm8750-sndcard`, model `OnePlus-dodge`, one link from Secondary MI2S RX to both amplifiers on q6apm, and an `i2s1-active-state` for gpio121-124. The machine driver is `snd-soc-sc8280xp`, patched to call `snd_soc_runtime_set_dai_fmt(I2S | NB_NF | BC_FC)` on MI2S links.
