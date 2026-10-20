@@ -1,0 +1,70 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Load ath12k for peach (17cb:110e) once per boot, after
+# omamobile-wifi-pcie has powered the radio and rescanned PCIe.
+#
+# Reloading ath12k on one boot oopses, so this never loads it twice:
+# it exits if the module is present, and it leaves a stamp in /run
+# before the first insmod. The stamp stays even if that insmod fails;
+# the next try is the next boot.
+set -u
+D=/usr/local/lib/omamobile
+STAMP=/run/omamobile-ath12k.tried
+
+log() { echo "omamobile-wifi-ath12k: $*"; }
+
+if [ -e /sys/module/ath12k ]; then
+	log "ath12k already loaded, nothing to do"
+	exit 0
+fi
+if [ -e "$STAMP" ]; then
+	log "ath12k was already tried this boot ($STAMP), not again"
+	exit 0
+fi
+
+# Wait for the endpoint the PCIe rescan brings up.
+found=
+i=0
+while [ $i -lt 60 ]; do
+	for dev in /sys/bus/pci/devices/*; do
+		[ -r "$dev/vendor" ] || continue
+		if [ "$(cat "$dev/vendor")" = 0x17cb ] &&
+		   [ "$(cat "$dev/device")" = 0x110e ]; then
+			found=$dev
+		fi
+	done
+	[ -n "$found" ] && break
+	sleep 0.5
+	i=$((i + 1))
+done
+if [ -z "$found" ]; then
+	log "no 17cb:110e on PCIe after 30 s, not loading ath12k"
+	exit 1
+fi
+log "endpoint ${found##*/}"
+
+# insmod a module unless it is already in (by module name).
+load() {
+	name=$(echo "$1" | tr - _)
+	shift
+	[ -e "/sys/module/$name" ] && return 0
+	insmod "$D/$(echo "$name" | tr _ -).ko" "$@" 2>/dev/null ||
+		insmod "$D/$name.ko" "$@"
+}
+
+# sha256 lets cfg80211 verify the signed regulatory.db; without it
+# the database is rejected and only the world domain is known.
+load libsha256-generic || log "libsha256-generic failed"
+load sha256 || log "sha256 failed"
+load rfkill || exit 1
+load libarc4 || exit 1
+load cfg80211 ieee80211_regdom=DK || exit 1
+load mac80211 || exit 1
+load mhi || exit 1
+load qrtr || exit 1
+load qrtr-mhi || exit 1
+
+: > "$STAMP"
+log "loading ath12k"
+insmod "$D/ath12k.ko" || { log "ath12k insmod failed"; exit 1; }
+log "ath12k loaded"
