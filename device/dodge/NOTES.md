@@ -4,6 +4,16 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: speaker heard again at 14:29 CEST (volume fix confirmed)
+
+- **Martin heard the speaker tone.** It was triggered at 14:29:21 CEST; the phone log shows START 14:29:20.1 and END 14:29:40.8. The tone was 440/660 Hz, -12 dBFS, 20 s, played with `aplay -D hw:0,0` with PipeWire stopped, amp volumes L=R=703 (attenuation 320).
+- **Status while playing:** SYSST 0x0315 on both amplifiers (switching); the driver logged `atten 320`.
+- **This confirms the root cause:** volume 323 (attenuation 700, about -66 dB) against 703 (attenuation 320, the cap).
+- **The trigger:** `/root/tone-trigger.sh` on the phone waits for `/tmp/play-tone` and logs to `/var/log/omamobile/tone.log`.
+- **Earpiece test armed at 14:30:10 CEST.** `/root/ear-trigger.sh` waits for `/tmp/play-tone-ear` (60 min). It plays the same tone on the earpiece: left in Receiver at 703, right at 0.
+  - A 1 s silent prime confirmed the setup: the left amplifier loaded `aw882308-34-receiver.bin`, SYSCTRL 0x42c0, attenuation 320; the right is at attenuation 1023.
+  - Not heard yet.
+
 ## 2026-10-20: silent since 11:44, the root cause was the amplifier volume
 
 - **Martin heard nothing at 14:20 or 14:21** (speaker and earpiece), although SYSST showed switching. SYSST says the amplifier is running; it does not prove sound at a usable level.
