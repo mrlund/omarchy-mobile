@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-20 | [adsp-audio](2026-10-20-adsp-audio.md) | SPF state times out. Stock starts `audio_pd` with `audioadsprpcd`. The ADSP FastRPC node is not in the running DTB. |
 | 2026-10-19 | [adsp-battery](2026-10-19-adsp-battery.md) | ADSP up. Battery 69%, 4.059 V, 34.1 °C. Modem and CDSP not started. |
 | 2026-10-19 | [battery-i2c](2026-10-19-battery-i2c.md) | `0x55` NACKs. `0x36` returns `0xffff`. PMIC alarms probe in stage 0. No percent. |
 | 2026-10-19 | [ath12k-io-load](2026-10-19-ath12k-io-load.md) | L2F and L3F at stock's 30 mA, high-power mode. `fw_caps` stays `0xf`. Same aux-MAC assert. No `wlan`. |

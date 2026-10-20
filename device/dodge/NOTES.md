@@ -4,6 +4,10 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: audio waits on ADSP FastRPC
+
+- **`APM_CMD_GET_SPF_STATE` times out.** q6apm and q6prm attach, and stock's `audio_pd` name already matches. Stock starts that domain with `audioadsprpcd audiopd adsp` on the ADSP FastRPC channel. The channel is up and unbound. The DTB that describes it is not the one this boot is running.
+
 ## 2026-10-19: the ADSP reports a battery percent
 
 - **Capacity reads 69, status Discharging, 4.059 V, 34.1 °C.** The supplies are `qcom-battmgr-bat`. The ADSP is `running`. The modem and the CDSP were not started.
