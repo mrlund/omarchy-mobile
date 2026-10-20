@@ -88,6 +88,16 @@ reboots. The Wi-Fi MAC is a placeholder too.
   moving `/lib/firmware/qca` away it restored 27 files with identical md5;
   the second run changed nothing).
 
+## Pairing (16:52 CEST)
+
+Martin put a Pixel phone in discoverable mode. `bluetoothctl` with `agent
+KeyboardDisplay` and `default-agent`, then `pair`: BR/EDR, numeric comparison,
+the same passkey on both phones, confirmed on both. Result: Paired, Bonded and
+Trusted yes, ACL connected, 16 service UUIDs read. `connect` returned
+`org.bluez.Error.Failed br-connection-create-socket`: no matching profile is
+active on the dodge (no PipeWire/audio stack yet). Name and address not
+recorded.
+
 ## For Martin (pairing)
 
 Put headphones or a phone in pairing mode near the dodge, then on the dodge:
