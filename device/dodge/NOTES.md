@@ -4,6 +4,15 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: Wi-Fi works (QCC2072 datapath on 6.16)
+
+- **Connected with autoconnect.** DHCP, ping (gateway, 1.1.1.1), DNS and 100 MB at about 47 Mbit/s work on `wlp1s0`, and it reconnects alone after a reboot (15:58 CEST). 5 GHz BSS now show up (three on 5240 MHz, like the laptop).
+- **The port:** six kernel commits on `omamobile-dodge`, `546a4de5f..662f16ae6` (about 740 lines): QCC2072 regs, RX descriptor and ops, 32-bit REO TLVs, rxdma selection config, and a `WCN7860_HW20` hw_params picked for `0x110e` only. The diagnostic dump is reverted. WCN7850 is untouched. The qdesc-LUT and ring-mask pieces needed nothing on 6.16.
+- **Review caught one thing before the boot:** the QCC2072 RX descriptor is bigger than the union, so it is not a union member (the accessors cast). Otherwise the union size would have changed for WCN7850 monitor mode.
+- **Don't read registers in `ath12k_hal_reo_cmd_send()`:** it runs in softirq, and the MHI wake sleeps (`BUG: scheduling while atomic`, seen once before the revert).
+- **Phone:** `/lib/firmware/ath12k/WCN7860/hw2.0 -> ../WCN7850/hw2.0`. Fallback modules are kept in `/usr/local/lib/omamobile/`.
+- **Signal:** -57 to -61 dBm on the dodge during transfers; Martin's stock phone reads -70 to -73 dBm. These may be different APs or bands. Details: [dev-docs/2026-10-20-wifi-qcc2072-port.md](dev-docs/2026-10-20-wifi-qcc2072-port.md).
+
 ## 2026-10-20: Wi-Fi datapath: peach has the QCC2072 register layout
 
 - **Associates, no handshake.** With the right SSID, auth and assoc succeed (mgmt goes over WMI), the AP deauths after about 4 s (reason 2: no EAPOL), and the firmware hits RDDM about 20 s later.
