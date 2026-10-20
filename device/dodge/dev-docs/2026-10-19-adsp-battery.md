@@ -6,8 +6,9 @@
 desktop stayed up. The ADSP itself was restarted twice.
 **Kernel.** `6.16.0-gb3ee311dab85`, plus `qcom_q6v5_pas.ko` and
 `qcom_pd_mapper.ko` built from `omamobile-dodge` `1ad7f044e`.
-**Result.** Pass. Capacity 69, status Discharging, 4.059 V,
-34.1 °C, present. The reading is not yet proven across a reboot.
+**Result.** Pass. Capacity 69 before the reboot. After a
+cold boot the service is active, the ADSP is running, and the
+supply reads 67, Discharging, 4.056 V, 36.6 °C, health Good.
 
 ## What we did
 
@@ -46,7 +47,9 @@ the percent.
 ## What is installed
 
 `/usr/local/lib/omamobile/adsp-battery.sh` and
-`omamobile-adsp-battery.service` load this stack at the next
-boot. The service is enabled and is not a boot dependency.
-It has not been run from a cold boot. The modem and the CDSP
-are still not started.
+`omamobile-adsp-battery.service` load this stack at boot. A
+cold boot on 2026-10-20 started the unit with result success.
+The only remoteproc is the ADSP, state running. The modem and
+the CDSP stayed down. The desktop was up. The USB supply was
+online at 4.93 V with `usb_type` SDP and a 500 mA input limit,
+while the battery status stayed Discharging.
