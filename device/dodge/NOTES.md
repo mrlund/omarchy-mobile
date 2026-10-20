@@ -4,6 +4,16 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: earpiece (receiver) via the left amplifier
+
+- **The earpiece is the left AW882308 (0x34) in its stock Receiver profile, with the right amplifier muted.** The stock ACF has a Receiver profile ("10"). Its register tables are extracted locally into `/lib/firmware/aw882308-3{4,5}-receiver.bin` on the phone and under `audio-local/receiver/` in the captures directory. They are not in git.
+- **Kernel commit `2e2290387`** (local, `wt-dodge`) adds `Left/Right Amp Profile` (Speaker/Receiver). The control only records the wanted profile. `aw882308_hw_params` applies a pending profile (load table, then stop) before the I2S setup, so it takes effect at the next stream setup. The repo's out-of-tree `aw882308` copy does not have this control.
+- **What failed first:** returning EBUSY while running aborted the UCM disable sequence. Applying at unmute clobbered I2SCTRL1, so the PLL never locked (SYSST 0x0011, start -110). Applying only in hw_params works.
+- **UCM `Earpiece` device:** conflicts with Speaker and Headphones. Enable sets `Right Amp Volume` 0 (attenuation 1023, muted) and `Left Amp Profile` Receiver. Disable restores `Right Amp Volume` 323 and `Left Amp Profile` Speaker. Priority 50.
+- **Verified by switching PipeWire profiles while playing:** Speaker gives both amplifiers SYSST 0x0315. `HiFi (Earpiece, Mic)` gives left 0x0311 with the receiver table and right muted at 1023. Back to Speaker gives both at 0x0315. The speaker attenuation stayed at 700, so the volume cap is unchanged. Speaker protection was not touched. Nobody has listened at the earpiece yet.
+- **Boots at about 12:40-12:51 CEST** (module and UCM iterations, one change per boot). After several plain reboots the retry count read 2. `fastboot set_active a` set it back to 7 at 12:51 CEST.
+- **After the 12:51 boot:** the service is active, PCMs hw:0,0 and hw:0,2 are present, and the PipeWire speaker sink and mic source are there. The profiles are `(Mic, Speaker)` (active), `(Earpiece, Mic)` and `(Headphones, Mic)` (unavailable without a jack). arecord gives -37.9 and -51.1 dBFS with no 480-frame repeat.
+
 ## 2026-10-20: USB-C headset path (needs a plug test)
 
 - **The DTB has the WCD939x USBSS** (`typec-mux@e` on QUP I2C3, L15B, no reset line), linked to the pmic-glink connector's SBU port and to the codec's headset port. The codec has `mode-switch` and `orientation-switch`, and there is a `wcd-playback-dai-link` from RX codec DMA 0. Kernel commit `a28fd268d` in `wt-dodge`.

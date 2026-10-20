@@ -371,3 +371,17 @@ The stock DT has `wcd939x_i2c@e` on `i2c@a8c000` (QUP I2C3), with a `vdd-usb-cp`
 
 **`jack-watch.sh`:** smoke-tested; it logs `hp=off mic=off udc=configured`.
 
+## Earpiece
+
+The earpiece uses the left AW882308 (0x34) in the stock Receiver profile, with the right amplifier muted through `Right Amp Volume` 0. Kernel commit `2e2290387` (local) adds an `Amp Profile` enum per amplifier. put/get only set and read the wanted profile. `aw882308_hw_params` applies the pending table (`aw882308-%02x-receiver.bin` for Receiver) and then stops the amplifier, before the I2S setup, whenever it is not running.
+
+Two earlier designs failed:
+- Returning -EBUSY while running broke the UCM disable sequence.
+- A deferred apply at unmute overwrote I2SCTRL1, so the PLL did not lock (SYSST 0x0011, -110).
+
+The receiver tables come from the stock ACF and stay local.
+
+UCM device `Earpiece`: ConflictingDevice Speaker and Headphones; priority 50.
+
+Verification by status register: in Earpiece, left SYSST reads 0x0311 and the right amplifier sits at attenuation 1023. Back on Speaker, both read 0x0315. The speaker attenuation cap of 700 is unchanged. No one has listened yet.
+
