@@ -1,0 +1,58 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Load the msm display path (dispcc, deps, AA569 panel, msm) once per
+# boot, before Hyprland. Needs the kernel fix that keeps MDSS_GDSC on
+# across runtime suspend, or the first screen off breaks the display.
+#
+# Off switch: touch /etc/omamobile/display-msm.disable (then reboot).
+# Fallback: if msm has not bound a DSI connector within $WAIT seconds,
+# it says so and exits 0; Hyprland starts anyway. As long as msm has not
+# bound, simpledrm is untouched (msm only takes the framebuffer over
+# once it binds).
+set -u
+WAIT=${WAIT:-20}
+DISABLE=/etc/omamobile/display-msm.disable
+STAMP=/run/omamobile-display-msm.tried
+H=/lib/modules/$(uname -r).held/kernel
+[ -d "$H" ] || H=/lib/modules/$(uname -r)/kernel
+P=/usr/local/lib/omamobile/display
+
+log() { echo "omamobile-display-msm: $*"; echo "omamobile-display-msm: $*" > /dev/kmsg 2>/dev/null; }
+
+[ -e "$DISABLE" ] && { log "disabled by $DISABLE, staying on simpledrm"; exit 0; }
+[ -e /sys/module/msm ] && { log "msm already loaded"; exit 0; }
+[ -e "$STAMP" ] && { log "already tried this boot ($STAMP)"; exit 0; }
+: > "$STAMP"
+
+# dispcc first: msm-mdss otherwise fails -110 after the deferred-probe timeout.
+for k in \
+	$H/drivers/clk/qcom/dispcc-sm8750.ko \
+	$H/drivers/video/backlight/backlight.ko \
+	$H/drivers/gpu/drm/display/drm_display_helper.ko \
+	$H/drivers/gpu/drm/display/drm_dp_aux_bus.ko \
+	$H/drivers/gpu/drm/drm_exec.ko \
+	$H/drivers/gpu/drm/scheduler/gpu-sched.ko \
+	$H/drivers/soc/qcom/llcc-qcom.ko \
+	$H/drivers/soc/qcom/ocmem.ko \
+	$H/drivers/soc/qcom/mdt_loader.ko \
+	$P/panel-aa569-p-3-a0019-dsc.ko \
+	$( [ -f $P/msm.ko ] && echo $P/msm.ko || echo $H/drivers/gpu/drm/msm/msm.ko )
+do
+	n=$(basename "$k" .ko | tr - _)
+	grep -q "^$n " /proc/modules && continue
+	insmod "$k" || { log "insmod $n failed; staying on simpledrm"; exit 0; }
+done
+
+i=0
+while [ $i -lt $((WAIT * 2)) ]; do
+	for c in /sys/class/drm/card*-DSI-1; do
+		if [ -r "$c/status" ] && [ "$(cat "$c/status")" = connected ]; then
+			log "msm bound: $(basename "$c") after $((i / 2)) s"
+			exit 0
+		fi
+	done
+	sleep 0.5
+	i=$((i + 1))
+done
+log "msm did not bind a DSI connector within ${WAIT} s; Hyprland starts on whatever is there ($(ls /dev/dri 2>/dev/null | tr '\n' ' '))"
+exit 0

@@ -36,7 +36,9 @@ dead-man reboot; a reboot always comes back to simpledrm and Hyprland.
   584 %), msm 690 % (Hyprland 648 %). Rendering is llvmpipe either way;
   the scanout path was never the cost. The win is a real screen off and
   brightness. Idle (static desktop) is about 2 % on both.
-- **Not loaded at boot yet.** A reboot still comes back to simpledrm.
+- **Loaded at boot since 19:23 CEST** by `display/omamobile-display-msm`
+  (installed with `display/install`). Hyprland comes up on `card1` DSI-1.
+  Off switch: `touch /etc/omamobile/display-msm.disable` and reboot.
 
 ## Kernel (wt-dodge, `omamobile-dodge`, local only)
 
@@ -133,6 +135,32 @@ Back on simpledrm by 17:35 CEST (reboot; modules are not loaded at boot).
     `active=0`, MDSS and DSI suspended while off, brightness exact, no
     `tx failed`. CPU measured as above (msm 19:16, simpledrm 19:20 CEST).
 
+27. **x, 19:23, worked.** Load at boot. `omamobile-display-msm.service`
+    (once per boot, `Before=omamobile-hyprland.service`, no `Requires`, so
+    Hyprland starts whatever happens) loads dispcc, the deps, the panel and
+    `msm`, then waits up to 20 s for `card*-DSI-1` to be connected. The
+    script always exits 0. Journal: bound at 7.1 s, Hyprland started at
+    7.1 s. `/dev/dri` has only `card1` and `renderD128`; DSI-1
+    1440x3168@120, scale 2, transform 0. The plane scans out a 1440x3168
+    framebuffer, plus the 512x512 cursor plane. No failed units. 5 Hyprland
+    DPMS cycles with exact brightness, no `tx failed`. The only display
+    noise is the known `DSI PLL(0) lock failed` twice at probe.
+28. **Omarchy controls, 19:28, work unchanged.** `brightnessctl -l` sees
+    `ae94000.dsi.0` (max 3502). Run inside the Hyprland session (`hyprctl
+    dispatch 'hl.dsp.exec_cmd("...")'`), `omarchy-brightness-display`
+    30 %, +5 %, 5 %-, 80 % and 50 % gave 1051, 1226, 1051, 2802 and 1751,
+    each read back exactly from the panel. `off` sets CRTC `active=0` and
+    `bl_power` 4; `on` brings it back with the brightness kept. From a
+    plain `su ml` shell `brightnessctl set` gets EPERM: that shell has no
+    logind session, and the sysfs file is root-only. The brightness keys
+    are bound in Omarchy's `media.lua`, so they should work as-is. Idle is
+    not wired: `hypridle` is not installed on the phone.
+
+The fallback has a limit. If `msm` binds and then fails after it has
+taken the framebuffer over from simpledrm, there is no DRM device left,
+Hyprland fails, and `getty@tty1` starts (its `OnFailure`). SSH is
+unaffected; recover with the off switch and a reboot.
+
 Readback quirk: the first brightness readback right after the first
 off/on cycle is sometimes wrong (900 → 1007 or 2100); every later one is
 exact. Not investigated.
@@ -141,13 +169,13 @@ Logs: `logs/display-2026-10-20-{f..w}.log` on the laptop (not committed).
 
 ## Next
 
-- Load at boot: a once-per-boot unit before `omamobile-hyprland.service`
-  that loads dispcc first, then the deps, the panel and `msm`, with a flag
-  file to turn it off; then Hyprland on `card1` from the start.
-- Hook Omarchy's idle/DPMS and brightness keys to the backlight.
+- Idle: install `hypridle` (or Omarchy's idle hook) so the screen turns
+  off by itself, using `omarchy-brightness-display off`/`on`.
 - Root fix candidates, one per boot: backport the upstream
   `qcom,sm8750-mdss` SMMU ACTLR entry (`PREFETCH_DEFAULT | CMTLB`), or halt
   the VBIF AXI port before MDSS suspend as downstream SDE does; if either
   fixes it with the GDSC collapsing, drop `31453abbe`.
 - Measure the screen-off power cost of the GDSC staying on.
 - CPU: try 60 Hz on msm (llvmpipe is the cost); a GPU waits for A830.
+- Rename `omamobile-hyprland.service`'s description ("on simpledrm"); the
+  unit is not in git yet.

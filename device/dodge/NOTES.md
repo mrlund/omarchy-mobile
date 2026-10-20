@@ -4,6 +4,13 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: msm display loads at boot; Omarchy brightness works
+
+- **At boot (19:23 CEST):** `display/install` puts in `omamobile-display-msm.service`. It runs once per boot before Hyprland, loads dispcc, the deps, the panel and `msm`, and waits up to 20 s for DSI-1. It always exits 0 and Hyprland does not require it, so a failed load leaves simpledrm and the desktop. Off switch: `/etc/omamobile/display-msm.disable`.
+- **Verified from the shell:** only `card1` remains, Hyprland is on DSI-1 1440x3168@120 (scale 2, transform 0), 5 DPMS cycles are clean, and DCS brightness reads back exactly.
+- **Omarchy's controls work unchanged:** `omarchy-brightness-display` steps and `off`/`on` (CRTC off plus `bl_power` 4) all work, and `brightnessctl` sees `ae94000.dsi.0`. They need the logind session: from plain `su ml` it gets EPERM. Idle isn't wired, since `hypridle` is not installed.
+- **Waiting on Martin's eyes:** desktop, orientation and colours on the msm path.
+
 ## 2026-10-20: msm display: off/on works (MDSS GDSC kept on)
 
 - **Off/on fixed, by hand (19:06 CEST):** kernel `31453abbe` keeps `MDSS_GDSC` on while MDSS runtime-suspends (SM8750 only; clocks and interconnect still drop). 8 fb blank/unblank cycles and 5 Hyprland `dpms off`/`on` cycles on `card1`, no `tx failed`, DCS brightness exact after each (one known first-readback glitch).
