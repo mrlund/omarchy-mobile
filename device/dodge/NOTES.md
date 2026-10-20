@@ -8,6 +8,7 @@ Attempts live in [dev-docs/](dev-docs/).
 
 - **Up at boot and survives a reboot** (16:35 CEST): `hci0` set up with `qca/gngbtfw20.mbn` and `gngbtnv20.bin` from the phone's own `bluetooth_a` (not committed), `Powered: yes`, a 20 s scan sees 3 devices. Pairing waits for Martin.
 - **Kernel:** `ff4e23cc6` (WCN7860 in btqca/hci_qca, from ROCKNIX patch 0045) and `b78a51b77` (DT node enabled). Power through the existing WCN7850 pwrseq `bluetooth` target.
+- **Pairing works** (16:52 CEST, a Pixel phone, name and address not recorded): `agent KeyboardDisplay`, `pair`, numeric comparison (passkey matched on both sides), then Paired/Bonded/Trusted yes, ACL connected. `connect` failed with `br-connection-create-socket`: no profile on the dodge accepted it (no audio stack running). Expected for a phone.
 - **BD address is a placeholder:** the controller comes up unconfigured. `omamobile-bt` sets a random `02:` address kept only on the phone (`/var/lib/omamobile/bt-public-addr`). Persist was not read.
 - **Don't wait on `/sys/class/bluetooth/hci0`:** it exists before setup ends, so a config check there sees no missing address (bt-3). Poll mgmt instead.
 - **Pack with the previous cmdline and `DTB_OPTS='splash fb'`:** the default pack left stage 2 without a root mount (bt-1).
