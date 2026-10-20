@@ -209,3 +209,19 @@ A -12 dBFS tone gives `0x0315` (switching), and DACST
 - UCM and PipeWire.
 - I/V feedback on data0.
 - The headset codec and the microphones.
+
+## At boot
+
+[`audio/omamobile-dodge-audio.service`](../audio/omamobile-dodge-audio.service)
+is a oneshot unit that needs `omamobile-adsp-battery.service` and starts
+after it. It runs the bring-up with `pins=1 amps=1` and sets the speaker
+route. It is installed by hand, like the battery unit.
+
+**The check.**
+- Slot state over fastboot at 11:44 CEST: slot a, retry count 5,
+  bootable. That needed no change.
+- `fastboot reboot`.
+- About 90 s after boot: the unit was active, card 0 was present
+  with the route on, and `aplay` of the test tone exited 0 with both
+  amplifiers switching.
+- No manual step was needed.
