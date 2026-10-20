@@ -1040,6 +1040,12 @@ reboot, and 5 GHz BSS visible. Wi-Fi is done
 Open items: monitor mode is off (the monitor path is still 64-bit TLV);
 REO `FLUSH_CACHE -105` bursts on TID teardown are generic 6.16 behaviour
 (seen on WCN7850 too); the firmware links via `wifi/install`.
+Bluetooth works: `hci_qca` with WCN7860 support on UART14, power from the
+same pwrseq, firmware from the phone's `bluetooth_a`. `hci0` is up at boot,
+scans see devices, and it survives a reboot. The BD address is a random
+local one kept on the phone (the real one is in persist). Pairing waits for
+a device in pairing mode
+([dev-docs/2026-10-20-bluetooth.md](dev-docs/2026-10-20-bluetooth.md)).
 [dev-docs/2026-10-19-ath12k-io-load.md](dev-docs/2026-10-19-ath12k-io-load.md).
 [dev-docs/2026-10-19-ath12k-phy.md](dev-docs/2026-10-19-ath12k-phy.md).
 [dev-docs/2026-10-17-ath12k-skip-tme.md](dev-docs/2026-10-17-ath12k-skip-tme.md).
@@ -1094,7 +1100,7 @@ The PMIC temperature alarms probe and sit in stage 0
 | 3 | Battery and charging | Percent and temperature move. The public report says the gauge sticks at 0%. |
 | 4 | USB-C | A replug comes back |
 | 5 | GPU | Hyprland on Adreno 830. Waits on the upstream A830 series and Mesa main. Software rendering stays the fallback. |
-| 6 | Wi-Fi and Bluetooth | Wi-Fi done 2026-10-20 (ath12k, QCC2072 datapath; monitor mode open). Bluetooth open. Firmware from the owner's image, never committed. |
+| 6 | Wi-Fi and Bluetooth | Wi-Fi done 2026-10-20 (ath12k, QCC2072 datapath; monitor mode open). Bluetooth done 2026-10-20 (hci_qca WCN7860, scan; pairing untested, random BD address). Firmware from the owner's image, never committed. |
 | 7 | Haptics, torch | A buzz, a light |
 | 8 | Audio | Speakers under a volume ceiling |
 | 9 | Sensors | Accelerometer, so rotation works |
