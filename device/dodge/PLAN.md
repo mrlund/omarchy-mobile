@@ -162,8 +162,14 @@ An A/B OTA leaves the older firmware on the inactive slot. If this
 unit's anti-rollback fuse has blown, booting that slot may hard-brick it
 [I]. So:
 
-- Never `fastboot set_active`, and never flash `--slot=other`, until both
-  slots' firmware is known to be the same build. On 2026-10-15 slot A
+- Never `fastboot set_active b` (or `--set-active=other`), and never
+  flash `--slot=other`, until both slots' firmware is known to be the
+  same build. `fastboot set_active a` on the **current** slot is
+  required after every boot-chain flash of `boot_a`: it clears the
+  boot-successful bit and gives the new image 7 tries, which
+  `dodge-boot-success.timer` turns back into "successful" only after a
+  good boot (2026-10-20, §9). Check `getvar current-slot` reads `a`
+  first; if it does not, stop. On 2026-10-15 slot A
   was current and slot B was marked unbootable (`slot-successful:yes`
   as well, retry count 6). Slot B is not a fallback. `getvar
   version-bootloader` came back empty, so the bootloader version of

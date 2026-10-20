@@ -17,7 +17,10 @@ is written for the Pixels, and its slot rules do not fit this phone.
 3. **`bin/omamobile flash`, `push`, `images` and the `UFS_RW` guard are
    Pixel-only.** They do not apply to dodge until the plan's §5.4.
    Never `fastboot flash` without a slot suffix, never `--slot=all`,
-   never `set_active`.
+   never `set_active b`. After every boot-chain flash of `boot_a`, run
+   `fastboot set_active a` (the current slot; check `getvar
+   current-slot` first): it gives the new image 7 tries until
+   `dodge-boot-success.timer` marks it good (PLAN §3.3, §9).
 4. **Nothing below `boot` is ever flashed**, whatever an OTA, a guide or
    a forum post says: no `xbl`, `abl`, `modem`, firmware or `vbmeta`.
    Anti-rollback can make that a permanent brick.
