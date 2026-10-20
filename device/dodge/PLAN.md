@@ -278,7 +278,7 @@ people break `super`.
 
 | Piece | Where |
 | --- | --- |
-| Kernel | `~/android/mainline/wt-dodge`, output `~/android/mainline/out-dodge`. Checked out 2026-10-15 from `sm8750-mainline/linux` branch `v6.16` at `16cf517b2781`, depth 1, local branch `omamobile-dodge`. The dodge DTB builds. A rebase onto current mainline waits: Linux 7.3-rc7 has no dodge board. |
+| Kernel | `~/android/mainline/wt-dodge`, output `~/android/mainline/out-dodge`. Checked out 2026-10-15 from `sm8750-mainline/linux` branch `v6.16` at `16cf517b2781`, depth 1, local branch `omamobile-dodge`. The dodge DTB builds. A rebase onto current mainline waits: Linux 7.3-rc7 has no dodge board. **Decision 2026-10-20 13:18 CEST:** this stays our kernel for now. There is no fork and the kernel commits are not pushed anywhere. The series (34 commits on `16cf517b2781`) is backed up as `git format-patch` in `~/android/mainline/patches-dodge/`, with `BASE.txt`. The local ref `backup/omamobile-dodge-6.16` is a backup branch. Porting is §9's later todo. |
 | Config | `kernel/configs/omamobile-dodge.config`, merged by `tools/dodge-try` on 2026-10-15. The Pixel fragment (`ARCH_EXYNOS`, Exynos USB, Exynos UFS, `s3c2410_wdt`) is the wrong fragment. |
 | Boot image | One self-contained header v2 image (`Image` + dodge DTB + the initramfs, §5.3). Packed 2026-10-15 at `~/android/mainline/out-dodge/images/boot.img` (45481984 bytes). Not handed to fastboot. Omarchy's full root image comes later, once SSH exists. |
 | Loop script | `tools/dodge-try`: `config` and `pack` stay on the laptop; `boot` does `fastboot boot`, waits for SSH, saves kmsg to `logs/`, and appends a row to `logs/dodge-tries.tsv` (§5.5). SSH deadline 120 s. The OxygenOS deadline is 600 s and is not a measured boot time; phase 1 replaces it. Only after both does `boot` call the phone dead. `bin/omamobile`'s `kernel`, `initramfs` and `images` are Pixel-shaped and stay untouched until §5.4. |
@@ -1119,6 +1119,22 @@ baseband and SOTA string are properties of the CPH2653 EU build, and they
 belong in the plan.
 
 ## 9. Open on this phone
+
+- **Later todo: the kernel port (decided 2026-10-20).** Our kernel stays
+  `wt-dodge` on sm8750-mainline v6.16 until this is done:
+  1. Measure how much SM8750 support the maintainer's `omamobile`
+     (derekross/linux-omarchy-mobile, last seen at v7.3-rc6 `bb0877536c7a`)
+     has: GCC/TLMM/RPMh/interconnect, UFS, USB, ADSP/remoteproc,
+     LPASS/SoundWire, the sm8750 DTSI, and whether any dodge DTS exists.
+     On 2026-10-20 only 4 of 32 picks applied and there is no dodge DTS
+     there, so it is a port, not a rebase.
+  2. Port as a clean, PR-ready series (upstream style, platform
+     dependencies first, each commit builds and is checkpatch-clean, boot
+     and audio verified) to a branch on **Martin's own fork only**. Never
+     push, commit or open a PR to the maintainer or any upstream remote.
+     Do not point the fork's default branch, PRs or upstream tracking at
+     the maintainer. In `wt-dodge` the `maint` remote's push URL is
+     disabled.
 
 - The bootloader version of each slot (§3.3). `getvar version-bootloader`
   was empty on 2026-10-15, on slot A. The OxygenOS build id is §2.
