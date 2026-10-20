@@ -4,6 +4,14 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: msm display: off/on works (MDSS GDSC kept on)
+
+- **Off/on fixed, by hand (19:06 CEST):** kernel `31453abbe` keeps `MDSS_GDSC` on while MDSS runtime-suspends (SM8750 only; clocks and interconnect still drop). 8 fb blank/unblank cycles and 5 Hyprland `dpms off`/`on` cycles on `card1`, no `tx failed`, DCS brightness exact after each (one known first-readback glitch).
+- **Cause:** a display session followed by an `MDSS_GDSC` collapse stalls the DSI command DMA on the next enable. Either alone is fine. All visible config registers match; the lost state is outside what msm programs (SMMU/TBU ACTLR or VBIF/AXI halt are the candidates). The commit is a workaround with a FIXME.
+- **Hyprland runs on msm** (DSI-1 1440x3168@120). Dispatch is Lua now: `hyprctl dispatch 'hl.dsp.dpms("off")'`.
+- **No CPU drop:** screensaver load is 633 % on simpledrm and 690 % on msm; llvmpipe rendering is the cost, not scanout.
+- **Still loaded by hand;** a reboot returns to simpledrm. Next: load at boot, then a root fix. Details: [dev-docs/2026-10-20-display-msm.md](dev-docs/2026-10-20-display-msm.md).
+
 ## 2026-10-20: msm display: first light, re-enable broken
 
 - **First modeset works by hand:** `display/display-try` loads `dispcc-sm8750` first, then the deps, the panel module (`CONFIG_DRM_PANEL_ONEPLUS_DODGE=m`) and `msm`. Command-mode encoder, 120 Hz, Martin saw modetest's colour bars, and DCS brightness reads back exactly.
