@@ -16,10 +16,11 @@ dnl Playback MultiMedia1
 STREAM_SG_PCM_ADD(audioreach/subgraph-stream-vol-playback.m4, FRONTEND_DAI_MULTIMEDIA1,
 	`S16_LE', 48000, 48000, 2, 2,
 	0x00004001, 0x00004001, 0x00006001, `110000')
-dnl Secondary MI2S Playback (speaker amplifiers)
+dnl Secondary MI2S Playback (speaker amplifiers). The amplifiers listen on
+dnl i2s1 data1 (gpio124), the DSP's SD1: on SD0 they never left the noise gate.
 DEVICE_SG_ADD(audioreach/subgraph-device-i2s-playback.m4, `Secondary', SECONDARY_MI2S_RX,
 	`S16_LE', 48000, 48000, 2, 2,
-	LPAIF_INTF_TYPE_LPAIF, I2S_INTF_TYPE_SECONDARY, SD_LINE_IDX_I2S_SD0, DATA_FORMAT_FIXED_POINT,
+	LPAIF_INTF_TYPE_LPAIF, I2S_INTF_TYPE_SECONDARY, SD_LINE_IDX_I2S_SD1, DATA_FORMAT_FIXED_POINT,
 	0x00004005, 0x00004005, 0x00006050, `SECONDARY_MI2S_RX')
 dnl
 STREAM_DEVICE_PLAYBACK_MIXER(SECONDARY_MI2S_RX, ``SECONDARY_MI2S_RX'', ``MultiMedia1'')
