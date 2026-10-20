@@ -15,6 +15,7 @@ Attempts live in [dev-docs/](dev-docs/).
 - **UCM: `ucm2/OnePlus/dodge/`**, linked from `conf.d/sm8750/OnePlus-dodge.conf` (card driver `sm8750`, long name `OnePlus-dodge`). It has the HiFi verb and the Speaker device on `hw:CARD,0`, and it turns on the `SECONDARY_MI2S_RX Audio Mixer MultiMedia1` route. The amplifier gain stays at the driver default (attenuation 700).
   - After restarting WirePlumber and PipeWire, `wpctl status` lists the sink `Built-in Audio Speaker playback` (`alsa_output.platform-sound.HiFi__Speaker__sink`), which is the default.
   - `pw-play -a --format s16 --rate 48000 --channels 2` ran a tone through it: PCM RUNNING at S16_LE/48 kHz, and both amplifiers at 0x0315. `pw-play` needs `-a` for raw files.
+- **A second boot at 12:10 CEST also came up on its own**, by way of fastboot. The retry count read 5; `set_active a` set it back to 7. On that boot the speaker sink was the default with no PipeWire restart, and `pw-play` reached both amplifiers.
 - **Kernel commits:** 31 on `omamobile-dodge` over 16cf517b2781, local only. A `git format-patch` copy is in `~/android/mainline/patches-dodge`, outside the repo.
 
 ## 2026-10-20: a DT sound card
