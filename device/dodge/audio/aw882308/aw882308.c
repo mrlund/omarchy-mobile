@@ -8,8 +8,9 @@
  * it applies an optional register table from firmware, runs the amplifier
  * from register defaults otherwise, and caps the volume.
  *
- * Bring-up only: without DT the I2C clients come from new_device and the
- * reset lines from a gpiod lookup table registered here.
+ * With DT the amplifiers are nodes on hub I2C4 ("awinic,aw882308", reset-gpios,
+ * sound-name-prefix). Without, lookup=1 registers the reset lines for I2C
+ * clients made with new_device on i2c-1.
  */
 #include <linux/delay.h>
 #include <linux/firmware.h>
@@ -17,6 +18,7 @@
 #include <linux/gpio/machine.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/regmap.h>
 #include <linux/unaligned.h>
 #include <linux/bitfield.h>
@@ -65,7 +67,7 @@ static bool use_fw = true;
 module_param(use_fw, bool, 0444);
 MODULE_PARM_DESC(use_fw, "Apply aw882308-<addr>.bin register table if present");
 
-static bool lookup = true;
+static bool lookup;
 module_param(lookup, bool, 0444);
 MODULE_PARM_DESC(lookup, "Register dodge reset-line gpiod lookups (no-DT bring-up)");
 
@@ -416,8 +418,17 @@ static const struct i2c_device_id aw882308_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, aw882308_id);
 
+static const struct of_device_id aw882308_of_match[] = {
+	{ .compatible = "awinic,aw882308" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, aw882308_of_match);
+
 static struct i2c_driver aw882308_driver = {
-	.driver = { .name = "aw882308" },
+	.driver = {
+		.name = "aw882308",
+		.of_match_table = aw882308_of_match,
+	},
 	.probe = aw882308_probe,
 	.remove = aw882308_remove,
 	.id_table = aw882308_id,

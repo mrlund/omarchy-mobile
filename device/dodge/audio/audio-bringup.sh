@@ -62,7 +62,13 @@ case " $* " in *" amps=1 "*)
 	done
 	bus=$(basename "$(dirname "$(readlink -f /sys/bus/platform/devices/990000.i2c/i2c-*/name)")")
 	[ "$bus" = i2c-1 ] || { log "hub I2C4 is $bus, aw882308 expects i2c-1"; exit 1; }
-	load "$A/aw882308.ko"
+	# DT nodes (awinic,aw882308) make 1-0034/1-0035 at boot; without
+	# them, add the clients here and let the module register the resets.
+	if [ -e /sys/bus/i2c/devices/1-0034/of_node ]; then
+		load "$A/aw882308.ko"
+	else
+		load "$A/aw882308.ko" lookup=1
+	fi
 	for a in 0x34 0x35; do
 		[ -e /sys/bus/i2c/devices/1-00${a#0x} ] ||
 			echo aw882308 $a > /sys/bus/i2c/devices/i2c-1/new_device

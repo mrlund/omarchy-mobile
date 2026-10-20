@@ -4,6 +4,13 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: the amplifiers come from the DT
+
+- **The DTB now has `audio-codec@34` and `@35` on hub I2C4** (`awinic,aw882308`, a provisional compatible): reset-gpios TLMM 2 and 164 active low, `sound-name-prefix` Left and Right. Kernel commit in `wt-dodge` on `omamobile-dodge`.
+- **Flashed to boot_a at 11:49 CEST**; the previous image is `boot-chain-avb.before-amp-nodes.img`. The retry count read 4 before the flash.
+- **That boot needed no help.** The clients exist at boot with an `of_node`, the driver got the resets from DT (its `lookup` parameter is now off by default), and the audio unit finished. The tone played with both amplifiers switching.
+- **The bring-up script only falls back to `new_device` + `lookup=1` when there are no DT nodes.**
+
 ## 2026-10-20: speakers at boot
 
 - **`audio/omamobile-dodge-audio.service` runs `audio-bringup.sh pins=1 amps=1` after the ADSP battery service,** then turns on the MultiMedia1 → speakers route. It is installed by hand in `/etc/systemd/system` and enabled, like the battery unit.
