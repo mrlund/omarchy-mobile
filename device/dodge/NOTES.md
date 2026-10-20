@@ -4,6 +4,13 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: the kernel stays ours (decision 13:18 CEST)
+
+- **Where it lives:** `~/android/mainline/wt-dodge`, branch `omamobile-dodge`, on sm8750-mainline/linux v6.16 `16cf517b2781` (shallow). It has 34 commits, head `2e2290387`, and builds to release `6.16.0-gb3ee311dab85`. Output goes to `~/android/mainline/out-dodge`.
+- **No fork, no push.** The kernel commits stay local. The `maint` remote (the maintainer's tree) is for fetching only; its push URL is `DISABLED-no-push-to-maintainer`.
+- **Backups:** `~/android/mainline/patches-dodge/` holds a full `git format-patch` of the series, refreshed at 13:19 CEST, with `BASE.txt`. `git am` onto the base reproduces the same tree (17c50d50c36d). The local ref `backup/omamobile-dodge-6.16` is a second backup.
+- **Later todo** (PLAN §9): measure the maintainer `omamobile`'s SM8750 support, then port as a clean, PR-ready series to Martin's own fork only. Never push to the maintainer or open a PR there.
+
 ## 2026-10-20: earpiece (receiver) via the left amplifier
 
 - **The earpiece is the left AW882308 (0x34) in its stock Receiver profile, with the right amplifier muted.** The stock ACF has a Receiver profile ("10"). Its register tables are extracted locally into `/lib/firmware/aw882308-3{4,5}-receiver.bin` on the phone and under `audio-local/receiver/` in the captures directory. They are not in git.
