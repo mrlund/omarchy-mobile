@@ -4,6 +4,14 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: msm display confirmed by eye; idle screen-off needs a PIN
+
+- **Martin looked at 20:18 CEST:** upright, colours correct. While he watched, brightness 700 looked dim and 2802 bright, Hyprland DPMS off for 5 s went fully dark, and on brought the desktop back at 1751. No `tx failed`.
+- **Waking by hand works (20:20 CEST):** after `dpms off` at 20:20:33, Martin tapped the screen and, if that did nothing, short-pressed the power key, and the screen came back. **Which input woke it is not known.** The only trace is omarchy-shell's `screensaver-wake: user returned` at 20:20:44. logind ignores the power key (`HandlePowerKey=ignore`), and Hyprland doesn't log input. Both `touchpanel` (event3) and `pmic_pwrkey` (event0) are libinput devices in Hyprland. Next hands-on test: run `libinput debug-events` during it. Touch-wake is not confirmed.
+- **Idle screen-off is Omarchy's own, not hypridle:** omarchy-shell's idle service (`~/.config/omarchy/shell.json`: screensaver 150 s, lock 300 s) locks, and the lock blanks the display 5 s later (10 s with the number pad) via `omarchy-brightness-display off`. On the dodge the lock is denied (`lock-denied: missing-pam`): `/etc/pam.d/omarchy-lock-password` was never installed (`omarchy-apply-lock`), and `ml` has no password (locked). So the screen never turns off by itself; the screensaver just keeps running (about 650 % CPU). Fix: Martin sets a PIN with `omamobile-set-pin` on the phone, then `omarchy-apply-lock` as root. Installing the PAM file without a PIN would lock him out of the desktop, so neither was done.
+- **`desktop/omamobile-hyprland.service` is in git** (`desktop/install`). The description no longer says simpledrm, and it orders after `omamobile-display-msm`. Installed at 20:28 CEST; the change takes effect at the next desktop start.
+- **Hyprland log:** aquamarine logs `initMgpu: no renderer` / `Failed to update renderer state for DSI-1` in bursts. It reached 38 MB in `/run/user/1000` (RAM) after an hour on msm, then stopped growing. Watch it.
+
 ## 2026-10-20: msm display loads at boot; Omarchy brightness works
 
 - **At boot (19:23 CEST):** `display/install` puts in `omamobile-display-msm.service`. It runs once per boot before Hyprland, loads dispcc, the deps, the panel and `msm`, and waits up to 20 s for DSI-1. It always exits 0 and Hyprland does not require it, so a failed load leaves simpledrm and the desktop. Off switch: `/etc/omamobile/display-msm.disable`.

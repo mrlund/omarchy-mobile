@@ -156,6 +156,21 @@ Back on simpledrm by 17:35 CEST (reboot; modules are not loaded at boot).
     are bound in Omarchy's `media.lua`, so they should work as-is. Idle is
     not wired: `hypridle` is not installed on the phone.
 
+29. **Martin's eyes, 20:18, worked.** Desktop upright, colours correct.
+    The parent ran sysfs brightness 700 (dim), then 2802 (bright),
+    Hyprland DPMS off for 5 s (fully dark), on, then 1751. 0 `tx failed`.
+30. **Hand wake, 20:20, worked; input unknown.** `dpms off` at 20:20:33.
+    Martin tapped, then short-pressed the power key if needed, and the
+    screen came back. omarchy-shell logged `screensaver-wake: user
+    returned` at 20:20:44. Nothing records which device it was:
+    `HandlePowerKey=ignore`, and Hyprland doesn't log input.
+31. **Idle, 20:25, not wired, needs Martin.** Omarchy 4.0.4 has no
+    hypridle: omarchy-shell's idle service runs the screensaver at 150 s
+    and locks at 300 s, and the lock blanks the display 5-10 s later. The
+    lock is denied for missing PAM (`/etc/pam.d/omarchy-lock-password`,
+    `omarchy-apply-lock`), and `ml` has no password. So: Martin sets a PIN
+    (`omamobile-set-pin`), then `omarchy-apply-lock`.
+
 The fallback has a limit. If `msm` binds and then fails after it has
 taken the framebuffer over from simpledrm, there is no DRM device left,
 Hyprland fails, and `getty@tty1` starts (its `OnFailure`). SSH is
@@ -169,13 +184,12 @@ Logs: `logs/display-2026-10-20-{f..w}.log` on the laptop (not committed).
 
 ## Next
 
-- Idle: install `hypridle` (or Omarchy's idle hook) so the screen turns
-  off by itself, using `omarchy-brightness-display off`/`on`.
+- Idle: Martin sets a PIN (`omamobile-set-pin`), then `omarchy-apply-lock`;
+  verify that the lock blanks, and which input wakes it
+  (`libinput debug-events`).
 - Root fix candidates, one per boot: backport the upstream
   `qcom,sm8750-mdss` SMMU ACTLR entry (`PREFETCH_DEFAULT | CMTLB`), or halt
   the VBIF AXI port before MDSS suspend as downstream SDE does; if either
   fixes it with the GDSC collapsing, drop `31453abbe`.
 - Measure the screen-off power cost of the GDSC staying on.
 - CPU: try 60 Hz on msm (llvmpipe is the cost); a GPU waits for A830.
-- Rename `omamobile-hyprland.service`'s description ("on simpledrm"); the
-  unit is not in git yet.
