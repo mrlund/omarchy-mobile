@@ -56,6 +56,13 @@ load() {
 # the database is rejected and only the world domain is known.
 load libsha256-generic || log "libsha256-generic failed"
 load sha256 || log "sha256 failed"
+# Nothing autoloads crypto modules here (no /lib/modules tree), so load
+# what ath12k and mac80211 ask for by name: michael_mic for every
+# peer's rx defrag context (without it station add fails with -ENOENT),
+# and the CCMP/GCMP/BIP templates.
+for m in ctr ccm ghash-generic gcm cmac michael_mic; do
+	load "$m" || log "$m failed"
+done
 load rfkill || exit 1
 load libarc4 || exit 1
 load cfg80211 ieee80211_regdom=DK || exit 1
