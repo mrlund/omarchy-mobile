@@ -4,6 +4,15 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: GDSC workaround costs nothing measurable with the screen off
+
+- **A/B, battery `current_now`, on USB (20:20-20:30 CEST):** this compares screen-on vs screen-off within each boot, because the charge current drifts between boots.
+  - GDSC kept on (`31453abbe`): screen-on -74 mA, screen-off -161 mA, a drop of 87 mA.
+  - GDSC collapsing (the `d17` module, one boot): +15 mA to -73 mA, a drop of 88 mA.
+  - The difference is below the noise (sd 10-24 mA, 30-45 samples), so the screen-off cost of keeping `MDSS_GDSC` on is about 1 mA or less, not resolved. The screen itself is about 87 mA.
+  - That boot also showed the old bug again (`tx failed` on the first re-enable). The fixed module is back since the 20:32 CEST boot: 5 DPMS cycles were clean, and the new Hyprland unit description is active.
+- **Battery is at 21 %** and was charging only about 75-160 mA on this USB port.
+
 ## 2026-10-20: msm display confirmed by eye; idle screen-off needs a PIN
 
 - **Martin looked at 20:18 CEST:** upright, colours correct. While he watched, brightness 700 looked dim and 2802 bright, Hyprland DPMS off for 5 s went fully dark, and on brought the desktop back at 1751. No `tx failed`.
