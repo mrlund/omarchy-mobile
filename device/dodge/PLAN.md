@@ -1032,6 +1032,14 @@ The assert came from host cap bit 3 (`QDSS_CFG_MISS`). Without it,
 plus no rfkill GPIO and the single-phy WMI fixes, `iw scan` sees
 networks on 2.4 GHz
 ([dev-docs/2026-10-20-wifi-scan.md](dev-docs/2026-10-20-wifi-scan.md)).
+Peach turned out to use the QCC2072 register map and RX descriptors. With
+that datapath ported to 6.16 (WCN7860 hw params for `0x110e` only), Wi-Fi
+works: DHCP, DNS, about 47 Mbit/s, NetworkManager autoconnect across a
+reboot, and 5 GHz BSS visible. Wi-Fi is done
+([dev-docs/2026-10-20-wifi-qcc2072-port.md](dev-docs/2026-10-20-wifi-qcc2072-port.md)).
+Open items: monitor mode is off (the monitor path is still 64-bit TLV);
+REO `FLUSH_CACHE -105` bursts on TID teardown are generic 6.16 behaviour
+(seen on WCN7850 too); the firmware links via `wifi/install`.
 [dev-docs/2026-10-19-ath12k-io-load.md](dev-docs/2026-10-19-ath12k-io-load.md).
 [dev-docs/2026-10-19-ath12k-phy.md](dev-docs/2026-10-19-ath12k-phy.md).
 [dev-docs/2026-10-17-ath12k-skip-tme.md](dev-docs/2026-10-17-ath12k-skip-tme.md).
@@ -1086,7 +1094,7 @@ The PMIC temperature alarms probe and sit in stage 0
 | 3 | Battery and charging | Percent and temperature move. The public report says the gauge sticks at 0%. |
 | 4 | USB-C | A replug comes back |
 | 5 | GPU | Hyprland on Adreno 830. Waits on the upstream A830 series and Mesa main. Software rendering stays the fallback. |
-| 6 | Wi-Fi and Bluetooth | The chip the DT names. ath12k is the likely driver. Firmware from the owner's image, never committed. |
+| 6 | Wi-Fi and Bluetooth | Wi-Fi done 2026-10-20 (ath12k, QCC2072 datapath; monitor mode open). Bluetooth open. Firmware from the owner's image, never committed. |
 | 7 | Haptics, torch | A buzz, a light |
 | 8 | Audio | Speakers under a volume ceiling |
 | 9 | Sensors | Accelerometer, so rotation works |
