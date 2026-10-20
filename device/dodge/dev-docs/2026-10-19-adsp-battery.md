@@ -53,3 +53,10 @@ The only remoteproc is the ADSP, state running. The modem and
 the CDSP stayed down. The desktop was up. The USB supply was
 online at 4.93 V with `usb_type` SDP and a 500 mA input limit,
 while the battery status stayed Discharging.
+
+The owner does not trust these numbers. The phone should have
+been charging from USB, and the percent should have been nearer
+85. `voltage_max` came back as 8.9 V, `charge_full` failed, and
+`power_now` did not match `current_now` times `voltage_now`.
+The unknown notification codes are the first place to look.
+Left for a later review. No further battery changes in this pass.
