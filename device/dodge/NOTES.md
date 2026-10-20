@@ -8,7 +8,8 @@ Attempts live in [dev-docs/](dev-docs/).
 
 - **Capacity reads 69, status Discharging, 4.059 V, 34.1 °C.** The supplies are `qcom-battmgr-bat`. The ADSP is `running`. The modem and the CDSP were not started.
 - **`qrtr-smd` has to be loaded before PDR looks up `msm/adsp/charger_pd`.** `pd_mapper` also needs a `qcom,sm8750` domain list, the same one as SM8550. Without either, every property returns `EAGAIN`.
-- **Load the PAS driver with `only_adsp=1`.** The board enables the modem and CDSP nodes, and probing the modem assigns its RAM to the modem VM. The boot service is enabled and has not been tried from a cold boot.
+- **Load the PAS driver with `only_adsp=1`.** The board enables the modem and CDSP nodes, and probing the modem assigns its RAM to the modem VM.
+- **A cold boot brings the percent back.** `omamobile-adsp-battery.service` finished successfully, the ADSP was running, and capacity was 67. The USB supply was an SDP at 500 mA. The battery status stayed Discharging.
 
 ## 2026-10-19: the DT fuel gauge does not answer
 
