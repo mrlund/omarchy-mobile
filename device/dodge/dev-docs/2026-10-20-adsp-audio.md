@@ -293,6 +293,12 @@ The profile is `device/dodge/audio/ucm2/OnePlus/dodge/{OnePlus-dodge,HiFi}.conf`
 - `pw-play -a --target <sink> --format s16 --rate 48000 --channels 2 /tmp/tone.raw` gave PCM RUNNING (S16_LE, 48 kHz, period 480) and both amplifiers at 0x0315.
 - Without `-a`, `pw-play` rejects a raw file. It also cannot read from /root, because it runs as ml.
 
+**Second boot, 12:10 CEST, by way of fastboot**
+- The retry count read 5; `set_active a` set it back to 7.
+- After boot the unit was active and there were no jack controls.
+- The default sink was "Built-in Audio Speaker playback" with no PipeWire restart.
+- `pw-play -a` of the tone left both amplifiers at 0x0315.
+
 ## Where the kernel commits live
 
 Per AGENTS.md, kernel work stays on `omamobile-<subsystem>` branches in the kernel tree. Curated, upstream-ready commits go to `omamobile`, and the maintainer publishes that to derekross/linux-omarchy-mobile with `tools/publish-kernel`. The repo's `*.patch` series are for userspace packages.
