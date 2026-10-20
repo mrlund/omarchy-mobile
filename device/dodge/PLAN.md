@@ -1000,8 +1000,10 @@ resets. The same sequence is what the OnePlus 13s peach port
 uses. Reloading ath12k on the same boot oopses. The module is
 bound. Do not load it again on this boot. Matching stock's 876 mV
 rails, 1312 mV on S7I, and the `wcn_sw` pins did not change the
-`err 83` result. Slot A is not marked successful, so ABL allows
-seven boots and then stays in fastboot.
+`err 83` result. Slot A was not marked successful, so ABL allowed
+seven boots and then stayed in fastboot. Since 2026-10-20
+`dodge-boot-success.timer` marks it on every good boot
+([dev-docs/2026-10-20-boot-success.md](dev-docs/2026-10-20-boot-success.md)).
 Sending the 36-bit stage-1 aperture in host cap made the
 firmware reset before it acknowledged memory. The request is
 type 1, type 4, and type 11 (4 KB), and type 11 was allocated.
@@ -1119,6 +1121,16 @@ baseband and SOTA string are properties of the CPH2653 EU build, and they
 belong in the plan.
 
 ## 9. Open on this phone
+
+- **Done 2026-10-20: slot A's boot-successful bit.** Linux sets bit 54
+  of `boot_a`'s GPT attribute (both GPT copies on `sde`, nothing else)
+  90 s into a boot that has sshd, battery and audio up
+  (`device/dodge/boot-success/`). The retry count no longer falls on a
+  plain reboot. After any `boot_a` flash, `fastboot set_active a` (the
+  current slot) clears the bit so the new image gets 7 tries again;
+  without it a crash-looping kernel would not fall back to fastboot on
+  its own. Slot B and every other GPT entry stay untouched
+  ([dev-docs/2026-10-20-boot-success.md](dev-docs/2026-10-20-boot-success.md)).
 
 - **Later todo: the kernel port (decided 2026-10-20).** Our kernel stays
   `wt-dodge` on sm8750-mainline v6.16 until this is done:

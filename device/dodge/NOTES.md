@@ -4,6 +4,15 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: slot A marked successful from Linux (no more seven-boot budget)
+
+- **The slot state is byte 6 of `boot_a`'s GPT entry** on `/dev/sde` (entry 12): priority bits 0-1, active 2, retry count 3-5, successful 6, unbootable 7. Only `boot_a` counted down; every other `*_a` entry on `sde` sits at `0x7f`. `fastboot getvar slot-*:a` matches that byte.
+- **`dodge-boot-success`** (`device/dodge/boot-success/`, on the phone in `/usr/local/lib/omamobile/`) sets bit 6 on `boot_<running slot>` only, in the primary and backup GPT, and fixes the two CRCs. It validates both copies first, refuses any diff beyond that byte and the CRCs, lifts read-only on `/dev/sde` only for the write (partitions stay read-only), and reads both copies back. Idempotent; `--status` and `--dry-run` are read-only.
+- **`dodge-boot-success.timer`** (enabled, `OnBootSec=90s`) runs it when sshd, the ADSP battery service and audio are active.
+- **Before:** `slot-successful:a: no`, retry 6. **After** (14:44 CEST): `yes`, retry 5. Three plain reboots: Linux each time, retry stayed 5. After `fastboot set_active a` (`no`, 7) the timer marked the next boot itself (`0x37 -> 0x77`), and fastboot read `yes`, 6.
+- **After flashing `boot_a`, run `fastboot set_active a`.** A marked slot no longer counts down, so a crash-looping kernel would not fall to fastboot on its own. `set_active a` clears the bit and gives the new image 7 tries until the timer marks it.
+- GPT backups (both copies, before the first write): `~/android/reference/dodge-cph2653/gpt-sde-2026-10-20/`. Not in git.
+
 ## 2026-10-20: speaker and earpiece human-verified; boot defaults
 
 - **Human-verified (Martin, by ear):**
@@ -274,7 +283,7 @@ Attempts live in [dev-docs/](dev-docs/).
 ## 2026-10-17: stock rails do not clear TME error 83
 
 - **S5F and S4D at 876 mV, S7I at 1312 mV, and `wcn_sw` / `wcn_sw_ctrl` still get TME-Lite `err 83`.** The firmware resets and mode 7 times out. No `wlan`. ath12k stays bound.
-- **Slot A has a seven-boot budget.** Linux never sets `boot_a`'s success bit, so a later restart drops into fastboot with the slot unbootable. `fastboot set_active a` restores the tries without touching slot B. The storage guard refuses the GPT write that would mark the boot successful. Do not restart until that bit is set.
+- **Slot A has a seven-boot budget** (superseded 2026-10-20: `dodge-boot-success` now sets the bit). Linux never sets `boot_a`'s success bit, so a later restart drops into fastboot with the slot unbootable. `fastboot set_active a` restores the tries without touching slot B. The storage guard refuses the GPT write that would mark the boot successful. Do not restart until that bit is set.
 - **Do not `insmod` ath12k twice on one boot.**
 
 ## 2026-10-17: the mode timeout is after a rejected TME-Lite download

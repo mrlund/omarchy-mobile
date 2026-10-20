@@ -1,0 +1,268 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: MIT
+"""Mark the running A/B slot's boot successful in the GPT, as Android's
+boot_control does on Qualcomm, and nothing else.
+
+Qualcomm ABL keeps the slot state in byte 6 (attribute bits 48-55) of the
+slot's `boot_<slot>` GPT entry: priority 48-49, active 50, retry count
+51-53, successful 54, unbootable 55. A slot that is not successful loses
+one try per boot and, at zero, is marked unbootable. This tool sets bit 54
+on `boot_<slot>` only, in the primary and the backup GPT of the disk that
+holds it, and rewrites the two CRCs that cover it. It changes no other
+byte: before writing it checks that the new entry array and headers differ
+from the old ones in exactly those bytes, and afterwards it reads both
+copies back with O_DIRECT and checks them again.
+
+The storage guard leaves every UFS disk read-only. This tool lifts that on
+the one whole disk for the two writes and puts it back in a finally
+block. Partition nodes (abl_a, xbl, persist, ...) keep their own read-only
+flag throughout.
+
+The running slot comes from androidboot.slot_suffix when the cmdline has
+it, otherwise from the GPT: the one boot_X that is active and bootable.
+
+Usage: dodge-boot-success [--dry-run|--status] [--slot a]
+Exit 0: marked or already marked. Nonzero: refused, nothing written.
+"""
+import mmap
+import os
+import struct
+import subprocess
+import sys
+import zlib
+
+SIG = b"EFI PART"
+ACTIVE, SUCCESS, UNBOOTABLE = 0x04, 0x40, 0x80
+
+
+def log(msg):
+    print(f"dodge-boot-success: {msg}", flush=True)
+    try:
+        with open("/dev/kmsg", "w") as k:
+            k.write(f"dodge-boot-success: {msg}\n")
+    except OSError:
+        pass
+
+
+def die(msg, code=2):
+    log(f"REFUSE {msg}")
+    sys.exit(code)
+
+
+def cmdline_slot():
+    with open("/proc/cmdline") as f:
+        for tok in f.read().split():
+            if tok.startswith("androidboot.slot_suffix="):
+                return tok.split("=", 1)[1].lstrip("_")
+            if tok.startswith("androidboot.slot="):
+                return tok.split("=", 1)[1].lstrip("_")
+    return None
+
+
+def gpt_running_slot():
+    """The slot ABL booted, when the cmdline does not say (our chain-loader
+    kexecs with its own cmdline and drops androidboot.*). ABL boots the
+    slot whose boot_X entry is active and not unbootable, and moves the
+    active bit when it falls back, so exactly one such slot must exist."""
+    cands = []
+    for s in ("a", "b"):
+        dname, partn = find_part(f"boot_{s}")
+        disk = Disk(f"/dev/{dname}")
+        try:
+            _, _, ents = parse_gpt(disk, 1)
+        finally:
+            disk.close()
+        b = ents[(partn - 1) * 128 + 54]
+        if b & ACTIVE and not b & UNBOOTABLE:
+            cands.append(s)
+    if len(cands) != 1:
+        die(f"cannot tell the running slot: active and bootable = {cands}")
+    return cands[0]
+
+
+def find_part(name):
+    """(disk, partno) for a PARTNAME, from sysfs. Exactly one match."""
+    hits = []
+    for d in sorted(os.listdir("/sys/block")):
+        if not d.startswith("sd"):
+            continue
+        for p in os.listdir(f"/sys/block/{d}"):
+            ue = f"/sys/block/{d}/{p}/uevent"
+            if not p.startswith(d) or not os.path.exists(ue):
+                continue
+            kv = dict(l.strip().split("=", 1) for l in open(ue) if "=" in l)
+            if kv.get("PARTNAME") == name:
+                hits.append((d, int(kv["PARTN"])))
+    if len(hits) != 1:
+        die(f"{name}: {len(hits)} matches in sysfs")
+    return hits[0]
+
+
+class Disk:
+    def __init__(self, dev, write=False):
+        self.dev = dev
+        self.fd = os.open(dev, (os.O_RDWR if write else os.O_RDONLY) | os.O_DIRECT | os.O_SYNC)
+        out = subprocess.run(["blockdev", "--getss", dev], capture_output=True, text=True, check=True)
+        self.ss = int(out.stdout)
+
+    def read(self, lba, count):
+        n = count * self.ss
+        buf = mmap.mmap(-1, n)
+        got = os.preadv(self.fd, [buf], lba * self.ss)
+        if got != n:
+            die(f"short read at LBA {lba}")
+        return bytes(buf)
+
+    def write(self, lba, data):
+        if len(data) % self.ss:
+            die("unaligned write")
+        buf = mmap.mmap(-1, len(data))
+        buf.write(data)
+        put = os.pwritev(self.fd, [buf], lba * self.ss)
+        if put != len(data):
+            die(f"short write at LBA {lba}", 3)
+        os.fsync(self.fd)
+
+    def close(self):
+        os.close(self.fd)
+
+
+def parse_gpt(disk, hdr_lba):
+    """Validate a GPT copy. Returns (hdr_sector, fields, entries)."""
+    sec = disk.read(hdr_lba, 1)
+    if sec[:8] != SIG:
+        die(f"no GPT signature at LBA {hdr_lba}")
+    (rev, hsize, hcrc, _r, my, alt, _fu, _lu, _guid, ent_lba, nent, esize,
+     ecrc) = struct.unpack_from("<4sIII QQQQ 16s QIII", sec, 8)
+    if not 92 <= hsize <= disk.ss:
+        die(f"header size {hsize}")
+    h = bytearray(sec[:hsize])
+    h[16:20] = b"\0\0\0\0"
+    if zlib.crc32(h) != hcrc:
+        die(f"header CRC mismatch at LBA {hdr_lba}")
+    if my != hdr_lba:
+        die(f"header at LBA {hdr_lba} says MyLBA {my}")
+    if esize != 128 or not 0 < nent <= 1024:
+        die(f"entry size {esize}, count {nent}")
+    nbytes = nent * esize
+    nsec = -(-nbytes // disk.ss)
+    ents = disk.read(ent_lba, nsec)
+    if zlib.crc32(ents[:nbytes]) != ecrc:
+        die(f"entry array CRC mismatch at LBA {ent_lba}")
+    f = dict(hsize=hsize, alt=alt, ent_lba=ent_lba, nent=nent, esize=esize, nbytes=nbytes, nsec=nsec)
+    return sec, f, ents
+
+
+def entry_name(ents, i):
+    raw = ents[i * 128 + 56:i * 128 + 128]
+    return raw.decode("utf-16-le").split("\0", 1)[0]
+
+
+def flags(b):
+    return (f"0x{b:02x} prio={b & 3} active={(b >> 2) & 1} retry={(b >> 3) & 7} "
+            f"successful={(b >> 6) & 1} unbootable={(b >> 7) & 1}")
+
+
+def patched(sec, f, ents, idx, newb):
+    """New header sector and entry sectors with byte 6 of attr changed."""
+    off = idx * 128 + 48 + 6
+    e2 = bytearray(ents)
+    e2[off] = newb
+    ecrc = zlib.crc32(bytes(e2[:f["nbytes"]]))
+    h2 = bytearray(sec)
+    struct.pack_into("<I", h2, 88, ecrc)
+    struct.pack_into("<I", h2, 16, 0)
+    struct.pack_into("<I", h2, 16, zlib.crc32(bytes(h2[:f["hsize"]])))
+    # Exactly the expected bytes differ, nothing else.
+    de = [i for i in range(len(ents)) if ents[i] != e2[i]]
+    dh = [i for i in range(len(sec)) if sec[i] != h2[i]]
+    if de != [off] or not set(dh) <= set(range(16, 20)) | set(range(88, 92)):
+        die(f"diff check failed: entries {de} header {dh}")
+    return bytes(h2), bytes(e2), off
+
+
+def main():
+    args = sys.argv[1:]
+    mode = "mark"
+    slot = None
+    while args:
+        a = args.pop(0)
+        if a in ("--dry-run", "--status"):
+            mode = a[2:]
+        elif a == "--slot" and args:
+            slot = args.pop(0)
+        else:
+            die(f"usage: {sys.argv[0]} [--dry-run|--status] [--slot a|b]", 64)
+    running = cmdline_slot() or gpt_running_slot()
+    if slot is None:
+        slot = running
+    if slot not in ("a", "b"):
+        die(f"slot {slot!r} (running slot {running!r})")
+    if mode == "mark" and slot != running:
+        die(f"slot {slot} is not the running slot {running}")
+    name = f"boot_{slot}"
+    dname, partn = find_part(name)
+    dev = f"/dev/{dname}"
+
+    disk = Disk(dev)
+    psec, pf, pents = parse_gpt(disk, 1)
+    bsec, bf, bents = parse_gpt(disk, pf["alt"])
+    if bf["alt"] != 1 or pents[:pf["nbytes"]] != bents[:bf["nbytes"]]:
+        die("primary and backup GPT disagree")
+    idx = partn - 1
+    if entry_name(pents, idx) != name:
+        die(f"entry {idx} is {entry_name(pents, idx)!r}, not {name}")
+    other = f"boot_{'b' if slot == 'a' else 'a'}"
+    oidx = next((i for i in range(pf["nent"]) if entry_name(pents, i) == other), None)
+    obyte_before = pents[oidx * 128 + 54] if oidx is not None else None
+    old = pents[idx * 128 + 54]
+    log(f"{dev} entry {partn} {name}: {flags(old)}")
+    if obyte_before is not None:
+        log(f"{dev} {other}: {flags(obyte_before)} (never written)")
+    if mode == "status":
+        return 0
+    if old & UNBOOTABLE or not old & ACTIVE:
+        die(f"{name} is not active or is unbootable; not touching it")
+    if old & SUCCESS:
+        log(f"{name} already marked successful; nothing to do")
+        return 0
+    new = old | SUCCESS
+    ph, pe, off = patched(psec, pf, pents, idx, new)
+    bh, be, _ = patched(bsec, bf, bents, idx, new)
+    esec = off // disk.ss
+    log(f"{name}: 0x{old:02x} -> 0x{new:02x}; primary entries LBA {pf['ent_lba'] + esec}, "
+        f"header LBA 1; backup entries LBA {bf['ent_lba'] + esec}, header LBA {pf['alt']}")
+    if mode == "dry-run":
+        log("dry run: nothing written")
+        return 0
+    disk.close()
+
+    ro = open(f"/sys/block/{dname}/ro").read().strip()
+    subprocess.run(["blockdev", "--setrw", dev], check=True)
+    try:
+        w = Disk(dev, write=True)
+        s = disk.ss
+        # Primary first; the backup still holds the old, valid copy.
+        w.write(pf["ent_lba"] + esec, pe[esec * s:(esec + 1) * s])
+        w.write(1, ph)
+        w.write(bf["ent_lba"] + esec, be[esec * s:(esec + 1) * s])
+        w.write(pf["alt"], bh)
+        w.close()
+    finally:
+        if ro == "1":
+            subprocess.run(["blockdev", "--setro", dev], check=False)
+        log(f"{dev} ro={open(f'/sys/block/{dname}/ro').read().strip()}")
+
+    disk = Disk(dev)
+    p2, _, pe2 = parse_gpt(disk, 1)
+    b2, _, be2 = parse_gpt(disk, pf["alt"])
+    if (p2, pe2, b2, be2) != (ph, pe, bh, be):
+        die("read-back differs from what was written", 4)
+    if oidx is not None and pe2[oidx * 128 + 54] != obyte_before:
+        die(f"{other} changed", 4)
+    log(f"{name}: {flags(pe2[idx * 128 + 54])}; both CRCs verified")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
