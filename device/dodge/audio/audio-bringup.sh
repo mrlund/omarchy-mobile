@@ -1,89 +1,66 @@
 #!/bin/bash
 # SPDX-License-Identifier: MIT
-# dodge audio bring-up, run on the phone as root after
-# omamobile-adsp-battery.service has the ADSP running.
+# dodge speaker audio bring-up, run as root by omamobile-dodge-audio.service
+# after omamobile-adsp-battery.service has the ADSP running. Installed as
+# /usr/local/lib/omamobile/audio-bringup.sh. Needs a DTB with the sound card
+# and amplifier nodes, and the patched modules in the module tree.
 # Order matters: the FastRPC audio heap must be assigned before q6apm
 # probes, or APM_CMD_GET_SPF_STATE times out.
-# Never rmmod dodge-snd or unbind q6apm-dai after the topology loaded:
+# Never rmmod the card or unbind q6apm-dai after the topology loaded:
 # that oopsed in snd_soc_unregister_component_by_driver (2026-10-20).
 set -u
-HELD=/usr/lib/modules/6.16.0-gb3ee311dab85.held/kernel
-A=/root/audio
+K=/usr/lib/modules/6.16.0-gb3ee311dab85.held/kernel
+RPC=/usr/local/lib/omamobile/fastrpc
 log() { echo "audio-bringup: $*"; }
-loaded() { awk -v m="$1" '$1==m {f=1} END{exit !f}' /proc/modules; }
 load() {
 	local ko=$1; shift || true
-	local n; n=$(basename "$ko" .ko); n=${n//-/_}
-	loaded "$n" && return 0
 	local err
-	err=$(insmod "$ko" "$@" 2>&1) && return 0
-	case $err in *"File exists"*) return 0 ;; esac	# loaded under another name
+	err=$(insmod "$K/$ko" "$@" 2>&1) && return 0
+	case $err in *"File exists"*) return 0 ;; esac	# already loaded
 	log "insmod $ko failed: $err"; exit 1
 }
+[ -e /proc/device-tree/sound/compatible ] || { log "no sound node in this DTB"; exit 1; }
 for _ in $(seq 40); do
 	[ "$(cat /sys/class/remoteproc/remoteproc0/state 2>/dev/null)" = running ] && break
 	sleep 0.5
 done
 [ "$(cat /sys/class/remoteproc/remoteproc0/state 2>/dev/null)" = running ] || { log "ADSP not running"; exit 1; }
 
-load "$A/fastrpc-audio.ko" audio_heap_vmids=1
+load drivers/misc/fastrpc.ko audio_heap_vmids=1
+[ "$(cat /sys/module/fastrpc/parameters/audio_heap_vmids 2>/dev/null)" = Y ] ||
+	log "warning: fastrpc loaded without audio_heap_vmids"
 for _ in $(seq 20); do [ -e /dev/fastrpc-adsp-secure ] && break; sleep 0.5; done
 if ! systemctl is-active -q x-adsprpcd; then
-	systemd-run --unit=x-adsprpcd -p WorkingDirectory=$A/fastrpc-src \
-		-E LD_LIBRARY_PATH=$A/fastrpc-src/build \
-		$A/fastrpc-src/build/adsprpcd audiopd adsp
+	systemd-run --unit=x-adsprpcd -p WorkingDirectory=$RPC \
+		-E LD_LIBRARY_PATH=$RPC $RPC/adsprpcd audiopd adsp
 fi
 for _ in $(seq 40); do
-	dmesg | grep -c "assigned audio heap" >/dev/null && break
+	dmesg | grep -q "assigned audio heap" && break
 	sleep 0.5
 done
-dmesg | grep -c "assigned audio heap" >/dev/null || { log "audio heap not assigned"; exit 1; }
+dmesg | grep -q "assigned audio heap" || { log "audio heap not assigned"; exit 1; }
 
-load "$HELD/drivers/soc/qcom/apr.ko"
-load "$HELD/sound/soc/qcom/qdsp6/snd-q6dsp-common.ko"
-load "$HELD/sound/soc/qcom/qdsp6/snd-q6apm.ko"
-load "$HELD/sound/soc/qcom/qdsp6/q6prm.ko"
-load "$HELD/sound/soc/qcom/qdsp6/q6prm-clocks.ko"
+load drivers/soc/qcom/apr.ko
+load sound/soc/qcom/qdsp6/snd-q6dsp-common.ko
+load sound/soc/qcom/qdsp6/snd-q6apm.ko
+load sound/soc/qcom/qdsp6/q6prm.ko
+load sound/soc/qcom/qdsp6/q6prm-clocks.ko
 for _ in $(seq 40); do
 	[ -e /sys/bus/platform/devices/6800000.remoteproc:glink-edge:gpr:service@1:dais ] && break
 	sleep 0.5
 done
-load "$HELD/sound/soc/qcom/qdsp6/q6apm-dai.ko"
-# q6i2s_ops with .set_fmt, so the CPU can be the I2S clock provider
-load "$A/q6apm-lpass-dais.ko"
-# Speaker amplifiers: needs a DTB with i2c_hub_4 enabled (i2c-1 at
-# bring-up). Their register tables, /lib/firmware/aw882308-3{4,5}.bin, come
-# from the phone's own ACF (tools/aw-acf-regs.py) and stay off git.
-case " $* " in *" amps=1 "*)
-	load "$HELD/drivers/i2c/busses/i2c-qcom-geni.ko"
-	for _ in $(seq 20); do
-		ls /sys/bus/platform/devices/990000.i2c/i2c-*/name >/dev/null 2>&1 && break
-		sleep 0.5
-	done
-	bus=$(basename "$(dirname "$(readlink -f /sys/bus/platform/devices/990000.i2c/i2c-*/name)")")
-	[ "$bus" = i2c-1 ] || { log "hub I2C4 is $bus, aw882308 expects i2c-1"; exit 1; }
-	# DT nodes (awinic,aw882308) make 1-0034/1-0035 at boot; without
-	# them, add the clients here and let the module register the resets.
-	if [ -e /sys/bus/i2c/devices/1-0034/of_node ]; then
-		load "$A/aw882308.ko"
-	else
-		load "$A/aw882308.ko" lookup=1
-	fi
-	for a in 0x34 0x35; do
-		[ -e /sys/bus/i2c/devices/1-00${a#0x} ] ||
-			echo aw882308 $a > /sys/bus/i2c/devices/i2c-1/new_device
-	done
-	;;
-esac
-if [ -e /proc/device-tree/sound/compatible ]; then
-	# DT card (qcom,sm8750-sndcard, model OnePlus-dodge): the machine
-	# driver with MI2S format setup, built out of tree into /root/audio.
-	load "$HELD/drivers/soundwire/soundwire-bus.ko"
-	load "$HELD/sound/soc/qcom/snd-soc-qcom-common.ko"
-	load "$HELD/sound/soc/qcom/snd-soc-qcom-sdw.ko"
-	load "$A/snd-soc-sc8280xp.ko"
-else
-	load "$A/dodge-snd.ko" "$@"
-fi
-sleep 1
+load sound/soc/qcom/qdsp6/q6apm-dai.ko
+load sound/soc/qcom/qdsp6/q6apm-lpass-dais.ko	# patched: I2S .set_fmt
+
+# Speaker amplifiers on hub I2C4. Register tables /lib/firmware/aw882308-3{4,5}.bin
+# come from the phone's own ACF (audio/tools/aw-acf-regs.py) and stay off git.
+load drivers/i2c/busses/i2c-qcom-geni.ko
+load sound/soc/codecs/snd-soc-aw882308.ko
+
+# Machine driver (patched: MI2S format, no jack on MI2S links).
+load drivers/soundwire/soundwire-bus.ko
+load sound/soc/qcom/snd-soc-qcom-common.ko
+load sound/soc/qcom/snd-soc-qcom-sdw.ko
+load sound/soc/qcom/snd-soc-sc8280xp.ko
+for _ in $(seq 20); do grep -q OnePlusdodge /proc/asound/cards && break; sleep 0.5; done
 cat /proc/asound/cards
