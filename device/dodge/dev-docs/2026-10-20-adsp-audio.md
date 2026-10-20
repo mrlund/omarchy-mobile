@@ -225,3 +225,14 @@ route. It is installed by hand, like the battery unit.
   with the route on, and `aplay` of the test tone exited 0 with both
   amplifiers switching.
 - No manual step was needed.
+
+## Amplifier nodes
+
+One change for this boot: the DTB gained the two amplifier nodes on hub
+I2C4. Each node has the provisional compatible `awinic,aw882308`, an
+active-low `reset-gpios`, `#sound-dai-cells = <0>` and a
+`sound-name-prefix`. The driver gained an OF match table, and its gpiod
+lookup tables are now opt-in (`lookup=1`). The chain image was flashed to
+boot_a at 11:49 CEST. After boot, `1-0034` and `1-0035` point at their DT
+nodes, `lookup` reads `N`, both chips were identified and their tables
+applied, and the test tone ran with both amplifiers switching.
