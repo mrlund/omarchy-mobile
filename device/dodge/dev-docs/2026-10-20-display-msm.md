@@ -171,6 +171,15 @@ Back on simpledrm by 17:35 CEST (reboot; modules are not loaded at boot).
     `omarchy-apply-lock`), and `ml` has no password. So: Martin sets a PIN
     (`omamobile-set-pin`), then `omarchy-apply-lock`.
 
+32. **Power A/B, 20:2x-20:34, done.** Battery `current_now`, 2 s samples,
+    on USB, with idle set to stay-awake during each run (restored after).
+    GDSC kept on: screen on -74 mA, off -161 mA (a drop of 87 mA). With the
+    `d17` module (GDSC collapses), on +15 mA, off -73 mA (a drop of 88 mA),
+    and the re-enable failed again (`tx failed` 2), as expected. Keeping the
+    GDSC on costs about 1 mA or less, within the noise. Boot 20:32: the
+    fixed module is back, 5 DPMS cycles are clean, and the Hyprland unit
+    shows its new description.
+
 The fallback has a limit. If `msm` binds and then fails after it has
 taken the framebuffer over from simpledrm, there is no DRM device left,
 Hyprland fails, and `getty@tty1` starts (its `OnFailure`). SSH is
@@ -191,5 +200,4 @@ Logs: `logs/display-2026-10-20-{f..w}.log` on the laptop (not committed).
   `qcom,sm8750-mdss` SMMU ACTLR entry (`PREFETCH_DEFAULT | CMTLB`), or halt
   the VBIF AXI port before MDSS suspend as downstream SDE does; if either
   fixes it with the GDSC collapsing, drop `31453abbe`.
-- Measure the screen-off power cost of the GDSC staying on.
 - CPU: try 60 Hz on msm (llvmpipe is the cost); a GPU waits for A830.
