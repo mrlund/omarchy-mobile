@@ -4,9 +4,9 @@
 **Goal.** Get the audio framework inside the ADSP to answer.
 **Phone.** OnePlus 13 CPH2653. No restart. The desktop stayed up.
 **Kernel.** `6.16.0-gb3ee311dab85`
-**Result.** The ADSP FastRPC device is up. `audio_pd` still
-does not answer. The open daemon that stock uses to start it
-resets an SM8750 on this kernel.
+**Result.** `APM_CMD_GET_SPF_STATE` returns after the audio
+heap is assigned to the LPASS and ADSP-heap VMIDs. The open
+`adsprpcd` stays up. There is no ALSA card. Do not play audio.
 
 ## What we did
 
@@ -41,11 +41,24 @@ six compute banks join IOMMU groups. The driver logs
 `memory-region` we did not copy. The modem and the CDSP stayed
 down.
 
-## Next
+## The heap
 
-Stock starts the domain with `audioadsprpcd audiopd adsp`.
-Upstream reports that this daemon resets an SM8750 on kernels
-before the 2026 FastRPC audio fixes, which are not in 6.16.
-Do not run it here. The get-state timeout stands until that
-daemon, or the kernel fix, is in place. Do not play audio
-until a card exists and a volume ceiling is set.
+The open `adsprpcd audiopd adsp` reaches its poll loop on
+this kernel. The phone did not reset. `GET_SPF_STATE` still
+timed out, and it timed out the same way with the daemon not
+running: the audio domain is already marked up.
+
+Stock's node sets `qcom,vmids` to `0x16 0x25`. This driver
+allocated the 3 MiB heap and then sent `pageslen` 0, so the
+DSP was told the heap was empty. With those VMIDs and
+`pageslen` 1, the assign logged
+`phys 0xf1e00000 size 0x300000`. The same get-state command
+then returned, and `q6prm` probed without a timeout.
+
+The VMIDs are not in the DTB the phone is running. The
+module parameter `audio_heap_vmids=1` supplies them. The
+daemon and that module are not on the boot path. There is
+still no ALSA card, and the soundwire controllers stay
+disabled. Do not play audio until a card exists and a
+volume ceiling is set. Stock's 12 MiB remote-heap region
+is not in this DTB.
