@@ -4,6 +4,20 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: earpiece listen test (14:20 CEST), headset accepted
+
+- **The first attempt played on the speaker** (about 14:20:30-14:20:50 CEST, the same 20 s tone). `pactl set-card-profile` was given an `output:...+input:...` name and answered "No such entity". On this card the profile name is the UCM string `HiFi (Earpiece, Mic)`. The dmesg lines showed both amplifiers in Speaker mode (SYSST 0x0215, attenuation 700).
+- **The second attempt went to the earpiece: about 14:21:01-14:21:21 CEST** (laptop clock; the phone clock is not synced). A 20 s tone alternated 440 and 660 Hz every 0.5 s at -12 dBFS, played with `pw-play` on `alsa_output.platform-sound.HiFi__Earpiece__sink`. PipeWire was not restarted.
+- **Register evidence while playing:**
+  - Left (0x34): `applied 75 registers from aw882308-34-receiver.bin, SYSCTRL 0xc3c3 chsel 1`, then `running: SYSST 0x0211 SYSCTRL 0x42c0 atten 700`. In Speaker mode it reads SYSCTRL 0x5240.
+  - Right (0x35): `SYSST 0x0215 atten 1023`, which is muted.
+  - Controls: `Left Amp Profile` = 1 (Receiver), `Right Amp Volume` = 0.
+  - The volume cap is unchanged (attenuation 700).
+  - The left SYSST read 0x0211 this time, against 0x0311 earlier. Bit 8 differs; its meaning is not known.
+- **Switched back** to `HiFi (Mic, Speaker)` at 14:21:31 CEST. The controls read `Left Amp Profile` 0 and `Right Amp Volume` 323. The speaker table is reloaded at the next stream's hw_params.
+- **Whether it was audible** at the ear is Martin's report.
+- **The headset is accepted on the current evidence** (Martin, 14:20; he has no headset). The playback chain is verified by DAPM and WCD 0x3009. The headset mic path is verified without a plug (gain-tracking noise floor, EIO when ADC2 is off). The UCM devices and the `jack-watch.sh` probe are in place. Real jack-detect events and MBHC have never been seen; the plug test stays available for whenever a headset is at hand.
+
 ## 2026-10-20: headset microphone (AMIC2), up to the plug test
 
 - **No DTS or topology change needed.** The DTB already routes `AMIC2` from `MIC BIAS2` (commit `676c0daad`). The headset mic uses the same MultiMedia3 / `TX_CODEC_DMA_TX_3` capture as the built-in mics (hw:0,2).
