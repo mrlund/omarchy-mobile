@@ -4,6 +4,19 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: USB-C headset path (needs a plug test)
+
+- **The DTB has the WCD939x USBSS** (`typec-mux@e` on QUP I2C3, L15B, no reset line), linked to the pmic-glink connector's SBU port and to the codec's headset port. The codec has `mode-switch` and `orientation-switch`, and there is a `wcd-playback-dai-link` from RX codec DMA 0. Kernel commit `a28fd268d` in `wt-dodge`.
+  - The topology gained RX_CODEC_DMA_RX_0 with a MultiMedia1 mixer.
+- **Flashed at 12:32 CEST**; the previous image is `boot-chain-avb.before-headset.img`. The retry count read 6; `set_active a` set it to 7.
+  - On that first boot the codec and the USBSS deferred on each other. The codec had bound its SoundWire slaves inside probe and failed to get the USBSS switch, which unregistered its mode switch, so the USBSS never found it.
+  - Fix: the script loads `snd-soc-wcd939x` and `wcd939x-usbss` before `soundwire-qcom`. After a plain reboot (12:35 CEST) both bound, the card came up with `Headphone Jack` and `Mic Jack` (both off), and the speaker and mics are unchanged.
+- **The HPH chain plays, checked by register.** With only `RX_CODEC_DMA_RX_0 Audio Mixer MultiMedia1` on and the upstream headphone sequences, `aplay` ran (PCM RUNNING). HPHL/HPHR PGA were on in DAPM, and WCD register 0x3009 read 0xf0 while playing and 0x00 when idle.
+  - **With both the speaker and RX mixers on, `hw_params` fails.** With neither on, the PCM cannot be opened (EINVAL).
+  - So UCM keeps the speaker route as the default and the `Headphones` device swaps it out. PipeWire shows the profiles `HiFi (Mic, Speaker)` (active) and `HiFi (Headphones, Mic)`. With the jack unplugged, the Headphones port is unavailable and its sequence is not applied.
+- **Jack detection needs `pmic_glink_altmode`.** It is not loaded at boot. I loaded it by hand under a 150 s dead-man reboot timer: it bound and the USB gadget stayed `configured`. `/sys/class/typec` stays empty, because ucsi is not loaded.
+- **Hands-on step: a plug test.** The only USB-C port is also the SSH link. Run `/usr/local/lib/omamobile/jack-watch.sh 600`, which loads altmode and logs the jack controls and the codec/typec dmesg lines to `/var/log/omamobile/jack.log`. Then unplug the cable, plug in an analog USB-C headset or a passive USB-C to 3.5 mm adapter for about 20 s, unplug it, reconnect the cable and read the log.
+
 ## 2026-10-20: built-in microphones
 
 - **The DTB has the WCD939x** (`qcom,wcd9395-codec`, reset GPIO 101, supplies L15B/BOB1 as on stock, mic biases at 2.7 V). It has an RX slave on swr1 (0,4), a TX slave on swr2 (0,3), and a `wcd-capture-dai-link` from TX codec DMA 3. The routing follows the stock mic biases.

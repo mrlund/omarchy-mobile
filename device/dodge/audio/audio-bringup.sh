@@ -68,13 +68,22 @@ if [ -e /proc/device-tree/audio-codec/compatible ]; then
 	load sound/soc/codecs/snd-soc-lpass-va-macro.ko
 	load sound/soc/codecs/snd-soc-lpass-tx-macro.ko
 	load sound/soc/codecs/snd-soc-lpass-rx-macro.ko
-	load drivers/slimbus/slimbus.ko
-	load drivers/soundwire/soundwire-qcom.ko
 	load drivers/base/regmap/regmap-sdw.ko
 	load sound/soc/codecs/snd-soc-wcd-mbhc.ko
 	load sound/soc/codecs/snd-soc-wcd-classh.ko
 	load sound/soc/codecs/snd-soc-wcd939x-sdw.ko
+	# The codec must probe (and register its USB-C mode switch) before its
+	# SoundWire slaves exist; otherwise it binds inside probe, fails to get
+	# the USBSS orientation switch, and the two defer on each other forever.
 	load sound/soc/codecs/snd-soc-wcd939x.ko
+	load drivers/usb/typec/mux/wcd939x-usbss.ko
+	for _ in $(seq 20); do
+		[ -e /sys/bus/i2c/drivers/wcd939x-usbss/3-000e ] && break
+		sleep 0.5
+	done
+	[ -e /sys/bus/i2c/drivers/wcd939x-usbss/3-000e ] || log "warning: wcd939x-usbss not bound"
+	load drivers/slimbus/slimbus.ko
+	load drivers/soundwire/soundwire-qcom.ko
 	for _ in $(seq 20); do
 		[ -e /sys/bus/platform/drivers/wcd939x_codec/audio-codec ] && break
 		sleep 0.5

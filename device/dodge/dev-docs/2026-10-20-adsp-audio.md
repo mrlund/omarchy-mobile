@@ -353,3 +353,21 @@ The stock DT (`live.dtb`) gives:
 
 That makes it a port to a new kernel, followed by a fresh bring-up of dodge on 7.3. It is not a tidy rebase, so I stopped. The old branch is kept as `backup/omamobile-dodge-6.16`.
 
+## USB-C headset (12:30 to 12:45 CEST)
+
+The stock DT has `wcd939x_i2c@e` on `i2c@a8c000` (QUP I2C3), with a `vdd-usb-cp` supply on L15B and no reset GPIO. The DT follows sm8650-qrd: a USBSS node with `mode-switch`, `orientation-switch` and ports, connector `port@2` (SBU), the codec `port`, and the RX playback link. The topology adds RX_CODEC_DMA_RX_0 (IIDs 0x4007/0x6070).
+
+**First boot (flash at 12:32 CEST):** the service failed with no card, showing `wcd939x-usbss: failed to acquire codec mode-switch` and `wcd939x_codec: failed to acquire orientation-switch`. The SoundWire slaves were already present, so `component_master_add_with_match()` bound inside `wcd939x_probe()`. The bind failed to get the USBSS switch, so probe returned -EPROBE_DEFER and devres unregistered the codec's typec mux. That left the USBSS waiting for a mux that never stays registered.
+
+**Fix:** load `snd-soc-wcd939x-sdw`, `snd-soc-wcd939x`, `wcd939x-usbss`, then `slimbus` and `soundwire-qcom`. After a plain reboot (12:35 CEST) both drivers bound and the card has the jack controls.
+
+**HPH check:**
+- Both MultiMedia1 mixers on: `aplay` gets "Unable to install hw params".
+- Only RX on: RUNNING, DAPM HPHL/HPHR PGA, HPHL and RX AIF1 PB on, and WCD 0x3009 = 0xf0 while playing (0x00 idle and after).
+- Neither on: ACP fails to open `hw:0,0` with EINVAL. So the verb enables the speaker route and the MultiMedia3 route, and Headphones swaps MI2S for RX.
+- With the profile forced to `HiFi (Headphones, Mic)` and no jack, PipeWire did not apply the device sequence and the audio went to the speaker. That is expected with the port unavailable.
+
+**Altmode:** I armed `systemd-run --on-active=150 systemctl reboot`, then insmodded `aux-hpd-bridge` and `pmic_glink_altmode`. It bound to `pmic_glink.altmode.0`, SSH stayed up, the UDC stayed `configured`, and I stopped the timer.
+
+**`jack-watch.sh`:** smoke-tested; it logs `hp=off mic=off udc=configured`.
+
