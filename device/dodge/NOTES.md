@@ -4,6 +4,14 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: Wi-Fi datapath: peach has the QCC2072 register layout
+
+- **Associates, no handshake.** With the right SSID, auth and assoc succeed (mgmt goes over WMI), the AP deauths after about 4 s (reason 2: no EAPOL), and the firmware hits RDDM about 20 s later.
+- **Found on the way:** station add failed with `-ENOENT` because the `michael_mic` crypto module was not loaded (nothing autoloads here). The boot script now loads `ctr ccm ghash-generic gcm cmac michael_mic`.
+- **Claude consulted** after the two failed attempts (15:34 CEST). It agreed the signature is wrong data-ring offsets, and advised against a registers-only swap and for a read-only readback first.
+- **Root cause, shown on hardware (15:36 CEST):** REO registers `0x280-0x29c` read `0xdeadc0de` (absent). The WCN7850 REO command ring base `0x28c` is not a register. The QCC2072 base `0x2a8` holds the tail-pointer address the driver wrote at WCN7850 `+0x1c`. The data rings are programmed at the wrong offsets.
+- **Next:** port the QCC2072 HAL variant (regs, RX descriptor ops, srng config, 32-bit REO TLVs, ring masks) as one change. The profile's autoconnect is off until then. Details: [dev-docs/2026-10-20-wifi-datapath.md](dev-docs/2026-10-20-wifi-datapath.md).
+
 ## 2026-10-20: ath12k at boot, NM on Wi-Fi, regulatory, 5 GHz missing
 
 - **Process note:** in the Wi-Fi scan slice attempts 1 and 2 both failed partway, and attempt 3 went ahead without the Claude consult the rules require after every two failures. Attempt 3 worked, but the consult was skipped.

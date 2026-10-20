@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-20 | [wifi-datapath](2026-10-20-wifi-datapath.md) | Associates but no EAPOL. A read-only REO register dump shows peach has the QCC2072 register layout (WCN7850 offsets hit `0xdeadc0de`). `michael_mic` and the AEAD crypto modules are now loaded at boot. |
 | 2026-10-20 | [wifi-boot-nm](2026-10-20-wifi-boot-nm.md) | ath12k loads once at boot, NM manages `wlp1s0` (`usb0` untouched), regulatory.db verifies after loading sha256. No 5 GHz BSS seen. |
 | 2026-10-20 | [wifi-scan](2026-10-20-wifi-scan.md) | ath12k on peach scans: host cap without `QDSS_CFG_MISS`, no rfkill GPIO, and single-phy WMI fixes from the QCC2072 series. `iw scan` sees 11 BSS on 2.4 GHz. |
 | 2026-10-20 | [boot-success](2026-10-20-boot-success.md) | Linux marks slot A successful (`boot_a` GPT attribute bit 54, both copies, CRCs checked). `slot-successful:a: yes`; the retry count held over four plain reboots. A 90 s timer re-marks after `set_active a`. |
