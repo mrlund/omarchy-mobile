@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-20 | [bluetooth](2026-10-20-bluetooth.md) | hci_qca with WCN7860 support on UART14: hci0 at boot, scan sees devices, survives a reboot. Random BD address kept on the phone (real one is in persist). Pairing waits for Martin. |
 | 2026-10-20 | [wifi-qcc2072-port](2026-10-20-wifi-qcc2072-port.md) | QCC2072 datapath on 6.16: connected, 47 Mbit/s, autoconnect, 5 GHz visible. |
 | 2026-10-20 | [wifi-datapath](2026-10-20-wifi-datapath.md) | Associates but no EAPOL. A read-only REO register dump shows peach has the QCC2072 register layout (WCN7850 offsets hit `0xdeadc0de`). `michael_mic` and the AEAD crypto modules are now loaded at boot. |
 | 2026-10-20 | [wifi-boot-nm](2026-10-20-wifi-boot-nm.md) | ath12k loads once at boot, NM manages `wlp1s0` (`usb0` untouched), regulatory.db verifies after loading sha256. No 5 GHz BSS seen. |

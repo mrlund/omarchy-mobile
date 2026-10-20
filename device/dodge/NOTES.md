@@ -4,12 +4,21 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: Bluetooth works (hci_qca, WCN7860 on UART14)
+
+- **Up at boot and survives a reboot** (16:35 CEST): `hci0` set up with `qca/gngbtfw20.mbn` and `gngbtnv20.bin` from the phone's own `bluetooth_a` (not committed), `Powered: yes`, a 20 s scan sees 3 devices. Pairing waits for Martin.
+- **Kernel:** `ff4e23cc6` (WCN7860 in btqca/hci_qca, from ROCKNIX patch 0045) and `b78a51b77` (DT node enabled). Power through the existing WCN7850 pwrseq `bluetooth` target.
+- **BD address is a placeholder:** the controller comes up unconfigured. `omamobile-bt` sets a random `02:` address kept only on the phone (`/var/lib/omamobile/bt-public-addr`). Persist was not read.
+- **Don't wait on `/sys/class/bluetooth/hci0`:** it exists before setup ends, so a config check there sees no missing address (bt-3). Poll mgmt instead.
+- **Pack with the previous cmdline and `DTB_OPTS='splash fb'`:** the default pack left stage 2 without a root mount (bt-1).
+- **BT power cycles don't disturb Wi-Fi** (3 cycles during a ping, 0 % loss). One `Frame reassembly failed (-84)` per power-on is harmless. Claude consulted after two failures. Details: [dev-docs/2026-10-20-bluetooth.md](dev-docs/2026-10-20-bluetooth.md).
+
 ## 2026-10-20: Wi-Fi wrap-up: install script, REO -105, 10-minute soak
 
 - **`wifi/install`** (run as root on the phone) installs the two Wi-Fi scripts and units, enables them (it does not start them: one ath12k load per boot), and links `/lib/firmware/ath12k/WCN7860/hw2.0 -> ../WCN7850/hw2.0`. Idempotent; it leaves a real directory alone and commits no firmware. Checked at 16:04 CEST: removed the link, ran it twice, link back, installed files identical to git.
 - **REO `FLUSH_CACHE -105` is generic 6.16, not QCC2072.** `ath12k_dp_rx_tid_del_func()` queues aged TID descriptors and flushes them in a burst once more than `ATH12K_DP_RX_REO_DESC_FREE_THRES` pile up; each TID takes several `FLUSH_CACHE` commands, so a 128-entry ring can fill (`-ENOBUFS`). No hw-specific branch. WCN7850 users report the same burst (ath12k list, 2024-09, "wcn7850 - dmesg errors"). The final `FLUSH_CACHE` of a TID frees its buffer on failure, so the cost is a skipped HW cache flush, not a leak.
 - **Soak, 16:01-16:11 CEST, one AP, 2.4 GHz, -58 to -60 dBm:** idle plus ping every 1 s to the gateway (614/619, median 4.0 ms, p99 32 ms) and every 2 s to 1.1.1.1 (306/310, median 7.3 ms). Losses were single, scattered packets, no outage. dmesg was silent (no ath12k line) for the whole run. No roam happened, so roaming was not tested again.
-- **Wi-Fi is done** in PLAN. Open: monitor mode (off for WCN7860), Bluetooth.
+- **Wi-Fi is done** in PLAN. Open: monitor mode (off for WCN7860).
 
 ## 2026-10-20: Wi-Fi works (QCC2072 datapath on 6.16)
 
