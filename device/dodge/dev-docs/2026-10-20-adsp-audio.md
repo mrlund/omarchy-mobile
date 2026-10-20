@@ -258,3 +258,46 @@ The image was flashed at 11:53 CEST, and the try count was restored to 7
 with `set_active a`. After boot the unit was active, card 0 was there
 with the same controls, and `aplay` played the tone with both amplifiers
 switching. The card name and the topology path did not change.
+
+## Into the module tree
+
+These are all modules, so this was not a DTB or Image change.
+
+**Kernel**
+- Added `sound/soc/codecs/aw882308.c` to `wt-dodge`, with `SND_SOC_AW882308` in Kconfig and the Makefile.
+  - It is the repo driver without the gpiod lookup tables or the `lookup` parameter. Resets come from DT only.
+- In `sc8280xp.c`, the MI2S case now returns before `qcom_snd_wcd_jack_setup()`.
+- Committed as `bb98edce9` and `75068ed74`.
+- Added `CONFIG_SND_SOC_AW882308=m` to `out-dodge/.config` (olddefconfig changed nothing else) and to `kernel/configs/omamobile-dodge.config`.
+- Built the modules with `make O=out-dodge ARCH=arm64 LLVM=1 KERNELRELEASE=6.16.0-gb3ee311dab85 KBUILD_MODPOST_WARN=1 drivers/misc/fastrpc.ko sound/soc/qcom/qdsp6/q6apm-lpass-dais.ko sound/soc/qcom/snd-soc-sc8280xp.ko sound/soc/codecs/snd-soc-aw882308.ko`.
+- Checked the result: the vermagic matches, `q6i2s_set_fmt` is present, the `audio_heap_vmids` parameter is present, and the amplifier driver has the OF alias `awinic,aw882308`.
+
+**Phone**
+- Copied the three original modules to `/root/held-orig` and installed the new ones into `/usr/lib/modules/6.16.0-gb3ee311dab85.held/kernel`. The checksums match the build.
+- Moved `adsprpcd` and its libraries to `/usr/local/lib/omamobile/fastrpc`, and the script to `/usr/local/lib/omamobile`.
+- Renamed `/root/audio` to `/root/audio.old`.
+
+**Plain reboot at 12:00 CEST**
+- The unit was active and card 0 was there.
+- `fastrpc`, `q6apm_lpass_dais`, `snd_soc_sc8280xp` and `snd_soc_aw882308` were loaded from the tree.
+- No jack controls.
+- `aplay -D hw:0,0` played the tone, with SYSST 0x0315 on both amplifiers.
+
+## UCM and PipeWire
+
+The profile is `device/dodge/audio/ucm2/OnePlus/dodge/{OnePlus-dodge,HiFi}.conf`. On the phone it is in `/usr/share/alsa/ucm2/OnePlus/dodge/`, linked from `/usr/share/alsa/ucm2/conf.d/sm8750/OnePlus-dodge.conf`.
+
+- `alsaucm -c hw:0` lists the verb HiFi and the device Speaker, with `PlaybackPCM` `hw:OnePlusdodge,0`.
+- Before the profile, PipeWire showed the ACP fallback sink "Built-in Audio Stereo".
+- After `systemctl --user restart wireplumber pipewire pipewire-pulse` (user ml), the sink is `alsa_output.platform-sound.HiFi__Speaker__sink` ("Built-in Audio Speaker playback"), the default, at volume 0.40.
+- `pw-play -a --target <sink> --format s16 --rate 48000 --channels 2 /tmp/tone.raw` gave PCM RUNNING (S16_LE, 48 kHz, period 480) and both amplifiers at 0x0315.
+- Without `-a`, `pw-play` rejects a raw file. It also cannot read from /root, because it runs as ml.
+
+## Where the kernel commits live
+
+Per AGENTS.md, kernel work stays on `omamobile-<subsystem>` branches in the kernel tree. Curated, upstream-ready commits go to `omamobile`, and the maintainer publishes that to derekross/linux-omarchy-mobile with `tools/publish-kernel`. The repo's `*.patch` series are for userspace packages.
+
+`wt-dodge` is based on sm8750-mainline (16cf517b2781), not on `omamobile`, and its origin is not ours. So neither a push nor patches in the repo is clear-cut, and I left both to the human.
+
+The local `format-patch` copy is in `~/android/mainline/patches-dodge`.
+
