@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-19 | [adsp-battery](2026-10-19-adsp-battery.md) | ADSP up. Battery 69%, 4.059 V, 34.1 °C. Modem and CDSP not started. |
 | 2026-10-19 | [battery-i2c](2026-10-19-battery-i2c.md) | `0x55` NACKs. `0x36` returns `0xffff`. PMIC alarms probe in stage 0. No percent. |
 | 2026-10-19 | [ath12k-io-load](2026-10-19-ath12k-io-load.md) | L2F and L3F at stock's 30 mA, high-power mode. `fw_caps` stays `0xf`. Same aux-MAC assert. No `wlan`. |
 | 2026-10-19 | [ath12k-phy](2026-10-19-ath12k-phy.md) | `phy_ucode20.elf` is accepted. Aux returns QMI error 90. The firmware still resets. No `wlan`. |

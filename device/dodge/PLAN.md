@@ -1060,9 +1060,11 @@ Carried from the phase 3.5 review (2026-10-16):
 
 Each gets `device/dodge/<NAME>-PLAN.md` before code. Order, because each
 one shortens the next debug. On 2026-10-19 the fuel-gauge node
-`ti,bq27541` at `0x55` did not answer; stock's percent path is
-`oplus_adsp_gauge`. The PMIC temperature alarms probe and sit in
-stage 0
+`ti,bq27541` at `0x55` did not answer. The ADSP then came up and
+`qcom_battmgr` reported capacity 69, 4.059 V and 34.1 °C. The
+modem and the CDSP were not started
+([dev-docs/2026-10-19-adsp-battery.md](dev-docs/2026-10-19-adsp-battery.md)).
+The PMIC temperature alarms probe and sit in stage 0
 ([dev-docs/2026-10-19-battery-i2c.md](dev-docs/2026-10-19-battery-i2c.md)).
 
 | # | Stage | Done when |
