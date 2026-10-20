@@ -48,6 +48,19 @@ done
 load "$HELD/sound/soc/qcom/qdsp6/q6apm-dai.ko"
 # q6i2s_ops with .set_fmt, so the CPU can be the I2S clock provider
 load "$A/q6apm-lpass-dais.ko"
+# Speaker amplifiers: needs a DTB with i2c_hub_4 enabled (i2c-1 at
+# bring-up). Their register tables, /lib/firmware/aw882308-3{4,5}.bin, come
+# from the phone's own ACF (tools/aw-acf-regs.py) and stay off git.
+case " $* " in *" amps=1 "*)
+	bus=$(basename "$(dirname "$(readlink -f /sys/bus/platform/devices/990000.i2c/i2c-*/name)")")
+	[ "$bus" = i2c-1 ] || { log "hub I2C4 is $bus, aw882308 expects i2c-1"; exit 1; }
+	load "$A/aw882308.ko"
+	for a in 0x34 0x35; do
+		[ -e /sys/bus/i2c/devices/1-00${a#0x} ] ||
+			echo aw882308 $a > /sys/bus/i2c/devices/i2c-1/new_device
+	done
+	;;
+esac
 load "$A/dodge-snd.ko" "$@"
 sleep 1
 cat /proc/asound/cards
