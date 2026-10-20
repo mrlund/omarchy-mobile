@@ -180,6 +180,20 @@ Back on simpledrm by 17:35 CEST (reboot; modules are not loaded at boot).
     fixed module is back, 5 DPMS cycles are clean, and the Hyprland unit
     shows its new description.
 
+33. **Idle off, 20:38-20:41, worked.** `omamobile-idle-off` (Quickshell
+    `IdleMonitor`): 20 s test, off then back on by a synthetic key; then
+    the 150 s default turned the screen off at 20:41:04. Screensaver off
+    through Omarchy's toggle; no lock.
+34. **Hyprland CPU, 20:40.** DPMS off: 0 %; screen on and idle: 13 %;
+    screensaver: 685 %, with about 19 `initMgpu: no renderer` errors a
+    second. The errors come only with rendering.
+35. **ACTLR prep, not booted.** Kernel `17f3dac8e`. No boot-chain change
+    with the battery at 20 %.
+
+Battery sign: `current_now` is positive when discharging and negative when
+charging; `status` is unreliable (`Discharging` at -167 mA). The A/B
+numbers in 32 are net of the USB input (an SDP, 500 mA).
+
 The fallback has a limit. If `msm` binds and then fails after it has
 taken the framebuffer over from simpledrm, there is no DRM device left,
 Hyprland fails, and `getty@tty1` starts (its `OnFailure`). SSH is

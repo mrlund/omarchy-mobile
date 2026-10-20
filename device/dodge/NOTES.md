@@ -4,6 +4,18 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: idle turns the screen off (no lock); battery and charging
+
+- **Idle screen-off, no lock (Martin's choice):** `idle/install` adds a small Quickshell instance as a user unit, `omamobile-idle-off.service`. After 150 s without input it runs `omarchy-brightness-display off` (DPMS off plus `bl_power` 4); the first input runs `on`. It honours idle inhibitors and Omarchy's stay-awake toggle. Omarchy's screensaver is off through its own toggle (`toggles/screensaver-off`; `omarchy-toggle-screensaver` turns it back on). The lock and PAM are untouched.
+  - A short test at 20:38 CEST (20 s drop-in): off at +30 s (CRTC `active=0`, `bl_power` 4), and a synthetic key (`wtype`) brought the screen back with brightness 1751. No `tx failed`.
+  - The real 150 s default turned the screen off at 20:41:04, 150 s after the start.
+  - Undo: `systemctl --global disable omamobile-idle-off.service` plus removing the toggle file.
+- **Hyprland CPU with the screen off is 0 %** (20:40 CEST, 15-20 s windows): idle with the screen on is 13 %, the screensaver 685 %, the screensaver with DPMS off 0 %, and after killing it 0 %. Hyprland stops rendering at DPMS off. The 316 % seen at 20:37 did not reproduce, and was most likely the screensaver still running during the switch.
+- **`no renderer` log spam** only comes with rendering: about 19 errors and 18 KB/s while the screensaver animates, 0 when idle or off. The log was 2.9 MB at 20:40. It is not capped; with the screensaver off it is not a RAM risk. Cause: aquamarine tries a multi-GPU renderer for `card1` because the llvmpipe renderer doesn't match it. Not fixed.
+- **Battery sign:** `current_now` on `qcom-battmgr-bat` is positive when discharging and negative when charging. `status` says `Discharging` even at -167 mA, so don't trust `status`. Heavy rendering (screensaver, +402 to +449 mA) drains the battery even on USB; idle or screen-off charges at about 40-170 mA. The A/B entry below read the sign correctly (negative was net charging), but its "on USB" figures are net of a 500 mA input.
+- **Charging tops out at 500 mA** because the laptop port is a USB SDP: `usb_type` `[SDP]`, `input_current_limit` 500000, `current_max` 900000, 5 V. A PC data port only promises 500 mA (900 mA on USB 3). There is no `/sys/class/typec` (no UCSI over pmic_glink), so Type-C current advertisement and PD aren't seen. A wall charger (DCP or PD) should be detected as such. Raising the limit above what the host offers isn't safe, so nothing was changed.
+- **Root fix prep, not flashed (battery at 20 %):** kernel `17f3dac8e` adds the upstream SMMU ACTLR entry for `qcom,sm8750-mdss`/`sm8650-mdss` (local only; patch backup `0003`). The Image build was stopped; the running Oct 16 Image is saved as `out-dodge/Image.oct16-b3ee311dab85`. Test plan: Image with `KERNELRELEASE=6.16.0-gb3ee311dab85` plus the `d17` msm.ko (GDSC collapsing), 5 off/on cycles.
+
 ## 2026-10-20: GDSC workaround costs nothing measurable with the screen off
 
 - **A/B, battery `current_now`, on USB (20:20-20:30 CEST):** this compares screen-on vs screen-off within each boot, because the charge current drifts between boots.
