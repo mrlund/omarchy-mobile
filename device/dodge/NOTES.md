@@ -4,6 +4,15 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: an ALSA card, no sound yet
+
+- **Card 0 is `OnePlus-dodge`, made by a module, not the DTB.** `dodge-snd.ko` registers Secondary MI2S RX on q6apm with the dummy codec; `/lib/firmware/qcom/sm8750/OnePlus-dodge-tplg.bin` (our topology) supplies MultiMedia1. `pcmC0D0p` exists. Nothing was played.
+- **The speakers are two aw882xx amplifiers on Secondary MI2S** (TLMM i2s1, gpio121-124), controlled on `i2c_hub_4` at `0x34`/`0x35`, resets on TLMM 2 and 164. The SoC is the I2S clock provider on stock.
+- **This tree's `q6i2s_ops` lacks `.set_fmt`,** so the DSP never drives BCLK/WS. The patched `q6apm-lpass-dais.ko` in `/root/audio` adds it.
+- **Never `rmmod` the card or unbind `q6apm-dai` after the topology loaded.** It leaked a reference, then the unbind oopsed in `snd_soc_unregister_component_by_driver`. Reboot instead.
+- **Phone `/tmp` is tmpfs.** The audio FastRPC module and the open `adsprpcd` build now live in `/root/audio`. `device/dodge/audio/audio-bringup.sh` loads everything in order.
+- **Out-of-tree module builds against `out-dodge` must keep `kernel.release` at the running `6.16.0-gb3ee311dab85`.** A `make` in the worktree regenerated it as `-g932f80d728bd-dirty`; `make KERNELRELEASE=6.16.0-gb3ee311dab85 prepare` put it back. Build in-tree modules out of tree with `KBUILD_MODPOST_WARN=1`: this `Module.symvers` lacks module exports.
+
 ## 2026-10-20: the audio framework answers
 
 - **`APM_CMD_GET_SPF_STATE` returns once the audio heap is assigned.** It times out with or without `adsprpcd` until then. Stock's ADSP FastRPC node sets `qcom,vmids` to `0x16 0x25` (LPASS and the ADSP heap). This 6.16 driver sent `pageslen` 0, so the DSP was told the heap was empty.
