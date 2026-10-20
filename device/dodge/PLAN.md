@@ -1028,6 +1028,10 @@ Mode 0 times out. The boot try count hit zero and
 QMI error 90, incompatible state, and the firmware still resets.
 Stock's 30 mA load on L2F and L3F puts those LDOs in high-power
 mode and does not change `fw_caps` (`0xf`) or the aux-MAC assert.
+The assert came from host cap bit 3 (`QDSS_CFG_MISS`). Without it,
+plus no rfkill GPIO and the single-phy WMI fixes, `iw scan` sees
+networks on 2.4 GHz
+([dev-docs/2026-10-20-wifi-scan.md](dev-docs/2026-10-20-wifi-scan.md)).
 [dev-docs/2026-10-19-ath12k-io-load.md](dev-docs/2026-10-19-ath12k-io-load.md).
 [dev-docs/2026-10-19-ath12k-phy.md](dev-docs/2026-10-19-ath12k-phy.md).
 [dev-docs/2026-10-17-ath12k-skip-tme.md](dev-docs/2026-10-17-ath12k-skip-tme.md).

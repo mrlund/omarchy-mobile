@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-20 | [wifi-scan](2026-10-20-wifi-scan.md) | ath12k on peach scans: host cap without `QDSS_CFG_MISS`, no rfkill GPIO, and single-phy WMI fixes from the QCC2072 series. `iw scan` sees 11 BSS on 2.4 GHz. |
 | 2026-10-20 | [boot-success](2026-10-20-boot-success.md) | Linux marks slot A successful (`boot_a` GPT attribute bit 54, both copies, CRCs checked). `slot-successful:a: yes`; the retry count held over four plain reboots. A 90 s timer re-marks after `set_active a`. |
 | 2026-10-20 | [adsp-audio](2026-10-20-adsp-audio.md) | SPF state returns after the audio heap is assigned. A module-built card, `OnePlus-dodge`, appears with our topology. Speaker playback works, heard 11:39 (amplifiers on SD1). |
 | 2026-10-19 | [adsp-battery](2026-10-19-adsp-battery.md) | ADSP up. Battery 69%, 4.059 V, 34.1 °C. Modem and CDSP not started. |
