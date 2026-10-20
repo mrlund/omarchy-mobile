@@ -4,6 +4,20 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: sound from the speakers
+
+- **Martin heard the phone at 11:39 CEST.** That was a -12 dBFS 440/660 Hz tone through both amplifiers at the -30 dB volume floor.
+- **What fixed it: the topology's I2S data line, SD0 → SD1.** The amplifiers listen on i2s1 data1 (gpio124). On SD0 they ran but saw silence. The change is one token in `audio/OnePlus-dodge.m4`, then a reboot, because the card can't be unloaded.
+- **The amplifiers confirm it:** silence gives SYSST `0x0215` (not switching, noise gate closed). The tone gives `0x0315` (switching), and DACST and the voltage sense change with it.
+- **To reproduce after a boot**, install `OnePlus-dodge-tplg.bin` from the m4 at `/lib/firmware/qcom/sm8750/`, put `aw882308-3{4,5}.bin` (from `aw-acf-regs.py`, local only) in `/lib/firmware`, and copy the modules to `/root/audio`. Then run `audio-bringup.sh pins=1 amps=1`, `amixer -c0 cset name="SECONDARY_MI2S_RX Audio Mixer MultiMedia1" 1` and `aplay -D hw:0,0 -f S16_LE -r 48000 -c 2 <file>`. The bring-up script now loads `i2c-qcom-geni` itself and tolerates modules that are already loaded.
+- **Still missing:**
+  - It doesn't start at boot.
+  - There is no DT sound node or amplifier nodes; the bus number and reset lookups are hard-coded.
+  - No speaker protection or calibration, so the volume stays capped at -30 dB.
+  - Only S16 at 48 kHz.
+  - No UCM or PipeWire profile.
+  - No I/V feedback, earpiece profile, headset (WCD939x) or microphones.
+
 ## 2026-10-20: the speaker amplifiers run, not yet heard
 
 - **A DTB with `i2c_hub_4` enabled booted from boot_a** (chain image flashed 11:22 CEST, previous image kept as `boot-chain-avb.before-audio-i2c.img`). Hub I2C4 is `i2c-1`. SSH, the desktop and the ADSP battery service came back.

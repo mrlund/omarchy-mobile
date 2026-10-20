@@ -15,7 +15,10 @@ load() {
 	local ko=$1; shift || true
 	local n; n=$(basename "$ko" .ko); n=${n//-/_}
 	loaded "$n" && return 0
-	insmod "$ko" "$@" || { log "insmod $ko failed"; exit 1; }
+	local err
+	err=$(insmod "$ko" "$@" 2>&1) && return 0
+	case $err in *"File exists"*) return 0 ;; esac	# loaded under another name
+	log "insmod $ko failed: $err"; exit 1
 }
 for _ in $(seq 40); do
 	[ "$(cat /sys/class/remoteproc/remoteproc0/state 2>/dev/null)" = running ] && break
@@ -52,6 +55,11 @@ load "$A/q6apm-lpass-dais.ko"
 # bring-up). Their register tables, /lib/firmware/aw882308-3{4,5}.bin, come
 # from the phone's own ACF (tools/aw-acf-regs.py) and stay off git.
 case " $* " in *" amps=1 "*)
+	load "$HELD/drivers/i2c/busses/i2c-qcom-geni.ko"
+	for _ in $(seq 20); do
+		ls /sys/bus/platform/devices/990000.i2c/i2c-*/name >/dev/null 2>&1 && break
+		sleep 0.5
+	done
 	bus=$(basename "$(dirname "$(readlink -f /sys/bus/platform/devices/990000.i2c/i2c-*/name)")")
 	[ "$bus" = i2c-1 ] || { log "hub I2C4 is $bus, aw882308 expects i2c-1"; exit 1; }
 	load "$A/aw882308.ko"

@@ -10,7 +10,8 @@ heap is assigned to the LPASS and ADSP-heap VMIDs. The open
 and our own topology gave card 0, `OnePlus-dodge`, with one
 playback PCM. A new DTB enabled the amplifiers' I2C bus, and both
 speaker amplifiers now run during playback from the SoC's I2S clocks
-(see "The amplifiers"). Nobody has listened yet.
+(see "The amplifiers"). With the topology on SD1, Martin heard a test
+tone from the speakers at 11:39 CEST.
 
 ## What we did
 
@@ -178,3 +179,33 @@ amplifiers' feedback.
 Claude's advice (consult 2): BROWN_OUTS in SYSST is a status bit,
 not a latched fault. Short tests at -30 dB or quieter are milliwatts.
 Keep the floor in the driver.
+
+## Sound
+
+**The data line.** One change per boot: the device subgraph's
+`SD_LINE_IDX_I2S_SD0` became `SD_LINE_IDX_I2S_SD1`, the topology was
+rebuilt and installed, and the phone rebooted. Nothing else changed:
+same DTB, modules and register tables. The amplifiers' input is
+i2s1 data1 (gpio124). Stock's pull-down on data1's active state was
+misleading.
+
+**Proof.** With the noise gate on, silence keeps SYSST at `0x0215`.
+A -12 dBFS tone gives `0x0315` (switching), and DACST
+(`0x0a1b` → `0x001b`) and VSNDAT move. Martin heard the tone at
+11:39 CEST, at the -30 dB floor.
+
+**After the reboot the bring-up script hit two problems.**
+- It ran before udev loaded `i2c-qcom-geni`, so the script now
+  loads the module and waits for the bus.
+- `fastrpc-audio.ko` reported "File exists" because the module was
+  already loaded under another name, so `load` now accepts that.
+
+**Not done.**
+- Start at boot.
+- A `qcom,sm8750-sndcard` DT node with the amplifier nodes (resets,
+  `sound-name-prefix`), so the lookup tables and `new_device` go away.
+- Speaker protection and calibration, before the volume floor moves.
+- Rates other than 48 kHz.
+- UCM and PipeWire.
+- I/V feedback on data0.
+- The headset codec and the microphones.
