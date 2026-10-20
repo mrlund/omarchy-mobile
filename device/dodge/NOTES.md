@@ -4,6 +4,18 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: speakers at boot
+
+- **`audio/omamobile-dodge-audio.service` runs `audio-bringup.sh pins=1 amps=1` after the ADSP battery service,** then turns on the MultiMedia1 → speakers route. It is installed by hand in `/etc/systemd/system` and enabled, like the battery unit.
+- **It works across a real reboot.** I read the slot state over fastboot at 11:44 CEST: current slot a, retry count 5, not unbootable, so no `set_active` was needed. Then a plain `fastboot reboot`.
+- **After that boot:** the unit finished 7 s after starting and card 0 was there with the route on. `aplay -D hw:0,0 -f S16_LE -r 48000 -c 2 -t raw tone.raw` exited 0 with both amplifiers switching (SYSST `0x0315`). The driver's default level is attenuation 700 (about -66 dB); the -30 dB floor is unchanged.
+- **The 122 local commits were audited before the push.**
+  - No MACs, IMEIs, serials or live device identifiers (checked against the phone's own, which were not printed), no keys or tokens, and no other users' paths.
+  - The only binary is the fork's public signing key.
+  - No ACF, register tables or firmware are in the commits.
+  - The author email is the one Martin already uses publicly on GitHub.
+  - `dodge-plan` was pushed to the fork (`origin`) as a branch, as CONTRIBUTING's PR flow has it.
+
 ## 2026-10-20: sound from the speakers
 
 - **Martin heard the phone at 11:39 CEST.** That was a -12 dBFS 440/660 Hz tone through both amplifiers at the -30 dB volume floor.
