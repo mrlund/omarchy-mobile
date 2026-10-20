@@ -399,3 +399,17 @@ Several fast PipeWire stop/start cycles wedged the ADSP APM (`CMD timeout`, prep
 
 `jack-watch.sh` now records from the headset mic and plays a quiet tone when `Mic Jack` turns on. The plug test steps are in NOTES.md.
 
+## Earpiece listen test (14:20 CEST)
+
+The first try played on the speaker, about 14:20:30-14:20:50 CEST. The profile name was wrong: use `pactl set-card-profile alsa_card.platform-sound "HiFi (Earpiece, Mic)"`.
+
+The second try played on the earpiece, about 14:21:01-14:21:21 CEST: 440/660 Hz alternating every 0.5 s at -12 dBFS, for 20 s.
+
+While it played:
+- The left amplifier loaded `aw882308-34-receiver.bin` (75 registers, chsel 1) and read SYSST 0x0211, SYSCTRL 0x42c0, attenuation 700.
+- The right amplifier sat at attenuation 1023, muted.
+
+Back to `HiFi (Mic, Speaker)` at 14:21:31 CEST.
+
+The headset is accepted on the current evidence. The plug test was not run, because no headset was available.
+
