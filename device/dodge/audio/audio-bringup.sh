@@ -75,6 +75,15 @@ case " $* " in *" amps=1 "*)
 	done
 	;;
 esac
-load "$A/dodge-snd.ko" "$@"
+if [ -e /proc/device-tree/sound/compatible ]; then
+	# DT card (qcom,sm8750-sndcard, model OnePlus-dodge): the machine
+	# driver with MI2S format setup, built out of tree into /root/audio.
+	load "$HELD/drivers/soundwire/soundwire-bus.ko"
+	load "$HELD/sound/soc/qcom/snd-soc-qcom-common.ko"
+	load "$HELD/sound/soc/qcom/snd-soc-qcom-sdw.ko"
+	load "$A/snd-soc-sc8280xp.ko"
+else
+	load "$A/dodge-snd.ko" "$@"
+fi
 sleep 1
 cat /proc/asound/cards

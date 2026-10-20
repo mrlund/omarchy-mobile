@@ -236,3 +236,25 @@ lookup tables are now opt-in (`lookup=1`). The chain image was flashed to
 boot_a at 11:49 CEST. After boot, `1-0034` and `1-0035` point at their DT
 nodes, `lookup` reads `N`, both chips were identified and their tables
 applied, and the test tone ran with both amplifiers switching.
+
+## The DT card
+
+One change for this boot: the DTB gained `/sound` (`qcom,sm8750-sndcard`,
+model `OnePlus-dodge`). It has a `speaker-dai-link` from
+`<&q6apmbedai SECONDARY_MI2S_RX>` to `<&speaker_left>, <&speaker_right>`
+on `<&q6apm>`, and the pinctrl state for i2s1 (drive 4 mA, no bias, as on
+stock).
+
+The generic qcom machine driver doesn't parse a DAI format, so MI2S
+links would leave the DSP's word select external. The patch in
+`sound/soc/qcom/sc8280xp.c` sets I2S with the codec as consumer on
+PRIMARY to QUATERNARY and QUINARY MI2S. It is built out of tree into
+`/root/audio/snd-soc-sc8280xp.ko` (copy `sc8280xp.c`, `common.h`, `sdw.h`
+and `qdsp6/q6afe.h`, then build with `KBUILD_MODPOST_WARN=1`). The script
+loads `soundwire-bus`, `snd-soc-qcom-common` and `snd-soc-qcom-sdw` from
+the held tree first.
+
+The image was flashed at 11:53 CEST, and the try count was restored to 7
+with `set_active a`. After boot the unit was active, card 0 was there
+with the same controls, and `aplay` played the tone with both amplifiers
+switching. The card name and the topology path did not change.

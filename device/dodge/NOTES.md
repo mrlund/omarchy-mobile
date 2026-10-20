@@ -4,6 +4,16 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: a DT sound card
+
+- **The DTB has a `sound` node:** `qcom,sm8750-sndcard`, model `OnePlus-dodge`, one link from Secondary MI2S RX to both amplifiers on q6apm, and an `i2s1-active-state` for gpio121-124. The machine driver is `snd-soc-sc8280xp`, patched to call `snd_soc_runtime_set_dai_fmt(I2S | NB_NF | BC_FC)` on MI2S links.
+  - The patched module is built out of tree into `/root/audio`, like `q6apm-lpass-dais`.
+  - Kernel commits in `wt-dodge`.
+- **Flashed to boot_a at 11:53 CEST**; the previous image is `boot-chain-avb.before-sndcard.img`. The retry count read 6, and I restored it with `fastboot set_active a` (now 7).
+- **The boot came up with no manual steps.** The audio unit loaded the machine driver instead of `dodge-snd`. Card 0 has the same name and controls, and the DT pinctrl holds the i2s1 pins. `aplay` of the tone exited 0 with both amplifiers switching.
+- **`dodge-snd` and the gpiod lookups now only serve DTBs without these nodes.** The bring-up script picks the path from `/proc/device-tree/sound`.
+- **The machine driver adds `Headphone Jack` and `Mic Jack` controls** (its WCD jack helper). There is no headset support behind them yet.
+
 ## 2026-10-20: the amplifiers come from the DT
 
 - **The DTB now has `audio-codec@34` and `@35` on hub I2C4** (`awinic,aw882308`, a provisional compatible): reset-gpios TLMM 2 and 164 active low, `sound-name-prefix` Left and Right. Kernel commit in `wt-dodge` on `omamobile-dodge`.
