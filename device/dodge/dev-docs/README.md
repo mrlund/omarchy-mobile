@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-20 | [display-msm](2026-10-20-display-msm.md) | msm DPU/DSI with the AA569 panel in command mode: first modeset at 120 Hz and DCS brightness work by hand; any disable/enable breaks panel init (`cmd dma tx -110`). VCI at stock 3.0 V. |
 | 2026-10-20 | [bluetooth](2026-10-20-bluetooth.md) | hci_qca with WCN7860 support on UART14: hci0 at boot, scan sees devices, survives a reboot. Random BD address kept on the phone (real one is in persist). Pairing waits for Martin. |
 | 2026-10-20 | [wifi-qcc2072-port](2026-10-20-wifi-qcc2072-port.md) | QCC2072 datapath on 6.16: connected, 47 Mbit/s, autoconnect, 5 GHz visible. |
 | 2026-10-20 | [wifi-datapath](2026-10-20-wifi-datapath.md) | Associates but no EAPOL. A read-only REO register dump shows peach has the QCC2072 register layout (WCN7850 offsets hit `0xdeadc0de`). `michael_mic` and the AEAD crypto modules are now loaded at boot. |

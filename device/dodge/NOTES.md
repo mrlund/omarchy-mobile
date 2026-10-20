@@ -4,6 +4,20 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: msm display: first light, re-enable broken
+
+- **First modeset works by hand:** `display/display-try` loads `dispcc-sm8750` first, then the deps, the panel module (`CONFIG_DRM_PANEL_ONEPLUS_DODGE=m`) and `msm`. Command-mode encoder, 120 Hz, Martin saw modetest's colour bars, and DCS brightness reads back exactly.
+- **Blocker:** every disable/enable (fb blank 1/0) fails the panel on-sequence with `cmd dma tx failed -110` and no DSI error IRQ. Not the PLL reprogramming, not the DSI/PHY rails, not clock counts (all three tested). Nothing loads at boot; a reboot returns to simpledrm.
+- **VCI is 3.0 V now**, exactly stock's L13B (min = max = init 3.0 V).
+- Load `dispcc-sm8750` before `msm`, or `msm-mdss` fails `-110` after the deferred-probe timeout.
+- Claude consulted three times (after each pair of failures). Details: [dev-docs/2026-10-20-display-msm.md](dev-docs/2026-10-20-display-msm.md).
+
+## 2026-10-20: next slice: the real display (brightness, screen off)
+
+- **Pick: the msm display path (DPU + DSI + the AA569 panel), for brightness and a real screen off.** Battery and percent already work (ADSP), and Bluetooth and Wi-Fi are done. The screen is the gap you hit every minute: it runs at a fixed brightness, can never really turn off, and Hyprland on simpledrm with llvmpipe redraws in software (the 120 fps screensaver alone kept it at about 650 % CPU), so the battery runs down even on USB (−43 mA net on a 500 mA SDP at 16:58 CEST). It needs no persist or calibration data and no hands: success shows up in `/sys/class/backlight`, the DCS brightness readback and DRM state, and a reboot gets back to simpledrm.
+- **Why the others wait:** suspend has no wake source without hands (no RTC device, so no `rtcwake`); sensors sit behind the ADSP sensor stack; GPU waits for upstream A830; USB host and haptics need a device plugged in or a hand to feel them.
+- **Found while picking:** `CONFIG_DRM_PANEL_ONEPLUS_DODGE` was never enabled, so the earlier `msm` load had a DSI host with no panel driver; that alone explains the black panel. VCI (`l13b`) is pinned at 1.8 V; stock and QRD use 3.0 V.
+
 ## 2026-10-20: Bluetooth works (hci_qca, WCN7860 on UART14)
 
 - **Up at boot and survives a reboot** (16:35 CEST): `hci0` set up with `qca/gngbtfw20.mbn` and `gngbtnv20.bin` from the phone's own `bluetooth_a` (not committed), `Powered: yes`, a 20 s scan sees 3 devices. Pairing waits for Martin.

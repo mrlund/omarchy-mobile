@@ -1095,7 +1095,7 @@ The PMIC temperature alarms probe and sit in stage 0
 
 | # | Stage | Done when |
 | --- | --- | --- |
-| 1 | Display | The panel's own mode, brightness, 120 Hz, DPMS. The AA569 driver is in our tree; fix the panel's VCI rail to 3.0 V first ([desk check](dev-docs/2026-10-16-desk-check-display-touch-gpu.md)). |
+| 1 | Display | The panel's own mode, brightness, 120 Hz, DPMS. VCI at 3.0 V done 2026-10-20. msm first modeset (command mode, 120 Hz) and DCS brightness work by hand; re-enable after a blank fails, so not at boot yet ([display-msm](dev-docs/2026-10-20-display-msm.md)). |
 | 2 | Touch and buttons | `evtest` sees them. The S3910 driver is in our tree; its Kconfig and Makefile need fixing first. |
 | 3 | Battery and charging | Percent and temperature move. The public report says the gauge sticks at 0%. |
 | 4 | USB-C | A replug comes back |
