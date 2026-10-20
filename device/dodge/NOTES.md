@@ -4,6 +4,15 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: ath12k at boot, NM on Wi-Fi, regulatory, 5 GHz missing
+
+- **Process note:** in the Wi-Fi scan slice attempts 1 and 2 both failed partway, and attempt 3 went ahead without the Claude consult the rules require after every two failures. Attempt 3 worked, but the consult was skipped.
+- **ath12k at boot, once:** `wifi/omamobile-wifi-ath12k.service` (after `omamobile-wifi-pcie.service`). It skips the load if `/sys/module/ath12k` or `/run/omamobile-ath12k.tried` exists; the stamp is written before the insmod. Reboot at 15:22 CEST: clean shutdown with ath12k loaded, one bring-up, `wlp1s0` at 7.7 s, no oops, boot-success fine.
+- **NM manages `wlp1s0`** (`90-dodge-wlan-unmanaged.conf` removed); `usb0` stays unmanaged by `10-omamobile-usb.conf`; SSH never dropped. `nmcli dev wifi list`: 16 BSS, 2.4 GHz.
+- **regulatory.db failed its signature check** because `sha256` (=m) was never loaded. Loading `libsha256-generic` + `sha256` fixes it; global domain DK. The phy is self-managed and keeps the firmware's US; "Failed to set the requested Country" is the firmware rejecting the 11d country and is non-fatal.
+- **No 5 GHz BSS on the phone** while the laptop sees three on 5240 MHz; the radio does dwell on 5 GHz channels. Not regulatory. Hypotheses in the dev-doc.
+- **Connect:** the SSID given is not on air (phone or laptop). The NM profile exists on the phone (mode 600) but cannot activate. Details: [dev-docs/2026-10-20-wifi-boot-nm.md](dev-docs/2026-10-20-wifi-boot-nm.md).
+
 ## 2026-10-20: Wi-Fi scans (ath12k on peach)
 
 - **Root cause of the old firmware resets:** the host cap set `CNSS_QDSS_CFG_MISS` (bit 3). Peach then rejected aux and QDSS (QMI error 90) and asserted in `whal_aux_mac_trigger_wakeup`. With feature list `0x50` it reaches FW ready and `wlan0` registers. TME `err 83` is harmless; stock gets it too.
