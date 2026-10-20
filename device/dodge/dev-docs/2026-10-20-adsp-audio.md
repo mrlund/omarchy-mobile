@@ -8,7 +8,9 @@
 heap is assigned to the LPASS and ADSP-heap VMIDs. The open
 `adsprpcd` stays up. Later the same day a bring-up card module
 and our own topology gave card 0, `OnePlus-dodge`, with one
-playback PCM. No audio has been played (see "The card" below).
+playback PCM. A new DTB enabled the amplifiers' I2C bus, and both
+speaker amplifiers now run during playback from the SoC's I2S clocks
+(see "The amplifiers"). Nobody has listened yet.
 
 ## What we did
 
@@ -123,3 +125,56 @@ whole order: ADSP running, `fastrpc-audio.ko audio_heap_vmids=1`,
 `adsprpcd`, wait for the heap assign, `apr`, q6dsp common, q6apm,
 q6prm and its clocks, `q6apm-dai`, the patched
 `q6apm-lpass-dais`, then the card.
+
+## The amplifiers
+
+**The bus.** One DTB change: `&i2c_hub_4 { status = "okay"; }`. The
+chain image was rebuilt with only that DTB changed and flashed to
+boot_a at 11:22 CEST. It booted; hub I2C4 enumerated as `i2c-1`.
+
+**The chips.** In reset (TLMM 2 and 164 low) both addresses NACK.
+Driving the resets high, the reverse of stock's active-low pulse,
+gives chip id `0x2308` at `0x34` (left) and `0x35` (right).
+
+**The driver.** [`audio/aw882308`](../audio/aw882308/aw882308.c) is
+ours, written from the register layout in OnePlus's GPL-2.0 aw882xx
+sources: `SYSCTRL` power-down, amplifier power-down, hard mute and
+the ultrasonic mute, a 10-bit attenuation in `SYSCTRL2`, and the
+I2S frame in `I2SCTRL1`. Start order matches the vendor driver:
+power up, wait for PLL lock and stable clocks, power the amplifier,
+wait for boost done, unmute. The resets come from a gpiod lookup
+table because there is no DT node yet. A register table can come
+from firmware, `aw882308-<addr>.bin`. Volume is a mixer control that
+cannot go below 320 steps of attenuation (about -30 dB).
+
+**The register table.** Stock loads `aw882xx_acf.bin` from odm.
+[`audio/tools/aw-acf-regs.py`](../audio/tools/aw-acf-regs.py) lists
+its sections and writes one profile per amplifier. This ACF uses
+header version 0.0.0.1: four "default device" register sections,
+profiles 0 (speaker) and 10 (receiver) for index 0 and 1. The two
+speaker tables differ only in channel select and the TX slot
+register. The ACF and the tables stay out of git. The driver keeps
+power-down and mute set and the I/V feedback off when applying them.
+
+**First sound attempt.** `aplay` of a -12 dBFS 440/660 Hz tone on
+`hw:0,0` (S16, 48 kHz, stereo) after
+`SECONDARY_MI2S_RX Audio Mixer MultiMedia1` on. Both amplifiers
+start: SYSST `0x0215`, SYSINT 0, VBAT 3.9 V, 41 °C. After the
+stream SYSCTRL reads `0xd343` again (powered down, muted).
+
+**Frame check.** Rewriting `I2SCTRL1` mid-stream: 16-bit at 32 fs
+keeps SYSST at `0x0215`; 64 fs (16, 24 or 32 bit) or 48 fs keep the
+PLL locked but clear boost-done. So the DSP sends 32 fs, and the
+driver's `hw_params` matches it.
+
+**Is anything audible?** Not known. With the noise gate on (stock
+`NGCTRL3` bit 0) the switching bit stays 0 during the tone. With
+the gate off it goes to 1. Mono channel select changes nothing. The
+current and voltage sense registers read static. That could mean
+data0 carries silence. Stock's pins argue data0 is the playback
+line: data1's active state is pulled down, like an input for the
+amplifiers' feedback.
+
+Claude's advice (consult 2): BROWN_OUTS in SYSST is a status bit,
+not a latched fault. Short tests at -30 dB or quieter are milliwatts.
+Keep the floor in the driver.

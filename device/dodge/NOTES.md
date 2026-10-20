@@ -4,6 +4,17 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: the speaker amplifiers run, not yet heard
+
+- **A DTB with `i2c_hub_4` enabled booted from boot_a** (chain image flashed 11:22 CEST, previous image kept as `boot-chain-avb.before-audio-i2c.img`). Hub I2C4 is `i2c-1`. SSH, the desktop and the ADSP battery service came back.
+- **Both amplifiers answer: chip id `0x2308` at `0x34` and `0x35`** once their active-low resets (TLMM 2, 164) are released. In reset they NACK.
+- **`audio/aw882308` is a small bring-up codec driver,** written from the register layout in OnePlus's GPL aw882xx sources. It takes the resets from a gpiod lookup, applies an optional register table from firmware and caps the volume (attenuation floor 320 steps, about -30 dB). There is no speaker protection.
+- **`audio/tools/aw-acf-regs.py` turns the phone's own ACF into those tables.** The ACF comes from the OTA's odm image and stays in `~/android/reference`; the tables sit in the phone's `/lib/firmware` only. Profile 0 is the speaker profile, 10 the receiver one; index 0 is the left amplifier, 1 the right.
+- **`dodge-snd amps=1 pins=1` makes the two amplifiers the codecs** (prefixes `Left`/`Right`, link format `CBC_CFC`). The first try failed with `-16`: both added `Amp Volume`. Prefixes fixed it; rmmod and insmod of the failed card worked.
+- **During a tone both amplifiers run:** SYSST `0x0215` (PLL locked, clocks stable, boost done), no interrupts, VBAT 3.9 V, 41 °C. After the stream they are powered down and muted again.
+- **Their frame must be 32 fs for S16.** Writing 64 fs or other widths mid-stream keeps the PLL but drops the boost-done bit.
+- **Not proven audible.** With the stock noise gate on, the switching bit stays 0 during a -12 dBFS tone, which may mean the amplifiers see silence on data0. With the gate off they switch. The current and voltage sense registers stay static. Stock's pin config suggests data0 is playback and data1 the feedback input.
+
 ## 2026-10-20: an ALSA card, no sound yet
 
 - **Card 0 is `OnePlus-dodge`, made by a module, not the DTB.** `dodge-snd.ko` registers Secondary MI2S RX on q6apm with the dummy codec; `/lib/firmware/qcom/sm8750/OnePlus-dodge-tplg.bin` (our topology) supplies MultiMedia1. `pcmC0D0p` exists. Nothing was played.

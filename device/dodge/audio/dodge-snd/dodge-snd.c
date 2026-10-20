@@ -4,8 +4,8 @@
  *
  * Registers one DPCM back end, Secondary MI2S RX (the speaker amplifiers'
  * I2S bus), on the q6apm AudioReach platform. The front ends come from the
- * topology, qcom/sm8750/OnePlus-dodge-tplg.bin. The codec is the ASoC dummy
- * until an amplifier driver exists. This is a stand-in for a
+ * topology, qcom/sm8750/OnePlus-dodge-tplg.bin. The codec is the ASoC dummy,
+ * or with amps=1 the two aw882308 amplifiers (left 0x34, right 0x35). This is a stand-in for a
  * "qcom,sm8750-sndcard" node and goes away once the DTB has one.
  *
  * pins=1 also maps TLMM gpio121-124 to i2s1 (sck, data0, ws, data1) as
@@ -23,6 +23,10 @@
 static bool pins;
 module_param(pins, bool, 0444);
 MODULE_PARM_DESC(pins, "mux TLMM gpio121-124 to i2s1 for playback");
+
+static bool amps;
+module_param(amps, bool, 0444);
+MODULE_PARM_DESC(amps, "use the aw882308 amplifiers (1-0034, 1-0035) as codecs");
 
 static char *tlmm = "f100000.pinctrl";
 module_param(tlmm, charp, 0444);
@@ -52,6 +56,16 @@ SND_SOC_DAILINK_DEFS(sec_mi2s,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("gprsvc:service:2:1")));
 
+static struct snd_soc_dai_link_component dodge_amps[] = {
+	{ .name = "aw882308.1-0034", .dai_name = "aw882308-aif" },
+	{ .name = "aw882308.1-0035", .dai_name = "aw882308-aif" },
+};
+
+static struct snd_soc_codec_conf dodge_amp_conf[] = {
+	{ .dlc = COMP_CODEC_CONF("aw882308.1-0034"), .name_prefix = "Left" },
+	{ .dlc = COMP_CODEC_CONF("aw882308.1-0035"), .name_prefix = "Right" },
+};
+
 static struct snd_soc_dai_link dodge_links[] = {
 	{
 		.name = "Speaker Playback",
@@ -80,6 +94,12 @@ static struct snd_soc_card dodge_card = {
 static int dodge_snd_probe(struct platform_device *pdev)
 {
 	dodge_card.dev = &pdev->dev;
+	if (amps) {
+		dodge_links[0].codecs = dodge_amps;
+		dodge_links[0].num_codecs = ARRAY_SIZE(dodge_amps);
+		dodge_card.codec_conf = dodge_amp_conf;
+		dodge_card.num_configs = ARRAY_SIZE(dodge_amp_conf);
+	}
 	return devm_snd_soc_register_card(&pdev->dev, &dodge_card);
 }
 
