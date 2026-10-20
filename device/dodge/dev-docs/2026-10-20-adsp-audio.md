@@ -4,9 +4,9 @@
 **Goal.** Get the audio framework inside the ADSP to answer.
 **Phone.** OnePlus 13 CPH2653. No restart. The desktop stayed up.
 **Kernel.** `6.16.0-gb3ee311dab85`
-**Result.** Stopped. `APM_CMD_GET_SPF_STATE` times out. The
-running DTB has no ADSP FastRPC node, which is what stock uses
-to start `audio_pd`. Testing that node needs a new boot image.
+**Result.** The ADSP FastRPC device is up. `audio_pd` still
+does not answer. The open daemon that stock uses to start it
+resets an SM8750 on this kernel.
 
 ## What we did
 
@@ -29,9 +29,23 @@ to `0x1008` with the `0x104x` pair, not the SM8550 `0x106x`
 pair. That node is now in `sm8750.dtsi`. The dodge DTB builds.
 It is not in the image the phone is running.
 
+## What the new boot did
+
+The first image omitted `DTB_OPTS='splash fb'`, so
+`simpledrm` never bound and Hyprland exited with
+`CBackend::create() failed`. The second image has `splash fb`
+and the FastRPC node. The desktop is back. `fastrpc.ko` binds
+the ADSP channel and creates `/dev/fastrpc-adsp-secure`. The
+six compute banks join IOMMU groups. The driver logs
+`no reserved DMA memory for FASTRPC`. Stock's node has a
+`memory-region` we did not copy. The modem and the CDSP stayed
+down.
+
 ## Next
 
-A boot image with that DTB, then `fastrpc.ko`, then an open
-`audioadsprpcd` before another get-state try. Do not play
-audio until a card exists and a volume ceiling is in place.
-The modem and the CDSP stay down.
+Stock starts the domain with `audioadsprpcd audiopd adsp`.
+Upstream reports that this daemon resets an SM8750 on kernels
+before the 2026 FastRPC audio fixes, which are not in 6.16.
+Do not run it here. The get-state timeout stands until that
+daemon, or the kernel fix, is in place. Do not play audio
+until a card exists and a volume ceiling is set.
