@@ -4,6 +4,24 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: headset microphone (AMIC2), up to the plug test
+
+- **No DTS or topology change needed.** The DTB already routes `AMIC2` from `MIC BIAS2` (commit `676c0daad`). The headset mic uses the same MultiMedia3 / `TX_CODEC_DMA_TX_3` capture as the built-in mics (hw:0,2).
+- **The path:** AMIC2 → `ADC2 MUX` CH2_AMIC2 → ADC2 (`TX1 MODE` ADC_LP) → TX `SWR_MIC1` → `TX SMIC MUX0` → DEC0 → hw:0,2, mono. Stock `mixer_paths.xml` (`headset-mic` = `amic2`, ADC2 volume 10, DEC0 volume 84) agrees once the downstream channel names are mapped: stock ADC1 is `SWR_MIC4` and ADC2 is `SWR_MIC5`; upstream they are `SWR_MIC0` and `SWR_MIC1`.
+- **Verified with nothing plugged in**, using raw `arecord` with PipeWire stopped:
+  - ADC2 on gives a live noise floor on DEC0. It tracks the analog gain: ADC2 Volume 0 → -93.4 dBFS, 10 → -82.4, 20 → -67.6.
+  - With ADC2 and its mixer off, the capture fails with EIO.
+  - DAPM shows `MIC BIAS2`, `AMIC2` and `ADC2` On while capturing.
+- **UCM `Headset` device** (conflicts with `Mic`; priority 300; `JackControl "Mic Jack"`; `CaptureMixerElem "ADC2"`). Mic → Headset → Mic switching via `alsaucm` passed every time, and the internal mics came back each time at -37.8 / -51 dBFS. PipeWire lists `HiFi (Headphones, Headset)`, `(Headset, Speaker)` and `(Earpiece, Headset)` as unavailable until the jack reports a mic.
+- **Quirk:** a single `ADC2 MUX` CH2_AMIC2 write after the Mic device sometimes left ADC2 silent (the -96 dBFS floor, gain had no effect) until the mux moved again. The Enable sequence now writes CH2_AMIC_DISABLE, then CH2_AMIC2. Root cause not found.
+- **Do not cycle PipeWire quickly.** Stopping and starting the user PipeWire units several times within a minute, with `alsaucm` and `arecord` in between, wedged the ADSP APM: `CMD timeout` for 0x100100d and then 0x1001006, and every PCM failed to prepare with -110. A reboot cleared it. Stop PipeWire once, test, start it once.
+- **`jack-watch.sh` now probes on insertion.** When `Mic Jack` turns on, it logs the PipeWire profile and the default source/sink, records 6 s from the default source and logs the RMS. It then plays a 2 s 1 kHz tone at -36 dBFS and logs the HPH, MIC BIAS2 and ADC2 DAPM state during the tone. Smoke-tested without a jack by running the probe by hand (speaker profile, internal mic, -56.8 dBFS). The log times use the phone clock, which is not synced (it read 2026-09-26).
+- **The plug test is still open.** It supersedes the earlier headset hands-on step:
+  1. Over SSH: `sudo /usr/local/lib/omamobile/jack-watch.sh 600` (10 min window).
+  2. Unplug the USB cable from the phone.
+  3. Plug in a USB-C analog headset with a mic, or a passive USB-C to 3.5 mm adapter with a 4-pole (TRRS) headset. Leave it in for about 30 s. Talk or count aloud into the headset mic for the first 10 s. About 10 s after plugging, a short quiet beep should play in the earpieces.
+  4. Unplug the headset, reconnect the cable, and send back `/var/log/omamobile/jack.log` (or just say "done" and it gets read over SSH), plus whether the beep was heard and in which ear.
+
 ## 2026-10-20: the kernel stays ours (decision 13:18 CEST)
 
 - **Where it lives:** `~/android/mainline/wt-dodge`, branch `omamobile-dodge`, on sm8750-mainline/linux v6.16 `16cf517b2781` (shallow). It has 34 commits, head `2e2290387`, and builds to release `6.16.0-gb3ee311dab85`. Output goes to `~/android/mainline/out-dodge`.

@@ -385,3 +385,17 @@ UCM device `Earpiece`: ConflictingDevice Speaker and Headphones; priority 50.
 
 Verification by status register: in Earpiece, left SYSST reads 0x0311 and the right amplifier sits at attenuation 1023. Back on Speaker, both read 0x0315. The speaker attenuation cap of 700 is unchanged. No one has listened yet.
 
+## Headset microphone
+
+AMIC2 → ADC2 → `SWR_MIC1` → DEC0 → MultiMedia3 (hw:0,2), mono. No DTS or topology change was needed: the `AMIC2`←`MIC BIAS2` route and the TX codec DMA capture already exist.
+
+Verified with no plug, using `arecord` with PipeWire stopped:
+- The noise floor on DEC0 follows the ADC2 analog gain: -93.4, -82.4 and -67.6 dBFS at Volume 0, 10 and 20.
+- With ADC2 off, the capture fails with EIO.
+
+The UCM `Headset` device conflicts with `Mic`. Its Enable sequence writes `ADC2 MUX` twice (disable, then AMIC2), because a single write sometimes left ADC2 silent.
+
+Several fast PipeWire stop/start cycles wedged the ADSP APM (`CMD timeout`, prepare -110). A reboot cleared it.
+
+`jack-watch.sh` now records from the headset mic and plays a quiet tone when `Mic Jack` turns on. The plug test steps are in NOTES.md.
+
