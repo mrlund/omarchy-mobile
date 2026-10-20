@@ -4,9 +4,12 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-20: audio waits on ADSP FastRPC
+## 2026-10-20: the audio framework answers
 
-- **`APM_CMD_GET_SPF_STATE` times out.** q6apm and q6prm attach, and stock's `audio_pd` name already matches. Stock starts that domain with `audioadsprpcd audiopd adsp`. The running image now has that FastRPC node (`DTB_OPTS='splash fb'`). `/dev/fastrpc-adsp-secure` exists. Do not run the daemon on this 6.16 kernel: upstream says it resets an SM8750. The first image of this series omitted the splash framebuffer and Hyprland had no DRM device.
+- **`APM_CMD_GET_SPF_STATE` returns once the audio heap is assigned.** It times out with or without `adsprpcd` until then. Stock's ADSP FastRPC node sets `qcom,vmids` to `0x16 0x25` (LPASS and the ADSP heap). This 6.16 driver sent `pageslen` 0, so the DSP was told the heap was empty.
+- **The open daemon stays in its poll loop.** The assign was `phys 0xf1e00000`, `size 0x300000`, two VMIDs. The phone did not reset. `q6prm` probed afterwards and did not time out. There is still no ALSA card, and soundwire stays disabled. Do not play audio.
+- **The running DTB has the FastRPC node and `splash fb`.** `/dev/fastrpc-adsp-secure` exists. The VMIDs are not in that DTB yet; the loaded module supplies them with `audio_heap_vmids=1`. The first image of this series omitted the splash framebuffer and Hyprland had no DRM device.
+- **A dead-man reboot fired while that timer was still armed.** The desktop came back. Slot A's try count was not read afterwards.
 
 ## 2026-10-19: the ADSP reports a battery percent
 
