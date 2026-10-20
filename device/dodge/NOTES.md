@@ -6,7 +6,7 @@ Attempts live in [dev-docs/](dev-docs/).
 
 ## 2026-10-20: audio waits on ADSP FastRPC
 
-- **`APM_CMD_GET_SPF_STATE` times out.** q6apm and q6prm attach, and stock's `audio_pd` name already matches. Stock starts that domain with `audioadsprpcd audiopd adsp` on the ADSP FastRPC channel. The channel is up and unbound. The DTB that describes it is not the one this boot is running.
+- **`APM_CMD_GET_SPF_STATE` times out.** q6apm and q6prm attach, and stock's `audio_pd` name already matches. Stock starts that domain with `audioadsprpcd audiopd adsp`. The running image now has that FastRPC node (`DTB_OPTS='splash fb'`). `/dev/fastrpc-adsp-secure` exists. Do not run the daemon on this 6.16 kernel: upstream says it resets an SM8750. The first image of this series omitted the splash framebuffer and Hyprland had no DRM device.
 
 ## 2026-10-19: the ADSP reports a battery percent
 
