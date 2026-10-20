@@ -413,3 +413,11 @@ Back to `HiFi (Mic, Speaker)` at 14:21:31 CEST.
 
 The headset is accepted on the current evidence. The plug test was not run, because no headset was available.
 
+## Silent after 11:39: the amplifier volume
+
+Nothing was heard at 14:20/14:21. At 11:39 the amplifiers ran at attenuation 320 (volume control 703, the cap). After the next boot they came up at the driver default, 700 (about -66 dB), and nothing set them back. SYSST switching was taken as proof of sound; it is not.
+
+Fix: UCM Speaker/Earpiece and the boot service set `Left/Right Amp Volume` 703. Route, tables, I2S format and PLL lock matched the 11:39 state.
+
+Clock: there is no RTC device and no NTP route. The host user timer (`tools/dodge-timesync`, every 30 s) sets the clock, and timesyncd's clock file carries it across boots.
+

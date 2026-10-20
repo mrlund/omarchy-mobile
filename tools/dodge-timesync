@@ -1,0 +1,19 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# dodge-timesync: set the phone's clock from this host over the USB link.
+# The dodge has no RTC under our kernel and no network beyond the gadget link,
+# so this host is its time source. Sets the clock when it is off by more than
+# 1 s, then touches systemd-timesyncd's clock file so the next boot starts
+# no earlier than the last sync. Quiet when the phone is not reachable.
+# Run by the user timer in device/dodge/timesync/ (every 30 s), or by hand.
+set -u
+P=$(dirname "$(readlink -f "$0")")/phone-ssh
+now=$(date -u +%s)
+pt=$(timeout 10 "$P" -o ConnectTimeout=3 'date -u +%s' 2>/dev/null) || exit 0
+off=$((pt - now))
+if [ "${off#-}" -gt 1 ]; then
+	timeout 10 "$P" "date -u -s @$(date -u +%s.%N) >/dev/null && touch /var/lib/systemd/timesync/clock" &&
+		echo "dodge clock was off by ${off}s; set from host"
+else
+	timeout 10 "$P" 'touch /var/lib/systemd/timesync/clock' 2>/dev/null
+fi

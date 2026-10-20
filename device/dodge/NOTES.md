@@ -4,6 +4,22 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: silent since 11:44, the root cause was the amplifier volume
+
+- **Martin heard nothing at 14:20 or 14:21** (speaker and earpiece), although SYSST showed switching. SYSST says the amplifier is running; it does not prove sound at a usable level.
+- **Root cause: amplifier attenuation.** At 11:39 the volume controls had been set to 703, the driver cap: attenuation 320, about -30 dB. That was the level heard. The driver's probe default is attenuation 700 (control value 323), about -66 dB. Nothing restored 703 after the next boot:
+  - the boot service only set the route;
+  - UCM never touched Speaker volume, and the Earpiece Disable even wrote 323 back.
+  
+  Every stream since 11:44 played about 36 dB below the 11:39 level. PipeWire made it worse: its speaker sink sits at 0.4 (software, about -24 dB) and the tests used `pw-play`. The evidence is the 11:39 session log ("volume 703 against attenuation 320") against every later `running:` line ("atten 700").
+- **The rest checked out against 11:39** with PipeWire stopped and `aplay -D hw:0,0`: route MI2S on, RX off; speaker tables loaded; I2SCTRL1 0x2408/0x2808 as at 11:39; SYSST 0x0215 (PLL locked) on silence. With 703 set, the driver logs `atten 320` for both amplifiers again.
+- **Fix:** the UCM Speaker device sets `Left/Right Amp Volume` 703. Earpiece sets Left 703 and Right 0, and its Disable restores Right to 703. The boot service sets both to 703 after the route. The cap (`min_atten` 320) is unchanged. No kernel or topology change was needed.
+- **Clock:** the phone has no RTC under our kernel (`/dev/rtc*` absent; `rtc-pm8xxx` is a module with no DT node). The PMIC RTC offset lives in an SDAM, so it stays untouched (no PMIC access). The phone has no route out (no NAT on the host), so NTP cannot work. Instead:
+  - `systemd-timesyncd` is enabled on the phone; its clock file keeps the boot clock from going back past the last sync;
+  - `tools/dodge-timesync`, run every 30 s by the host user timer in `timesync/`, sets the phone clock from the host when it is off by more than 1 s and touches that clock file.
+  
+  Set at 14:23 CEST; the phone was within 1 s of the host at 14:26.
+
 ## 2026-10-20: earpiece listen test (14:20 CEST), headset accepted
 
 - **The first attempt played on the speaker** (about 14:20:30-14:20:50 CEST, the same 20 s tone). `pactl set-card-profile` was given an `output:...+input:...` name and answered "No such entity". On this card the profile name is the UCM string `HiFi (Earpiece, Mic)`. The dmesg lines showed both amplifiers in Speaker mode (SYSST 0x0215, attenuation 700).
