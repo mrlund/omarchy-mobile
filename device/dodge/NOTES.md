@@ -4,6 +4,14 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: Wi-Fi scans (ath12k on peach)
+
+- **Root cause of the old firmware resets:** the host cap set `CNSS_QDSS_CFG_MISS` (bit 3). Peach then rejected aux and QDSS (QMI error 90) and asserted in `whal_aux_mac_trigger_wakeup`. With feature list `0x50` it reaches FW ready and `wlan0` registers. TME `err 83` is harmless; stock gets it too.
+- **rfkill:** the WCN7850 rfkill GPIO is not wired on dodge, so the radio was hard-blocked. ath12k now skips rfkill for `0x110e`.
+- **WMI credit timeout at `ip link up`** (`WMI_PDEV_SET_PARAM` 16387, `-EAGAIN`). Fixed by backporting the generic QCC2072 fixes: preferred hw mode `<=`, MAC/PHY caps for the preferred mode only, 58 channels per chan-list command. Peach: 2 hw modes, mode 5, phy map `0x3`.
+- **Result (15:15 CEST):** `wlp1s0` up; `iw scan` sees 11 BSS on 2.4 GHz. Not connected (needs the password). 5/6 GHz are passive under the world regdomain; not seen yet.
+- Kernel commits are local, on `omamobile-dodge`. Details: [dev-docs/2026-10-20-wifi-scan.md](dev-docs/2026-10-20-wifi-scan.md).
+
 ## 2026-10-20: slot A marked successful from Linux (no more seven-boot budget)
 
 - **The slot state is byte 6 of `boot_a`'s GPT entry** on `/dev/sde` (entry 12): priority bits 0-1, active 2, retry count 3-5, successful 6, unbootable 7. Only `boot_a` counted down; every other `*_a` entry on `sde` sits at `0x7f`. `fastboot getvar slot-*:a` matches that byte.
