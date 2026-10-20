@@ -307,3 +307,49 @@ Per AGENTS.md, kernel work stays on `omamobile-<subsystem>` branches in the kern
 
 The local `format-patch` copy is in `~/android/mainline/patches-dodge`.
 
+## Microphones (12:10 to 12:30 CEST)
+
+The stock `mixer_paths.xml` (read from the OTA odm image into the captures directory, not committed) shows the built-in mics:
+- `handset-mic` and `speaker-mic` use AMIC1 (ADC1) and AMIC5 (ADC4).
+- The headset mic is AMIC2.
+- There are no DMICs in use.
+- `handset` is the left amplifier in its Receiver profile. That is the earpiece.
+
+The stock DT (`live.dtb`) gives:
+- WCD939x reset on GPIO 101.
+- Supplies: L15B for buck, rx and tx; L2I for px; BOB1 for mic bias.
+- Mic biases at 2700 mV.
+- The SoundWire slaves are 0217:010e at device numbers 4 (RX) and 3 (TX).
+
+**Runtime check first.** I loaded the LPI pinctrl and the VA, TX and RX macros by hand on the old DTB. All three macros and the LPI pinctrl probed (`7760000.pinctrl` bound to `qcom-sm8650-lpass-lpi-pinctrl`).
+
+**One boot (12:18 CEST), DTB plus topology:**
+- The codec node, the swr1/swr2 slaves, the routing and the capture link.
+- The topology gained MultiMedia3 from TX_CODEC_DMA_TX_3 (IIDs 0x4003/0x6020 and 0x4009/0x6090, as in SM8550-HDK).
+- Result: `wcd939x_codec audio-codec: bound sdw:2:0:0217:010e:00:4` and `sdw:3:...:3`. PCM `00-02: MultiMedia3 Capture`.
+
+**Finding the channels:**
+- With `TX SMIC MUX0` set to SWR_MIC1..3, `arecord` failed with EIO.
+- SWR_MIC4..11 gave identical files: zeros, then a 480-frame period repeating. That is a stale buffer, not audio.
+- SWR_MIC0 is live for ADC1. With ADC4 enabled, SWR_MIC3 is live for it.
+
+**Evidence that it is sound:**
+- The two mics correlate at 0.53, with a lag of 6 samples (about 4 cm).
+- Their envelopes track each other: 84/171/142/51 against 132/286/229/94.
+- With the ADC muted, the capture fails rather than reading zeros. So the data comes from the ADC.
+
+**UCM:** the `Mic` device has the full enable and disable sequences. After a PipeWire restart there is a default source "Built-in Audio Internal microphones". `pw-record -a` gave -56.4 and -52.4 dBFS.
+
+## Kernel fork and rebase (12:22 to 12:35 CEST)
+
+**Audit:** the 31 commits on `omamobile-dodge` before the mic commit had no MACs, serials, IMEI, keys, home paths, binaries or hex tables. The amplifier driver loads its tables from firmware. `qcom,msm-id` and `qcom,board-id` are per-model, not per-unit. The authors are Martin, plus one upstream patch by Maulik Shah.
+
+**Fork:** `gh auth status` says no host is logged in, so I created no fork and pushed nothing. Running `gh` made mise install `gh` 2.102.0.
+
+**Rebase:** `maint/omamobile` (bb0877536c7a, v7.3-rc6, 146 commits on one squashed base commit) shares no history with `wt-dodge`, which sits on a single shallow sm8750-mainline commit (16cf517b2781, 6.16). A trial `cherry-pick` of each commit onto `maint/omamobile` in a throwaway worktree gave 4 clean picks and 28 failures:
+- `sm8750-oneplus-dodge.dts` does not exist in omamobile. It is 1478 lines from sm8750-mainline.
+- The ath12k peach series, MHI, fastrpc, q6apm-lpass-dais and q6v5_pas conflict.
+- The rpmh-rsc v4 and pd-mapper changes are already in.
+
+That makes it a port to a new kernel, followed by a fresh bring-up of dodge on 7.3. It is not a tidy rebase, so I stopped. The old branch is kept as `backup/omamobile-dodge-6.16`.
+

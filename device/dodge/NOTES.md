@@ -4,6 +4,23 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: built-in microphones
+
+- **The DTB has the WCD939x** (`qcom,wcd9395-codec`, reset GPIO 101, supplies L15B/BOB1 as on stock, mic biases at 2.7 V). It has an RX slave on swr1 (0,4), a TX slave on swr2 (0,3), and a `wcd-capture-dai-link` from TX codec DMA 3. The routing follows the stock mic biases.
+  - Kernel commit `676c0daad` in `wt-dodge`.
+  - The topology gained MultiMedia3 capture from TX_CODEC_DMA_TX_3, so the PCM is `hw:0,2`.
+  - The script loads the LPASS LPI pinctrl, the VA/TX/RX macros, soundwire-qcom and the WCD939x modules when the DTB has `/audio-codec`.
+- **Flashed at 12:18 CEST**; the previous image is `boot-chain-avb.before-wcd.img`. The retry count read 6; `set_active a` set it to 7.
+  - Both SoundWire slaves bound and the card came up. The speaker path is unchanged.
+- **The mics are AMIC1 and AMIC5** (stock `handset-mic`, both on MIC BIAS1). With the upstream port map, ADC1 arrives on TX `SWR_MIC0` and ADC4 on `SWR_MIC3`.
+  - Selecting a channel with no active port gives `arecord` an I/O error, or a stale period that repeats every 480 frames. So check for that before believing an RMS figure.
+- **Verified without a human:** a stereo `arecord -D hw:0,2` gave -57.8 and -45.1 dBFS ambient. The two mics correlate at 0.53, 6 samples apart, and their 200 ms envelopes rise and fall together, which means sound, not electrical noise.
+  - The capped speaker tone (-12 dBFS, attenuation 700) barely shows at the mic, so that was no use as a loopback test.
+- **UCM device `Mic`** on `hw:CARD,2` (2 channels). WirePlumber lists `Built-in Audio Internal microphones` as the default source. `pw-record` gave -56.4 and -52.4 dBFS.
+- **Kernel fork: not done.** `gh` on Omarchy is not logged in, so no `mrlund/linux-omarchy-mobile` fork was created and nothing was pushed.
+  - A trial cherry-pick of the 32 commits onto the maintainer's `omamobile` (v7.3-rc6) applied only 4. The dodge DTS does not exist there, and the audio, ath12k, MHI and fastrpc code has moved a lot since 6.16. That makes it a port to a new kernel, not a rebase. Details are in the dev-doc.
+  - The maintainer's repository is the remote `maint` in `wt-dodge`, with push disabled. The old branch is kept as `backup/omamobile-dodge-6.16`.
+
 ## 2026-10-20: audio from the module tree, and a UCM profile
 
 - **Nothing loads from `/root/audio` any more.** The patched `fastrpc`, `q6apm-lpass-dais` and `snd-soc-sc8280xp` modules, and the amplifier driver (now in the kernel as `snd-soc-aw882308`, `CONFIG_SND_SOC_AW882308=m`), were built in `out-dodge` and installed into the held module tree. The originals are kept in `/root/held-orig` on the phone. The Image did not change: all four are modules.

@@ -57,8 +57,32 @@ load sound/soc/qcom/qdsp6/q6apm-lpass-dais.ko	# patched: I2S .set_fmt
 load drivers/i2c/busses/i2c-qcom-geni.ko
 load sound/soc/codecs/snd-soc-aw882308.ko
 
-# Machine driver (patched: MI2S format, no jack on MI2S links).
 load drivers/soundwire/soundwire-bus.ko
+
+# WCD939x (microphones, USB-C headset) behind the LPASS RX/TX/VA macros
+# and their SoundWire masters, when the DTB has the codec.
+if [ -e /proc/device-tree/audio-codec/compatible ]; then
+	load drivers/pinctrl/qcom/pinctrl-lpass-lpi.ko
+	load drivers/pinctrl/qcom/pinctrl-sm8650-lpass-lpi.ko
+	load sound/soc/codecs/snd-soc-lpass-macro-common.ko
+	load sound/soc/codecs/snd-soc-lpass-va-macro.ko
+	load sound/soc/codecs/snd-soc-lpass-tx-macro.ko
+	load sound/soc/codecs/snd-soc-lpass-rx-macro.ko
+	load drivers/slimbus/slimbus.ko
+	load drivers/soundwire/soundwire-qcom.ko
+	load drivers/base/regmap/regmap-sdw.ko
+	load sound/soc/codecs/snd-soc-wcd-mbhc.ko
+	load sound/soc/codecs/snd-soc-wcd-classh.ko
+	load sound/soc/codecs/snd-soc-wcd939x-sdw.ko
+	load sound/soc/codecs/snd-soc-wcd939x.ko
+	for _ in $(seq 20); do
+		[ -e /sys/bus/platform/drivers/wcd939x_codec/audio-codec ] && break
+		sleep 0.5
+	done
+	[ -e /sys/bus/platform/drivers/wcd939x_codec/audio-codec ] || log "warning: wcd939x not bound"
+fi
+
+# Machine driver (patched: MI2S format, no jack on MI2S links).
 load sound/soc/qcom/snd-soc-qcom-common.ko
 load sound/soc/qcom/snd-soc-qcom-sdw.ko
 load sound/soc/qcom/snd-soc-sc8280xp.ko
