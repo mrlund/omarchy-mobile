@@ -4,6 +4,12 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-19: the ADSP reports a battery percent
+
+- **Capacity reads 69, status Discharging, 4.059 V, 34.1 °C.** The supplies are `qcom-battmgr-bat`. The ADSP is `running`. The modem and the CDSP were not started.
+- **`qrtr-smd` has to be loaded before PDR looks up `msm/adsp/charger_pd`.** `pd_mapper` also needs a `qcom,sm8750` domain list, the same one as SM8550. Without either, every property returns `EAGAIN`.
+- **Load the PAS driver with `only_adsp=1`.** The board enables the modem and CDSP nodes, and probing the modem assigns its RAM to the modem VM. The boot service is enabled and has not been tried from a cold boot.
+
 ## 2026-10-19: the DT fuel gauge does not answer
 
 - **`ti,bq27541` at I2C `0x55` NACKs.** The bus at `98c000` comes up. Address `0x36` ACKs and returns `0xffff`. Stock's percent path is `oplus_adsp_gauge` behind `oplus,virtual_gauge`, not this node.
