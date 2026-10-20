@@ -421,3 +421,16 @@ Fix: UCM Speaker/Earpiece and the boot service set `Left/Right Amp Volume` 703. 
 
 Clock: there is no RTC device and no NTP route. The host user timer (`tools/dodge-timesync`, every 30 s) sets the clock, and timesyncd's clock file carries it across boots.
 
+## Human-verified
+
+Martin heard both:
+- the speaker, triggered 14:29:21 CEST (both amplifiers at attenuation 320, SYSST 0x0315);
+- the earpiece, triggered 14:30:54 CEST (left amplifier Receiver at attenuation 320, SYSST 0x0311; right amplifier muted at 1023).
+
+Both played the 20 s 440/660 Hz -12 dBFS tone with `aplay -D hw:0,0`.
+
+Boot defaults are verified over two reboots with no manual steps:
+- the boot service sets both amplifiers to 703;
+- WirePlumber's per-card default gives the speaker sink 0.85 (cubic) and the mic 1.0;
+- the host timer corrects the clock within a minute of SSH coming up.
+

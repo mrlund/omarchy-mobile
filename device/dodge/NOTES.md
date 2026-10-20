@@ -4,6 +4,22 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-20: speaker and earpiece human-verified; boot defaults
+
+- **Human-verified (Martin, by ear):**
+  - **Speaker:** triggered 14:29:21 CEST. Both amplifiers at 703 (attenuation 320), SYSST 0x0315.
+  - **Earpiece:** triggered 14:30:54 CEST; the log shows 14:30:54.1-14:31:14.8. Left amplifier in Receiver (profile 1) at 703 (attenuation 320), SYSST 0x0311. Right amplifier at 0 (attenuation 1023), SYSST 0x0215.
+  - Both used the same 20 s 440/660 Hz -12 dBFS tone, played with `aplay -D hw:0,0` with PipeWire stopped.
+- **Afterwards:** the trigger loops were stopped, the left profile set back to Speaker, both amplifiers set to 703, and PipeWire started once.
+- **WirePlumber default volume:** `audio/wireplumber/60-dodge-speaker-volume.conf`, installed in `/etc/wireplumber/wireplumber.conf.d/`. A `monitor.alsa.rules` match on `alsa_card.platform-sound` sets `device.routes.default-sink-volume` 0.614 (linear; 0.85 on wpctl's cubic scale, about -4 dB) and `default-source-volume` 1.0. Without the source line the mic fell back to the sink value. The setting applies while no route volume is saved; user changes are still remembered. The driver cap (attenuation 320 or more) is unchanged. Headphones share this per-card default; they have not been listened to.
+- **Reboot at 14:32 CEST, no manual steps:**
+  - the audio service succeeded (14:32:27);
+  - Left/Right Amp Volume read 703 and the driver logged `atten 320` for both;
+  - the speaker sink is the default at 0.85, and the mic source is present.
+  - The clock booted at the timesyncd clock-file time (14:32:18), and `dodge-timesync` corrected it by 32 s at 14:33:14, as soon as SSH answered.
+- **Retry count:** read 4 in fastboot (14:34); `set_active a` restored it to 7. That `fastboot reboot` at 14:34:58 counts as a boot, so expect 6.
+- **The boot after that** gave the same results: the speaker sink at 0.85 as default, the mic at 1.00, both amplifiers at 703 / attenuation 320. The clock was corrected by 95 s at 14:36:03 (the time spent in fastboot); phone and host agreed within SSH latency at 14:36:42.
+
 ## 2026-10-20: speaker heard again at 14:29 CEST (volume fix confirmed)
 
 - **Martin heard the speaker tone.** It was triggered at 14:29:21 CEST; the phone log shows START 14:29:20.1 and END 14:29:40.8. The tone was 440/660 Hz, -12 dBFS, 20 s, played with `aplay -D hw:0,0` with PipeWire stopped, amp volumes L=R=703 (attenuation 320).
