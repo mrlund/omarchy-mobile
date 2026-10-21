@@ -113,17 +113,16 @@ Raw result: **17 apply, 3 "no changes" (already in), 30 conflict.**
 | 0049 | dsi: drop opp_set_rate(0) | no change | **present** |
 | 0050 | mdss: keep GDSC on (SM8750) | 1 | conflicts (small; 7.3 uses shared `data_57k`, so SM8750 needs its own entry) |
 
-**Totals by class:**
+**Totals by class (each patch counted once, 5 + 11 + 14 + 20 = 50):**
 
 | class | count | patches |
 |---|---|---|
-| present | 6 | 0002, 0021, 0047, 0048, 0049, + 0003 effectively |
-| obsolete | 11 | 0003, 0007, 0023, 0024, 0025, 0036, 0038–0041, 0017 (mostly) |
+| present | 5 | 0002, 0021, 0047, 0048, 0049 |
+| obsolete | 11 | 0003, 0007, 0017, 0023, 0024, 0025, 0036, 0038–0041 |
 | applies and still needed | 14 | 0001, 0005, 0009, 0013, 0026–0029, 0031–0033, 0044–0046 |
-| conflicts, needs port | 19 | 0004, 0006, 0008, 0010–0012, 0014–0016, 0018–0020, 0022, 0030, 0034, 0035, 0037, 0042, 0043, 0050 |
+| conflicts, needs port | 20 | 0004, 0006, 0008, 0010–0012, 0014–0016, 0018–0020, 0022, 0030, 0034, 0035, 0037, 0042, 0043, 0050 |
 
-Present and obsolete overlap: 0003 and 0017 are counted once, and 0047/0048 are
-"present". About **20 of 50 drop** and about 30 carry. **The Wi-Fi port is the bulk:**
+So **16 of 50 drop** and 34 carry (14 as-is, 20 ported). **The Wi-Fi port is the bulk:**
 13 peach patches with about 37 conflict hunks against the `wifi7/` layout, plus
 0043 BT (5 hunks).
 
