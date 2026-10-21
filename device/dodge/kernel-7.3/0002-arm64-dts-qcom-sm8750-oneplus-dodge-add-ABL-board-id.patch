@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Thu, 15 Oct 2026 17:38:48 +0200
+Subject: [PATCH 02/21] arm64: dts: qcom: sm8750-oneplus-dodge: add ABL board
+ ids
+
+ABL selects a DTB by qcom,msm-id and qcom,board-id. A header v2 image
+whose DTB had neither stayed in fastboot. The live OnePlus 13 FDT
+lists all eight sun/sunp pairs and board-id 0x40008, in that order.
+---
+ arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+index 569487bc0..1ce5fb07c 100644
+--- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
++++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+@@ -25,6 +25,20 @@ / {
+ 	compatible = "OnePlus,13", "qcom,sm8750";
+ 	chassis-type = "handset";
+ 
++	/* ABL selects by these. The live CPH2653 FDT lists all eight
++	 * sun/sunp pairs, in this order, and board-id 0x40008. Do not
++	 * collapse the pairs: the running tree keeps every one.
++	 */
++	qcom,msm-id = <0x100026a 0x20000>,
++		      <0x27f 0x10000>,
++		      <0x26a 0x10000>,
++		      <0x27f 0x20000>,
++		      <0x26a 0x20000>,
++		      <0x100027f 0x10000>,
++		      <0x100026a 0x10000>,
++		      <0x100027f 0x20000>;
++	qcom,board-id = <0x40008 0x00>;
++
+ 	aliases {
+ 		serial0 = &uart7;
+ 	};
+-- 
+2.55.0
+

@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 17:17:51 +0200
+Subject: [PATCH 16/21] drm/panel: oneplus-dodge: drive the AA569 panel in
+ command mode
+
+Stock runs this panel as "AA569 P 3 A0019 dsc cmd mode panel"
+(qcom,mdss-dsi-panel-type = "dsi_cmd_mode") with TE on mdp_vsync. In
+video burst mode the DPU never got a frame done. Drop the video mode
+flags so msm sets up a command-mode interface.
+---
+ drivers/gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c b/drivers/gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c
+index 7d519bdc2..2888762f1 100644
+--- a/drivers/gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c
++++ b/drivers/gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c
+@@ -402,8 +402,11 @@ static int panel_aa569_p_3_a0019_dsc_probe(struct mipi_dsi_device *dsi)
+ 
+ 	dsi->lanes = 4;
+ 	dsi->format = MIPI_DSI_FMT_RGB101010;
+-	dsi->mode_flags = MIPI_DSI_MODE_VIDEO_BURST |
+-			  MIPI_DSI_MODE_NO_EOT_PACKET |
++	/*
++	 * Stock drives this panel in DSC command mode
++	 * (qcom,mdss-dsi-panel-type = "dsi_cmd_mode") with TE on mdp_vsync.
++	 */
++	dsi->mode_flags = MIPI_DSI_MODE_NO_EOT_PACKET |
+ 			  MIPI_DSI_CLOCK_NON_CONTINUOUS;
+ 
+ 	ctx->panel.prepare_prev_first = true;
+-- 
+2.55.0
+

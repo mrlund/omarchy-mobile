@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Wed, 21 Oct 2026 15:32:18 +0200
+Subject: [PATCH 21/21] drm/msm/dsi: keep the RGB888 command DST format with
+ DSC (dodge workaround)
+
+The 6.16 base had no RGB101010 case in dsi_get_cmd_fmt() and fell back
+to RGB888. 7.3 programs CMD_DST_FORMAT_RGB101010 for the AA569 panel
+(DSC, widebus) and the first DCS command then times out.
+---
+ drivers/gpu/drm/msm/dsi/dsi_host.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index b292dfd26..5e5c33021 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -852,7 +852,16 @@ static void dsi_ctrl_enable(struct msm_dsi_host *msm_host,
+ 	} else {
+ 		/* Do not swap RGB colors */
+ 		data = DSI_CMD_CFG0_RGB_SWAP(SWAP_RGB);
+-		data |= DSI_CMD_CFG0_DST_FORMAT(dsi_get_cmd_fmt(mipi_fmt));
++		/*
++		 * dodge (AA569, DSC, RGB101010): the 6.16 base had no RGB101010
++		 * case here and programmed RGB888, which works. With the 7.3
++		 * RGB101010 value the first DCS command times out (cmd dma tx
++		 * -110). Keep RGB888 when DSC is on until that is understood.
++		 */
++		if (msm_host->dsc && mipi_fmt == MIPI_DSI_FMT_RGB101010)
++			data |= DSI_CMD_CFG0_DST_FORMAT(CMD_DST_FORMAT_RGB888);
++		else
++			data |= DSI_CMD_CFG0_DST_FORMAT(dsi_get_cmd_fmt(mipi_fmt));
+ 		dsi_write(msm_host, REG_DSI_CMD_CFG0, data);
+ 
+ 		data = DSI_CMD_CFG1_WR_MEM_START(MIPI_DCS_WRITE_MEMORY_START) |
+-- 
+2.55.0
+

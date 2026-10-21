@@ -1,0 +1,12 @@
+# 7.3 stage 1: display, touch and USB only. Units listed here do not
+# start on this kernel (omamobile-kmod-overlay, 50-omamobile-kernel-skip.conf).
+omamobile-adsp-battery.service
+omamobile-bt.service
+omamobile-dodge-audio.service
+omamobile-sensors.service
+omamobile-wifi-ath12k.service
+omamobile-wifi-pcie.service
+omamobile-rmtfs.service
+omamobile-tqftpserv.service
+omamobile-modem.service
+omamobile-mm-netport.service

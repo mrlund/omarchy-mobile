@@ -1,0 +1,19 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Install omamobile-kmod-overlay (script, unit, skip drop-ins) and the
+# systemd watchdog setting. Run as root on the phone from this directory.
+# Per-release trees (/usr/lib/modules/<R>.held, /usr/local/lib/omamobile.<R>)
+# are copied separately; see patches/README.md.
+set -eu
+SRC=${1:-$(dirname "$0")}
+install -D -m 755 "$SRC/omamobile-kmod-overlay" /usr/local/sbin/omamobile-kmod-overlay
+install -D -m 644 "$SRC/omamobile-kmod-overlay.service" /etc/systemd/system/omamobile-kmod-overlay.service
+install -D -m 644 "$SRC/30-omamobile-watchdog.conf" /etc/systemd/system.conf.d/30-omamobile-watchdog.conf
+for u in omamobile-adsp-battery omamobile-bt omamobile-dodge-audio omamobile-sensors \
+	 omamobile-wifi-ath12k omamobile-wifi-pcie omamobile-rmtfs omamobile-tqftpserv \
+	 omamobile-modem omamobile-mm-netport omamobile-touch omamobile-display-msm; do
+	install -D -m 644 "$SRC/50-omamobile-kernel-skip.conf" "/etc/systemd/system/$u.service.d/50-omamobile-kernel-skip.conf"
+done
+systemctl daemon-reload
+systemctl enable omamobile-kmod-overlay.service
+echo "kmod-overlay installed"

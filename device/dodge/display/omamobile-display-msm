@@ -24,6 +24,19 @@ log() { echo "omamobile-display-msm: $*"; echo "omamobile-display-msm: $*" > /de
 [ -e "$STAMP" ] && { log "already tried this boot ($STAMP)"; exit 0; }
 : > "$STAMP"
 
+# Load what modules.dep lists for $1 first, last entry first. With the
+# 6.16 list below these are already loaded; a newer kernel's msm.ko
+# needs more (7.3: drm_gpuvm, ubwc_config, cec).
+load_deps() {
+	local d n dep=${H%/kernel}/modules.dep
+	[ -r "$dep" ] || return 0
+	for d in $(sed -n "s#^[^:]*/$(basename "$1"):##p" "$dep" | head -1 | tr ' ' '\n' | tac); do
+		n=$(basename "$d" .ko | tr - _)
+		grep -q "^$n " /proc/modules && continue
+		insmod "${H%/kernel}/$d" || return 1
+	done
+}
+
 # dispcc first: msm-mdss otherwise fails -110 after the deferred-probe timeout.
 for k in \
 	$H/drivers/clk/qcom/dispcc-sm8750.ko \
@@ -40,6 +53,9 @@ for k in \
 do
 	n=$(basename "$k" .ko | tr - _)
 	grep -q "^$n " /proc/modules && continue
+	# Another kernel (via omamobile-kmod-overlay) may build this one in.
+	[ -f "$k" ] || ! grep -q "/$(basename "$k")\$" "${H%/kernel}/modules.builtin" 2>/dev/null || continue
+	load_deps "$k" || { log "a dependency of $n failed; staying on simpledrm"; exit 0; }
 	insmod "$k" || { log "insmod $n failed; staying on simpledrm"; exit 0; }
 done
 

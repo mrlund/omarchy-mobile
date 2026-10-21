@@ -1,0 +1,107 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Wed, 21 Oct 2026 14:51:58 +0200
+Subject: [PATCH 19/21] drm/msm/mdss: keep MDSS_GDSC on for SM8750; remoteproc:
+ pas: only_adsp
+
+Ports of dodge 0050 (SM8750 gets its own mdss data with keep_gdsc_on,
+since 7.3 shares data_57k) and 0022 (bring-up switch that skips the
+modem and CDSP PAS nodes).
+---
+ drivers/gpu/drm/msm/msm_mdss.c     | 19 ++++++++++++++++++-
+ drivers/remoteproc/qcom_q6v5_pas.c | 14 ++++++++++++++
+ 2 files changed, 32 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/msm_mdss.c b/drivers/gpu/drm/msm/msm_mdss.c
+index 9087c4b29..060444eaa 100644
+--- a/drivers/gpu/drm/msm/msm_mdss.c
++++ b/drivers/gpu/drm/msm/msm_mdss.c
+@@ -13,6 +13,7 @@
+ #include <linux/irqchip/chained_irq.h>
+ #include <linux/of_platform.h>
+ #include <linux/platform_device.h>
++#include <linux/pm_domain.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/reset.h>
+ 
+@@ -26,6 +27,14 @@
+ 
+ struct msm_mdss_data {
+ 	u32 reg_bus_bw;
++	/*
++	 * Keep the MDSS power domain on while MDSS is runtime suspended.
++	 * FIXME: on SM8750, collapsing MDSS_GDSC after a display session
++	 * leaves DSI command DMA dead on the next enable (cmd dma tx
++	 * timeout, no DSI error, no SMMU fault). The lost state is outside
++	 * the DSI/PHY/MDSS/DPU register space; drop this once found.
++	 */
++	bool keep_gdsc_on;
+ };
+ 
+ struct msm_mdss {
+@@ -423,6 +432,9 @@ static struct msm_mdss *msm_mdss_init(struct platform_device *pdev, bool is_mdp5
+ 
+ 	pm_runtime_enable(&pdev->dev);
+ 
++	if (mdss_data->keep_gdsc_on)
++		dev_pm_genpd_rpm_always_on(&pdev->dev, true);
++
+ 	return msm_mdss;
+ }
+ 
+@@ -512,6 +524,11 @@ static const struct msm_mdss_data data_57k = {
+ 	.reg_bus_bw = 57000,
+ };
+ 
++static const struct msm_mdss_data data_57k_keep_gdsc = {
++	.reg_bus_bw = 57000,
++	.keep_gdsc_on = true,
++};
++
+ static const struct msm_mdss_data data_74k = {
+ 	.reg_bus_bw = 74000,
+ };
+@@ -553,7 +570,7 @@ static const struct of_device_id mdss_dt_match[] = {
+ 	{ .compatible = "qcom,sm8450-mdss", .data = &data_74k },
+ 	{ .compatible = "qcom,sm8550-mdss", .data = &data_57k },
+ 	{ .compatible = "qcom,sm8650-mdss", .data = &data_57k },
+-	{ .compatible = "qcom,sm8750-mdss", .data = &data_57k },
++	{ .compatible = "qcom,sm8750-mdss", .data = &data_57k_keep_gdsc },
+ 	/* TODO: x1e8: Add reg_bus_bw with real value */
+ 	{ .compatible = "qcom,x1e80100-mdss", .data = &data_153k6 },
+ 	{}
+diff --git a/drivers/remoteproc/qcom_q6v5_pas.c b/drivers/remoteproc/qcom_q6v5_pas.c
+index a005546c2..454baa3ca 100644
+--- a/drivers/remoteproc/qcom_q6v5_pas.c
++++ b/drivers/remoteproc/qcom_q6v5_pas.c
+@@ -818,6 +818,15 @@ static void qcom_pas_unassign_memory_region(struct qcom_pas *pas)
+ 	}
+ }
+ 
++/*
++ * The dodge DTB marks the modem and CDSP PAS nodes okay. Probing the
++ * modem assigns its RAM to the modem VM, and the CDSP boots itself.
++ * insmod only_adsp=1 binds the ADSP and leaves those two alone.
++ */
++static bool only_adsp;
++module_param(only_adsp, bool, 0444);
++MODULE_PARM_DESC(only_adsp, "Probe the ADSP only");
++
+ static int qcom_pas_probe(struct platform_device *pdev)
+ {
+ 	const struct qcom_pas_data *desc;
+@@ -828,6 +837,11 @@ static int qcom_pas_probe(struct platform_device *pdev)
+ 	const struct rproc_ops *ops = &qcom_pas_ops;
+ 	int ret;
+ 
++	if (only_adsp &&
++	    !of_device_is_compatible(pdev->dev.of_node, "qcom,sm8750-adsp-pas") &&
++	    !of_device_is_compatible(pdev->dev.of_node, "qcom,sm8550-adsp-pas"))
++		return -ENODEV;
++
+ 	desc = of_device_get_match_data(&pdev->dev);
+ 	if (!desc)
+ 		return -EINVAL;
+-- 
+2.55.0
+
