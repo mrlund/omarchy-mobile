@@ -4,6 +4,11 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-21: auto-rotate correct and autostarted
+
+- Accel data was 180° off: fixed with `ACCEL_MOUNT_MATRIX` (X and Y inverted) in `sensors/81-omamobile-ssc.rules`. Martin confirmed all four orientations.
+- `sensors/install` adds `omamobile-autorotate` to Hyprland `autostart.lua`. It is gated on `/etc/omamobile/sensors.enable`, runs one instance (flock), and logs to `$XDG_RUNTIME_DIR/omamobile-autorotate.log`.
+
 ## 2026-10-21: sensors work (accel, proximity, compass) via ADSP SSC
 
 - **Root cause:** SSC (QMI 400) on the ADSP was waiting for an APPS FastRPC file server. `hexagonrpcd -s` on `/dev/fastrpc-adsp-secure` serves read-only copies of the phone's own registry and config (persist, dsp, vendor/odm out of super). Persist is never written.

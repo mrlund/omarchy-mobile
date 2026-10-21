@@ -2,16 +2,23 @@
 # Rotate Hyprland's DSI-1 output and the touchscreen to follow iio-sensor-proxy's
 # orientation (accelerometer in the ADSP via libssc). It has to run inside the
 # Hyprland session (polkit only lets the active session claim the sensor), so
-# start it from ~/.config/hypr/autostart.lua:
-#   hl.exec_cmd("omamobile-autorotate")
+# ./install adds it to ~/.config/hypr/autostart.lua. Does nothing without
+# /etc/omamobile/sensors.enable. Logs to $XDG_RUNTIME_DIR/omamobile-autorotate.log.
 # SPDX-License-Identifier: MIT
+[ -e /etc/omamobile/sensors.enable ] || exit 0
+LOG=${XDG_RUNTIME_DIR:-/tmp}/omamobile-autorotate.log
+exec 9>"${XDG_RUNTIME_DIR:-/tmp}/omamobile-autorotate.lock"
+flock -n 9 || exit 0          # one instance per session
+[ -t 1 ] || exec >>"$LOG" 2>&1
 MON=${OMAMOBILE_ROTATE_OUTPUT:-DSI-1}
 SCALE=${OMAMOBILE_ROTATE_SCALE:-2}
 apply() {
+  echo "$(date +%T) apply transform $1"
   hyprctl eval "hl.monitor({ output = \"$MON\", mode = \"preferred\", position = \"auto\", scale = $SCALE, transform = $1 })" >/dev/null
   hyprctl eval "hl.config({ input = { touchdevice = { transform = $1 } } })" >/dev/null
 }
-monitor-sensor --accel | while read -r line; do
+stdbuf -oL monitor-sensor --accel | while read -r line; do
+  echo "$(date +%T) $line"
   case "$line" in
     *"orientation changed: normal"*|*"orientation: normal"*)       apply 0 ;;
     *"orientation changed: left-up"*|*"orientation: left-up"*)     apply 1 ;;
