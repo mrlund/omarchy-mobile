@@ -31,9 +31,9 @@ Left out of the series:
   the GDSC collapsing, off/on still fails (NOTES 2026-10-21). It is a copy of
   upstream data and can go in later, but nothing depends on it.
 - `not-applied/0002` (local `bd9587d65`, 2026-10-21) adds the 4 MiB `rmtfs_mem`
-  region at `0xd7c00000` for the modem. It was booted twice with `fastboot boot`
-  and is not flashed yet: one of those boots had display kickoff timeouts and the
-  other was clean (see `dev-docs/2026-10-21-modem.md`). It applies on top of `0050`.
+  region at `0xd7c00000` for the modem. **Flashed to boot_a on 2026-10-21** after
+  5 boots with the node (4 clean, one unexplained display kickoff failure). It is
+  kept here until it becomes `0051`. It applies on top of `0050`.
 
 ## Config
 
