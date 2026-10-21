@@ -1,0 +1,21 @@
+#!/bin/bash
+# Rotate Hyprland's DSI-1 output and the touchscreen to follow iio-sensor-proxy's
+# orientation (accelerometer in the ADSP via libssc). It has to run inside the
+# Hyprland session (polkit only lets the active session claim the sensor), so
+# start it from ~/.config/hypr/autostart.lua:
+#   hl.exec_cmd("omamobile-autorotate")
+# SPDX-License-Identifier: MIT
+MON=${OMAMOBILE_ROTATE_OUTPUT:-DSI-1}
+SCALE=${OMAMOBILE_ROTATE_SCALE:-2}
+apply() {
+  hyprctl eval "hl.monitor({ output = \"$MON\", mode = \"preferred\", position = \"auto\", scale = $SCALE, transform = $1 })" >/dev/null
+  hyprctl eval "hl.config({ input = { touchdevice = { transform = $1 } } })" >/dev/null
+}
+monitor-sensor --accel | while read -r line; do
+  case "$line" in
+    *"orientation changed: normal"*|*"orientation: normal"*)       apply 0 ;;
+    *"orientation changed: left-up"*|*"orientation: left-up"*)     apply 1 ;;
+    *"orientation changed: bottom-up"*|*"orientation: bottom-up"*) apply 2 ;;
+    *"orientation changed: right-up"*|*"orientation: right-up"*)   apply 3 ;;
+  esac
+done
