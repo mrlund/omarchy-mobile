@@ -1,0 +1,6 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# battcheck.sh: gate for reboot/flash. 10 samples of current_now 1 s apart;
+# pass only if the mean is negative (charging on qcom-battmgr-bat) and capacity > 20.
+cd /home/ml/Repos/omarchy-mobile
+timeout 40 tools/phone-ssh 'c=$(cat /sys/class/power_supply/qcom-battmgr-bat/capacity); for i in $(seq 10); do cat /sys/class/power_supply/qcom-battmgr-bat/current_now; sleep 1; done | awk -v c=$c "{s+=\$1;n++} END {m=s/n; printf \"cap %d%% mean %.0f mA\n\", c, m/1000; exit !(m<0 && c>20)}"' </dev/null && echo BATT_OK || { echo BATT_FAIL; exit 1; }

@@ -1,0 +1,15 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# usage: dodge-kmod-overlay-tree <new modules dir> <out dir> <list of phone /usr/local/lib/omamobile .ko paths>
+# Build /usr/local/lib/omamobile.<R> on the host: list of the phone's local .ko
+# names in, each replaced by the same-named module from the new build.
+set -u
+S=$1; OUT=$2; LIST=$3
+miss=0
+while read -r n; do
+  b=$(basename "$n" .ko); a=$(echo "$b" | tr _ -); a2=$(echo "$b" | tr - _)
+  f=$(find "$S" \( -name "$b.ko" -o -name "$a.ko" -o -name "$a2.ko" \) | head -1)
+  if [ -n "$f" ]; then mkdir -p "$OUT/$(dirname "$n")"; cp "$f" "$OUT/$n"; echo "ok   $n <- ${f#$S/}"
+  else echo "MISS $n"; miss=$((miss+1)); fi
+done < "$LIST"
+echo "missing=$miss"

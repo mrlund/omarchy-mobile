@@ -4,11 +4,17 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-21: 6.16 config bump built (slice 1), not booted yet
+## 2026-10-21: open bug, USB gadget stuck after a cable replug
 
-- Fragment `kernel/generic-2026-10-21.config` (Landlock, binder, nftables/iptables, PSI, dmabuf heaps, IPv6 built in, socinfo, dm/verity, erofs, f2fs) → `kernel/config-6.16.0-gbd9587d65`. The new release string keeps the old modules untouched.
-- Modules staged on the phone, plus `omamobile-kmod-overlay.service`, which binds the new trees over the pinned loader paths only on a non-pinned kernel (a no-op now). The test chain image is built.
-- Blocked: USB down (loose cable), so no one-shot boot. Kexec over Wi-Fi is not safe (LPI/ITS). boot_a is unchanged. [dev-docs/2026-10-21-config-bump.md](dev-docs/2026-10-21-config-bump.md).
+- After the loose cable was reseated (about 14:31), the laptop logged `usb3-port1: unable to enumerate USB device`. The phone's UDC stayed in `default` and usb0 stayed DOWN. Charging also stopped being reliable (current_now positive).
+- A reboot at about 14:34 cleared it, and USB enumerated at 14:35:10. The cable was fine.
+- The kernel log of the stuck boot (12:05–14:34) has no dwc3/UDC/typec lines after the gadget came up at 12:05. The unplug and replug left no trace at all, only `qcom_battmgr unknown notification` spam. Not chased yet: a replug probably doesn't reach dwc3 role switching (pmic_glink/UCSI).
+
+## 2026-10-21: 6.16 config bump (slice 1) flashed to boot_a
+
+- Kernel `6.16.0-gbd9587d65`: the generic omamobile.config options (Landlock, binder, nftables/iptables, PSI, dmabuf heaps, IPv6 built in, socinfo, dm/verity, erofs, f2fs). Fragment `kernel/generic-2026-10-21.config`, full config `kernel/config-6.16.0-gbd9587d65`.
+- `omamobile-kmod-overlay.service` binds `/usr/lib/modules/<R>.held` and `/usr/local/lib/omamobile.<R>` over the pinned loader paths. The old kernel is unaffected.
+- One-shot test clean: landlock, pacman without `--disable-sandbox`, socinfo, dm, display off/on, touch and rotation (Martin), Wi-Fi, BT, USB, audio sink, sensors, no new dmesg errors. Flashed 14:43, `set_active a`, normal boot verified, slot marked successful. Fallback `boot-chain-avb.before-cfg1.img`. [dev-docs/2026-10-21-config-bump.md](dev-docs/2026-10-21-config-bump.md).
 
 ## 2026-10-21: kernel comparison, ours (6.16 + 50) vs Derek's omamobile (7.3-rc6)
 
