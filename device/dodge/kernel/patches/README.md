@@ -30,6 +30,10 @@ Left out of the series:
   [not-applied/](not-applied/). **It is not boot-proven and not a fix**: with
   the GDSC collapsing, off/on still fails (NOTES 2026-10-21). It is a copy of
   upstream data and can go in later, but nothing depends on it.
+- `not-applied/0002` (local `bd9587d65`, 2026-10-21) adds the 4 MiB `rmtfs_mem`
+  region at `0xd7c00000` for the modem. It was booted twice with `fastboot boot`
+  and is not flashed yet: one of those boots had display kickoff timeouts and the
+  other was clean (see `dev-docs/2026-10-21-modem.md`). It applies on top of `0050`.
 
 ## Config
 
