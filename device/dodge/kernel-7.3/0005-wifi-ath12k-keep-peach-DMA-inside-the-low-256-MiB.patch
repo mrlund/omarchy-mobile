@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Mon, 19 Oct 2026 14:28:59 +0200
-Subject: [PATCH 05/21] wifi: ath12k: keep peach DMA inside the low 256 MiB
+Subject: [PATCH] wifi: ath12k: keep peach DMA inside the low 256 MiB
 
 Coherent allocations for PCI 0x110e came out at the top of the
 32-bit space. Stock's peach window is the low 384 MiB. A 28-bit

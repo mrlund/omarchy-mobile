@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 11:51:25 +0200
-Subject: [PATCH 07/21] arm64: dts: qcom: sm8750-oneplus-dodge: add the speaker
+Subject: [PATCH] arm64: dts: qcom: sm8750-oneplus-dodge: add the speaker
  amplifiers
 
 Two Awinic amplifiers (product id 0x2308) on hub I2C4 at 0x34 (left)

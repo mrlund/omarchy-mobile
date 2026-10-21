@@ -4,11 +4,21 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-21: 7.3 stage 1, boot 2 (one-shot, 15:39 CEST): display up
+## 2026-10-21: 7.3 stage 2 paused, the display fails intermittently on both kernels (16:15 CEST)
+
+- **Boot 3 (15:47, battery unit on):** `qcom-battmgr-bat` and `bq27541-0` alive on 7.3, battery gate works there. Display lost again (5× `cmd dma tx -110`), seen only afterwards.
+- **Boot 4 (15:54, + audio: fastrpc without `audio_heap_vmids`, `snd-soc-wcd-common`):** the audio heap was assigned, both aw882308 tables applied, card `OnePlusdodge` registered, unit active. Playback not tested. Display lost (8× -110), 72 vblank WARNs, Hyprland and `user@1000` wedged (stop timeout). Reverted by reboot at 16:02.
+- **Boot 5 (16:04, ADSP held until the display is up, 7.3 copy of adsp-battery.sh only):** display lost again before the ADSP even started, so that idea is out (change reverted). The 7.3 boot ended by itself after about 35 s, and the phone came back to 6.16 unaided (dead-man worked, cause not captured).
+- **The flashed 6.16 boot that followed (16:04) lost the display the same way** (dma -110, frame-done timeouts). A warm reboot at 16:11 was clean. So this is not a 7.3 bug: the intermittent display failure from the rmtfs_mem tests is back, and 7.3 hits it more often (4 of 5 boots, 1 before the RGB888 fix).
+- `DSI PLL(0) lock failed` (2×) shows up in **every** saved boot log, clean ones too, so it does not tell the two apart. What does: the first DCS command (`ff 5a a5`) timing out.
+- Claude consult (`logs/claude-consult-dsi-pll.txt`): state left over from the ABL splash and kexec is the most likely cause, a supply/MMCX level is next, rmtfs_mem is least likely. Next cheap tests: cold vs warm boots (needs Martin for power-on), and a diagnostic msm build that dumps PHY registers plus the regulator/clk/genpd summaries when the first DCS command fails.
+- 7.3 boots used: 5 of 8 (failed: 1, 3, 4, 5). The phone is on 6.16, display clean.
+
+## 2026-10-21: 7.3 stage 1 done, boot 2 (one-shot, 15:39 CEST): display, touch, USB
 
 - The same chain image with only msm.ko changed (`2bf76c17c`, RGB888 command DST format with DSC). No DSI or kickoff errors. `card1-DSI-1` connected, and a Hyprland dpms off/on cycle (4/Off → 0/On) ran with 0 new DSI errors. USB was configured, the Gunyah watchdog was under systemd, and touchpanel was registered.
 - `systemd-backlight@…dsi.0` fails: restoring the saved brightness returns `EINVAL`. Minor, still open.
-- Martin's visual check of the picture and touch is pending. Boots used: 2 of 8.
+- **Stage 1 done:** Martin confirmed at 15:44 that the picture and touch look good on 7.3. Boots used: 2 of 8.
 
 ## 2026-10-21: 7.3 stage 1, boot 1 (one-shot, 15:27 CEST)
 

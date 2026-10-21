@@ -6,14 +6,19 @@ A backup of the local branch `trial/omamobile-dodge-port` in
 `2a7b29c24` (7.3-rc6). Nothing is pushed to any kernel remote.
 
 - `0001` PREREQ: the sm8750-mainline 6.16 board files (dodge DTS with the four
-  7.3 DTS fixes, AA569 panel, syna_tcm2, `sm8750.config`). Its author
-  is a placeholder.
+  7.3 DTS fixes, AA569 panel, syna_tcm2, `sm8750.config`).
 - `0002`-`0016`: the dodge patches that applied as is (the git am trial in
   `dev-docs/2026-10-21-kernel-ours-vs-omamobile.md`).
 - `0017`-`0021`: the stage 1 ports. syna_tcm2 builds as an SPI driver and
   uses a gpiod lookup. The panel drops `dsc_slice_per_pkt`. 0050 (MDSS GDSC)
   and 0022 (only_adsp) are ported. `rmtfs_mem` is added. The DSI RGB888
   command format is a workaround.
+- `0022`-`0024` (stage 2): the aw882308 bring-up driver and its Receiver
+  profile, and a fastrpc log line that `rootfs/audio-bringup.sh` waits for.
+
+`rootfs/audio-bringup.sh` is the 7.3 copy in `/usr/local/lib/omamobile.<R>/`:
+no `audio_heap_vmids` parameter (7.3 assigns the heap itself) and
+`snd-soc-wcd-common` added.
 
 Config: `config-7.3.0-rc6-dodge-s1` = `../kernel/config-6.16.0-gbd9587d65`
 → olddefconfig on 7.3, then `omamobile-generic-73.config` (the generic part

@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 12:41:16 +0200
-Subject: [PATCH 12/21] arm64: dts: qcom: sm8750-oneplus-dodge: add the USB-C
- headset path
+Subject: [PATCH] arm64: dts: qcom: sm8750-oneplus-dodge: add the USB-C headset
+ path
 
 The OnePlus 13 has no 3.5 mm jack: analog headsets use USB-C audio
 accessory mode through the WCD939x USBSS switch at 0xe on QUP I2C3

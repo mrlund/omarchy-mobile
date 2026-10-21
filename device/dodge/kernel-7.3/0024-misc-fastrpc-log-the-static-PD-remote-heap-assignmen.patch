@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Wed, 21 Oct 2026 15:51:49 +0200
+Subject: [PATCH] misc: fastrpc: log the static PD remote heap assignment
+
+dodge's audio bring-up waits for this before probing q6apm (the heap has
+to be assigned first, or APM_CMD_GET_SPF_STATE times out).
+---
+ drivers/misc/fastrpc.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/misc/fastrpc.c b/drivers/misc/fastrpc.c
+index d4fac2cac..834e19e94 100644
+--- a/drivers/misc/fastrpc.c
++++ b/drivers/misc/fastrpc.c
+@@ -1509,6 +1509,10 @@ static int fastrpc_init_create_static_process(struct fastrpc_user *fl,
+ 			}
+ 			scm_done = true;
+ 			inbuf.pageslen = 1;
++			dev_info(fl->sctx->dev,
++				 "assigned audio heap %pad size 0x%llx to %d VMs\n",
++				 &fl->cctx->remote_heap->dma_addr,
++				 fl->cctx->remote_heap->size, fl->cctx->vmcount);
+ 		}
+ 	}
+ 
+-- 
+2.55.0
+
