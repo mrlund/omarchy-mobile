@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-21 | [display drop](2026-10-21-display-drop.md) | Intermittent first-DCS -110 on both kernels. DIAG msm.ko: DSI/PHY/supplies/clocks identical good vs bad, AXI-side DMA stall, no GDSC collapse, autorefresh off; splash identity map removes the SMMU faults but not the drop. 6.16 drops mostly after a 7.3 boot: next is a cold boot. |
 | 2026-10-21 | [kernel 7.3 stage 1](2026-10-21-kernel-7.3-stage1.md) | 7.3-rc6 stage 2 one-shot: USB/SSH, Gunyah watchdog, per-release module overlay with unit skip list, touch; display needed the RGB888 command format with DSC. |
 | 2026-10-21 | [config bump](2026-10-21-config-bump.md) | Slice 1: generic omamobile.config options on 6.16 (Landlock, binder, nftables, PSI, dmabuf heaps, IPv6=y, socinfo, dm). New release `6.16.0-gbd9587d65`, per-release module overlay unit. One-shot test clean; flashed to boot_a. |
 | 2026-10-21 | [sensors](2026-10-21-sensors.md) | Accel, proximity and compass work through the ADSP SSC: hexagonrpcd (sensorspd) serving read-only copies of the phone's registry and config, libssc, and iio-sensor-proxy with ssc-support. Light not found yet. Autorotate is opt-in. |

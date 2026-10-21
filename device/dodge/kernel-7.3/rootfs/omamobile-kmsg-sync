@@ -1,0 +1,11 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# DIAG (7.3 test boots only): a test boot can hang and be reset by the
+# watchdog before journald syncs, and there is no ramoops region. Copy the
+# kernel log to disk and fsync it every second for the first 3 minutes.
+d=/var/log/omamobile; mkdir -p $d
+f=$d/kmsg-$(uname -r)-$(cat /proc/sys/kernel/random/boot_id | cut -c1-8).txt
+for i in $(seq 180); do
+	dmesg > $f.tmp && mv $f.tmp $f && sync -f $f
+	sleep 1
+done

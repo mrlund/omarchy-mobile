@@ -1,0 +1,26 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# DIAG for the intermittent first-DCS -110 (7.3 test boots only; the unit has
+# ConditionKernelVersion). Logs every change of the MDSS GDSC state and its
+# collapse count from early boot until the panel is up, then the clk,
+# regulator and genpd summaries. Read-only. Output: the journal.
+D=/sys/kernel/debug
+mountpoint -q $D || mount -t debugfs none $D
+G=$D/pm_genpd/mdss_gdsc
+last=
+for i in $(seq 300); do
+	if [ -d $G ]; then
+		s="$(cat $G/current_state) collapses=$(awk '$1=="S0"{print $3}' $G/idle_states) devs=$(tr '\n' ' ' < $G/devices)"
+	else
+		s="no-genpd"
+	fi
+	[ "$s" != "$last" ] && echo "gdsc t=$(cut -d' ' -f1 /proc/uptime) $s" && last=$s
+	[ "$(cat /sys/class/drm/card*-DSI-1/enabled 2>/dev/null)" = enabled ] && [ $i -gt 10 ] && break
+	sleep 0.1
+done
+sleep 2
+echo "summary t=$(cut -d' ' -f1 /proc/uptime)"
+grep -iE "disp_cc|dsi|mdss|bi_tcxo|tcxo" $D/clk/clk_summary
+grep -iE "l3i|l3g|l3f|vreg_l3|mmcx" $D/regulator/regulator_summary
+cat $D/pm_genpd/pm_genpd_summary | grep -iE -A3 "mdss|mmcx"
+for f in $G/idle_states $D/pm_genpd/mmcx/idle_states; do echo "== $f"; cat $f; done

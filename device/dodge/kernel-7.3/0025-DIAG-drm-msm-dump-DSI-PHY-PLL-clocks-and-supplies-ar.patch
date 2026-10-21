@@ -1,0 +1,171 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Wed, 21 Oct 2026 16:40:02 +0200
+Subject: [PATCH 25/27] DIAG drm/msm: dump DSI/PHY/PLL, clocks and supplies
+ around the first DCS (dodge, not for upstream)
+
+---
+ drivers/gpu/drm/msm/dsi/dsi_host.c | 88 ++++++++++++++++++++++++++++++
+ drivers/gpu/drm/msm/msm_mdss.c     | 16 ++++++
+ 2 files changed, 104 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 5e5c33021..3f6b4b7fb 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -352,6 +352,88 @@ static int dsi_clk_init(struct msm_dsi_host *msm_host)
+ 	return ret;
+ }
+ 
++
++/* DIAG (dodge, not for upstream): first-DCS snapshot, good vs bad boots. */
++#include <linux/clk-provider.h>
++static void dodge_dsi_dump(struct msm_dsi_host *h, const char *where)
++{
++	pr_info("dodge-diag: dsi %s: status0 %08x ctrl %08x cmd_dma_ctrl %08x trig_ctrl %08x dma_base %08x dma_len %08x intr %08x clk_ctrl %08x clk_status %08x fifo %08x err %08x\n",
++		where, dsi_read(h, REG_DSI_STATUS0), dsi_read(h, REG_DSI_CTRL),
++		dsi_read(h, REG_DSI_CMD_DMA_CTRL), dsi_read(h, REG_DSI_TRIG_CTRL),
++		dsi_read(h, REG_DSI_DMA_BASE), dsi_read(h, REG_DSI_DMA_LEN),
++		dsi_read(h, REG_DSI_INTR_CTRL), dsi_read(h, REG_DSI_CLK_CTRL),
++		dsi_read(h, REG_DSI_CLK_STATUS), dsi_read(h, REG_DSI_FIFO_STATUS),
++		dsi_read(h, REG_DSI_ERR_INT_MASK0));
++}
++
++static void dodge_clk(const char *n, struct clk *c)
++{
++	struct clk *p;
++
++	if (IS_ERR_OR_NULL(c))
++		return;
++	p = clk_get_parent(c);
++	pr_info("dodge-diag:  clk %s %s rate %lu en %d prep %d parent %s\n", n,
++		__clk_get_name(c), clk_get_rate(c), __clk_is_enabled(c),
++		clk_hw_is_prepared(__clk_get_hw(c)), p ? __clk_get_name(p) : "-");
++}
++
++static void dodge_regs(const char *n, void __iomem *b, size_t len)
++{
++	size_t o;
++
++	if (IS_ERR_OR_NULL(b))
++		return;
++	for (o = 0; o + 16 <= len; o += 16)
++		pr_info("dodge-diag:  %s+%03zx: %08x %08x %08x %08x\n", n, o,
++			readl(b + o), readl(b + o + 4), readl(b + o + 8), readl(b + o + 12));
++}
++
++static void dodge_supplies(const char *n, struct regulator_bulk_data *s, int num)
++{
++	int i;
++
++	for (i = 0; s && i < num; i++)
++		pr_info("dodge-diag:  reg %s/%s en %d uV %d\n", n, s[i].supply,
++			regulator_is_enabled(s[i].consumer),
++			regulator_get_voltage(s[i].consumer));
++}
++
++static void dodge_dsi_full(struct msm_dsi_host *h, const char *where)
++{
++	struct msm_dsi *d = platform_get_drvdata(h->pdev);
++	struct msm_dsi_phy *phy = d ? d->phy : NULL;
++	struct device *dev = &h->pdev->dev;
++	int i;
++
++	dodge_dsi_dump(h, where);
++	pr_info("dodge-diag:  rpm dsi %d mdss %d\n", pm_runtime_active(dev),
++		dev->parent ? pm_runtime_active(dev->parent) : -1);
++	dodge_regs("dsi", h->ctrl_base, 0x300);
++	if (phy) {
++		pr_info("dodge-diag:  phy pll_on %d usecase %d ldo %d\n",
++			phy->pll_on, phy->usecase, phy->regulator_ldo_mode);
++		dodge_regs("phy", phy->base, phy->base_size);
++		dodge_regs("lane", phy->lane_base, phy->lane_size);
++		dodge_regs("pll", phy->pll_base, phy->pll_size);
++		dodge_supplies("phy", phy->supplies, phy->cfg->num_regulators);
++	}
++	dodge_supplies("dsi", h->supplies, h->cfg_hnd->cfg->num_regulators);
++	for (i = 0; i < h->num_bus_clks; i++)
++		dodge_clk(h->bus_clks[i].id, h->bus_clks[i].clk);
++	dodge_clk("byte", h->byte_clk);
++	dodge_clk("byte_intf", h->byte_intf_clk);
++	dodge_clk("pixel", h->pixel_clk);
++	dodge_clk("esc", h->esc_clk);
++	dodge_clk("byte_src", h->byte_src_clk);
++	dodge_clk("pixel_src", h->pixel_src_clk);
++	dodge_clk("pll_byte", h->dsi_pll_byte_clk);
++	dodge_clk("pll_pixel", h->dsi_pll_pixel_clk);
++	/* No VBIF read here: the DPU may be runtime-suspended (unclocked read hangs the bus). */
++	pr_info("dodge-diag: dsi %s: end\n", where);
++}
++static int dodge_tx_count;
++
+ int msm_dsi_runtime_suspend(struct device *dev)
+ {
+ 	struct platform_device *pdev = to_platform_device(dev);
+@@ -1561,8 +1643,13 @@ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 		return -EINVAL;
+ 	}
+ 
++	if (dodge_tx_count == 0)
++		dodge_dsi_full(msm_host, "tx1-pre");
+ 	ret = dsi_cmd_dma_tx(msm_host, len);
++	if (dodge_tx_count++ == 0)
++		dodge_dsi_full(msm_host, ret < 0 ? "tx1-fail" : "tx1-ok");
+ 	if (ret < 0) {
++		dodge_dsi_dump(msm_host, "tx-fail");
+ 		pr_err("%s: cmd dma tx failed, type=0x%x, data0=0x%x, len=%d, ret=%d\n",
+ 			__func__, msg->type, (*(u8 *)(msg->tx_buf)), len, ret);
+ 		return ret;
+@@ -2537,6 +2624,7 @@ int msm_dsi_host_power_on(struct mipi_dsi_host *host,
+ 		goto fail_disable_clk;
+ 	}
+ 
++	dodge_dsi_dump(msm_host, "power-on");
+ 	dsi_timing_setup(msm_host, is_bonded_dsi);
+ 	dsi_sw_reset(msm_host);
+ 	dsi_ctrl_enable(msm_host, phy_shared_timings, phy);
+diff --git a/drivers/gpu/drm/msm/msm_mdss.c b/drivers/gpu/drm/msm/msm_mdss.c
+index 060444eaa..1d6fb047d 100644
+--- a/drivers/gpu/drm/msm/msm_mdss.c
++++ b/drivers/gpu/drm/msm/msm_mdss.c
+@@ -5,6 +5,7 @@
+ 
+ #include <linux/bitfield.h>
+ #include <linux/clk.h>
++#include <linux/clk-provider.h>
+ #include <linux/delay.h>
+ #include <linux/interconnect.h>
+ #include <linux/irq.h>
+@@ -417,6 +418,18 @@ static struct msm_mdss *msm_mdss_init(struct platform_device *pdev, bool is_mdp5
+ 	msm_mdss->num_clocks = ret;
+ 	msm_mdss->is_mdp5 = is_mdp5;
+ 
++	/* DIAG (dodge): what ABL left running before msm touches anything. */
++	{
++		int i;
++
++		for (i = 0; i < msm_mdss->num_clocks; i++)
++			pr_info("dodge-diag: mdss init clk %s en %d prep %d rate %lu\n",
++				msm_mdss->clocks[i].id ?: "-",
++				__clk_is_enabled(msm_mdss->clocks[i].clk),
++				clk_hw_is_prepared(__clk_get_hw(msm_mdss->clocks[i].clk)),
++				clk_get_rate(msm_mdss->clocks[i].clk));
++	}
++
+ 	msm_mdss->dev = &pdev->dev;
+ 
+ 	irq = platform_get_irq(pdev, 0);
+@@ -485,7 +498,10 @@ static int mdss_probe(struct platform_device *pdev)
+ 	struct device *dev = &pdev->dev;
+ 	int ret;
+ 
++	pr_info("dodge-diag: mdss probe start\n");
+ 	mdss = msm_mdss_init(pdev, is_mdp5);
++	if (IS_ERR(mdss))
++		pr_info("dodge-diag: mdss probe init ret %ld\n", PTR_ERR(mdss));
+ 	if (IS_ERR(mdss))
+ 		return PTR_ERR(mdss);
+ 
+-- 
+2.55.0
+
