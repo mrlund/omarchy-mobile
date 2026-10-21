@@ -4,6 +4,13 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-21: display root fix: the DSI command DMA is idle at suspend, and the SMMU mapping is intact
+
+- **The DSI command DMA is not busy at suspend (read-only diag `msm.ko`, GDSC collapsing, 10:28 CEST).** At the session's suspend, DSI `STATUS0` is 0 at host-disable, power-off and runtime-suspend, `CTRL` goes `1f5` -> `1f0` -> 0, and `FIFO_STATUS` is `11111010`. The VBIF read-only values at the DPU suspend (`XIN_HALT_CTRL1` `ffff0000`, `AXI_HALT_CTRL1` `0x30`) are identical to the suspend before the first session. Order: DSI, then DPU, then MDSS (GDSC off). After the collapse every DSI register reads its reset value and msm reprograms it, yet the first DCS transfer hangs with `STATUS0` `00020003` (engine and DMA busy) and no DSI error IRQ. So the state that is lost is outside the MDSS registers, and nothing on the DSI side needs draining.
+- **SMMU translation is fine (one change: TLB flush plus `iova_to_phys` at DSI power-on, 10:32 CEST).** Domain type 1 (translating), the flush takes 3-8 us with no TLB sync timeout, and the command buffer's IOVA `0x1000` still maps to the same physical page after the collapse. The transfer still fails (`tx failed` 3). That rules out stale TLB entries, a wedged TBU on the flush path and a lost mapping.
+- **Claude consulted** (10:29 CEST) after today's ACTLR and VBIF failures. It proposed the TLB flush test, and its table points next at the NoC: the `MASTER_MDP` port on `mmss_noc` after a collapse.
+- **`31453abbe` stays.** The fixed module is back since the 10:33 CEST boot: 5 off/on cycles, 0 `tx failed`, screen on at 1751. Battery 37 %, charging (-56 mA). Details: [dev-docs/2026-10-20-display-msm.md](dev-docs/2026-10-20-display-msm.md) items 39-41.
+
 ## 2026-10-21: display root fix, two candidates fail; GDSC workaround stays
 
 - **SMMU ACTLR (`17f3dac8e`) does not fix off/on.** Started once with `fastboot boot` (no flash) with the module that lets `MDSS_GDSC` collapse: the first enable after a session and a collapse failed as before (`tx failed` 3).

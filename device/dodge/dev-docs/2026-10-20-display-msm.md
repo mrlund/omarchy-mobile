@@ -208,9 +208,44 @@ Back on simpledrm by 17:35 CEST (reboot; modules are not loaded at boot).
 38. **Control, 09:20, worked.** Back to `31453abbe` (`msm.ko` restored), 5
     enable cycles, 0 `tx failed`. Root fix not found; `31453abbe` stays.
 
+39. **DSI and VBIF registers at suspend, 2026-10-21 10:28, read-only.**
+    Diag `msm.ko` (`d17` basis, GDSC collapsing; patch
+    `patches-dodge/diag-dsi-regs-at-suspend-2026-10-21.diff`, not
+    committed) dumps DSI `STATUS0`, `CTRL`, `CMD_DMA_CTRL`, `TRIG_CTRL`,
+    `DMA_BASE`/`LEN`, `INTR_CTRL`, `CLK_CTRL`/`CLK_STATUS` and `FIFO_STATUS`
+    at host-disable, power-off, runtime-suspend, power-on and on a failed
+    transfer, and the VBIF halt registers (read only) at the DPU suspend.
+    Session suspend: `STATUS0` 0 everywhere; `CTRL` `1f5` -> `1f0` -> 0;
+    `CMD_DMA_CTRL` `14000000`; `TRIG_CTRL` `80001004`; `DMA_BASE` `0x1000`
+    (IOVA); `CLK_STATUS` `343`. VBIF: `XIN_HALT_CTRL0` 0, `CTRL1`
+    `ffff0000`, `AXI_HALT_CTRL0` 0, `CTRL1` `0x30`, exactly as at the
+    pre-session suspend at boot. Order: DSI, then DPU, then MDSS disable.
+    After the collapse the DSI registers read their reset values
+    (`DMA_BASE` 0, `TRIG_CTRL` `2000`) and are reprogrammed. The first DCS
+    transfer then fails with `STATUS0` `00020003` (engine and DMA busy,
+    bit 17 unnamed), `CLK_STATUS` `008037c3` (bit 23 unnamed; a good
+    transfer reads `2343`), and no DSI error IRQ. So the command DMA is
+    idle at suspend: the DSI-side hypothesis is out.
+40. **SMMU check, 10:32, failed.** One change on top of 39: at the end of
+    DSI power-on, `iommu_flush_iotlb_all()` on the MDSS domain, then
+    `iommu_iova_to_phys(0x1000)` (patch
+    `diag-dsi-iommu-flush-2026-10-21.diff`). Domain type 1 (translating),
+    the flush takes 3-8 us with no `TLB sync timed out`, and the IOVA
+    maps to the same physical page before and after the collapse. The
+    re-enable still fails (`tx failed` 3). Not a stale TLB, a wedged TBU
+    on the flush path, or a lost mapping. Claude consult 8 (10:29)
+    suggested this test; its next step for this outcome is the NoC: the
+    `MASTER_MDP` port on `mmss_noc` after the collapse.
+41. **Control, 10:33, worked.** `msm.ko.fixed` (`31453abbe`): 5 off/on
+    cycles, 0 `tx failed`, brightness exact except the known first
+    readback; screen left on at 1751. Battery 37 %, -56 mA (charging).
+    Side note: `systemd-backlight@backlight:ae94000.dsi.0` hit its
+    start limit on the test boots (31 starts in one boot, one per panel
+    re-enable) and then finished normally. Not investigated.
+
 Test note: on this Hyprland, `hyprctl dispatch 'hl.dsp.dpms("off")'` and
 `("on")` both toggle; check `bl_power` and the MDSS runtime status rather
-than trusting the argument. Logs: `logs/display-2026-10-21-{actlr,vbif,fixed}.log`.
+than trusting the argument. Logs: `logs/display-2026-10-21-{actlr,vbif,fixed,dsidiag,iommu,fixed2}.log`.
 
 Battery sign: `current_now` is positive when discharging and negative when
 charging; `status` is unreliable (`Discharging` at -167 mA). The A/B
@@ -232,9 +267,10 @@ Logs: `logs/display-2026-10-20-{f..w}.log` on the laptop (not committed).
 - Idle: Martin sets a PIN (`omamobile-set-pin`), then `omarchy-apply-lock`;
   verify that the lock blanks, and which input wakes it
   (`libinput debug-events`).
-- Root fix: the ACTLR entry and a VBIF AXI halt both failed (36, 37). The
-  halt timing out after a session points at an outstanding AXI read at
-  suspend, possibly the DSI command DMA or the SMMU/TBU path. Next
-  candidates: check whether DSI suspends after the DPU and halt there, or
-  compare downstream SDE's suspend order. `31453abbe` stays until then.
+- Root fix: the ACTLR entry, a VBIF AXI halt, the DSI side and the SMMU
+  translation are all ruled out (36, 37, 39, 40). Next: the NoC.
+  `MASTER_MDP` on `mmss_noc` after a collapse (QoS or port state, and
+  whether the interconnect vote for display is fully dropped before the
+  GDSC goes down), and downstream SDE's GDSC and interconnect order at
+  suspend. `31453abbe` stays until then.
 - CPU: try 60 Hz on msm (llvmpipe is the cost); a GPU waits for A830.
