@@ -29,11 +29,15 @@ Pieces:
   on `/etc/omamobile/sensors.enable`. The sensors PD attaches only once per ADSP
   boot, so the service has to be up at boot.
 - `81-omamobile-ssc.rules` + `iio-sensor-proxy-omamobile.conf`: tag the fastrpc
-  node `ssc-accel ssc-proximity` and order iio-sensor-proxy after hexagonrpcd.
+  node `ssc-accel ssc-proximity`, set `ACCEL_MOUNT_MATRIX` with X and Y inverted
+  (the raw data read 180° off), and order iio-sensor-proxy after hexagonrpcd.
   iio-sensor-proxy is built from git with `-Dssc-support=enabled`.
 - `omamobile-autorotate`: monitor-sensor → `hyprctl eval` monitor and
-  touch transform. Opt-in, from autostart.lua. The rotation mapping is
-  not verified on the device yet.
+  touch transform. `install` appends `hl.exec_cmd("omamobile-autorotate")` to the
+  session user's `~/.config/hypr/autostart.lua`. The script exits without
+  `/etc/omamobile/sensors.enable`, runs one instance per session (flock), and logs to
+  `$XDG_RUNTIME_DIR/omamobile-autorotate.log`. Martin checked all four
+  orientations in hand on 2026-10-21.
 
 Persist is never written. hexagonfs opens everything `O_RDONLY` and
 refuses writes ("Tried to open … for writing"), and it serves a copy anyway.
