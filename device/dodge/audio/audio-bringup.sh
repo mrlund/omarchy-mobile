@@ -20,11 +20,18 @@ load() {
 	log "insmod $ko failed: $err"; exit 1
 }
 [ -e /proc/device-tree/sound/compatible ] || { log "no sound node in this DTB"; exit 1; }
+# Find the ADSP by name: with the modem probed (modem-probe.enable) it is not remoteproc0.
+adsp_state() {
+	local r
+	for r in /sys/class/remoteproc/remoteproc*; do
+		[ "$(cat "$r/name" 2>/dev/null)" = adsp ] && { cat "$r/state" 2>/dev/null; return; }
+	done
+}
 for _ in $(seq 40); do
-	[ "$(cat /sys/class/remoteproc/remoteproc0/state 2>/dev/null)" = running ] && break
+	[ "$(adsp_state)" = running ] && break
 	sleep 0.5
 done
-[ "$(cat /sys/class/remoteproc/remoteproc0/state 2>/dev/null)" = running ] || { log "ADSP not running"; exit 1; }
+[ "$(adsp_state)" = running ] || { log "ADSP not running"; exit 1; }
 
 load drivers/misc/fastrpc.ko audio_heap_vmids=1
 [ "$(cat /sys/module/fastrpc/parameters/audio_heap_vmids 2>/dev/null)" = Y ] ||

@@ -4,6 +4,17 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-21: the modem DSP boots and offers QMI over QRTR; ModemManager needs a net port
+
+- **The MPSS runs** (11:21 CEST). The flag `/etc/omamobile/modem-probe.enable` makes `adsp-battery.sh` load pas with `only_adsp=0`; the default with no file stays 1. Then `qcom_rmtfs_mem`, `rmtfs -r -o /var/lib/omamobile/modem-efs -v`, `tqftpserv`, and `echo start`: "remote processor modem is now up" in 1 s, stable, no crash. `qrtr-lookup` node 0 lists UIM, NAS, Voice, WDS, PDC, IPA control and the rest.
+- **SIM:** slot 1 `no-atr-received`, slot 2 `present` (likely the eSIM). Needs Martin to say what is fitted.
+- **ModemManager 1.24.2 refuses it:** `qcom-soc` sees `qrtr0`, then "Failed to find a net port in the QMI modem". That needs IPA/rmnet, and SM8750 IPA isn't in 6.16. That's the next gate.
+- **EFS untouched:** the sha256 of `modemst1/2`, `fsg` and `fsc` matched before and after. rmtfs refused the OnePlus `oem/nvbk` paths. The modem was stopped, the flag removed, and the phone is back on the default.
+- **Audio regression with the flag, fixed:** `audio-bringup.sh` assumed the ADSP is `remoteproc0`. It now finds it by name (in git and on the phone).
+- **`rmtfs_mem` flashed** to `boot_a` after 3 more clean boots (4 of 5 with the node clean; the 10:52 kickoff failure is an open intermittent). `set_active a`, retries 7. The battery was briefly discharging (+56 mA) at the flash, which I missed.
+- **usb0 route metric 900** (`20-usb-gadget.network`, package 20261021.1): Wi-Fi keeps the default route, and SSH over USB still works.
+- Details: [dev-docs/2026-10-21-modem.md](dev-docs/2026-10-21-modem.md) Part 3.
+
 ## 2026-10-21: modem userspace, read-only EFS copies, rmtfs_mem DTB (not flashed)
 
 - **pacman keyring fixed:** `/etc/pacman.d/gnupg` had never been made. Ran `pacman-key --init` plus `--populate archlinux archlinuxarm omamobile omarchy`. pacman also needs `--disable-sandbox` (no Landlock in 6.16). The phone had no internet because `usb0`'s metric-0 default route beat Wi-Fi's. That route was changed for this session only.
