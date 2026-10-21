@@ -4,6 +4,15 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-21: modem assessment; kernel series exported
+
+- **Kernel series in git:** `kernel/patches/` has the local `omamobile-dodge` branch as 50 patches on sm8750-mainline `v6.16` `16cf517b`. Applied with `git am`, they give exactly the tree of `31453abbe`. The ath12k diagnostic and its revert are left out. `17f3dac8e` (ACTLR) is in `not-applied/` because it isn't a fix. The README lists the build with `KERNELRELEASE=6.16.0-gb3ee311dab85` and the workarounds. Both configs are in `kernel/` (running `/proc/config.gz`, and the build config plus four modules).
+- **The modem needs no kernel work to start, but needs `rmtfs_mem` and userspace.** The MPSS PAS node, the driver data (`sm8750_mpss_resource`), QRTR and the PD mapper are all in 6.16. Missing: a `rmtfs_mem` reserved region (stock: 4 MiB, client-id 1), and `rmtfs`, `tqftpserv`, `libqmi` and `ModemManager` on the phone. pacman's keyring on the phone is not initialised, so nothing could be installed.
+- **Firmware staged:** `modem_a` mounted read-only; `modem.mbn` (mdt) with 42 segments, `modem_dtb.mbn` and `modem_pr` (MCFG) copied to `/lib/firmware/qcom/sm8750/OnePlus/`. Not committed.
+- **EFS/NV safety:** stock `rmt_storage` serves `modemst1/2`, `fsg`, `fsc` and OnePlus's `oplusdycnvbk`/`oplusstanvbk`. rmtfs will only serve copies with writes dropped, never `-P`. None of those partitions was opened today.
+- **IPA (mobile data) is later:** stock IPA hw-ver `0x18` is newer than anything the 6.16 `ipa` driver knows (`sm8550` v5.5). Calls and SMS don't need it.
+- The modem was not started; `only_adsp=1` stays. Plan and steps: [dev-docs/2026-10-21-modem.md](dev-docs/2026-10-21-modem.md).
+
 ## 2026-10-21: display root fix: the DSI command DMA is idle at suspend, and the SMMU mapping is intact
 
 - **The DSI command DMA is not busy at suspend (read-only diag `msm.ko`, GDSC collapsing, 10:28 CEST).** At the session's suspend, DSI `STATUS0` is 0 at host-disable, power-off and runtime-suspend, `CTRL` goes `1f5` -> `1f0` -> 0, and `FIFO_STATUS` is `11111010`. The VBIF read-only values at the DPU suspend (`XIN_HALT_CTRL1` `ffff0000`, `AXI_HALT_CTRL1` `0x30`) are identical to the suspend before the first session. Order: DSI, then DPU, then MDSS (GDSC off). After the collapse every DSI register reads its reset value and msm reprograms it, yet the first DCS transfer hangs with `STATUS0` `00020003` (engine and DMA busy) and no DSI error IRQ. So the state that is lost is outside the MDSS registers, and nothing on the DSI side needs draining.
