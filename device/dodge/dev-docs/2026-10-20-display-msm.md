@@ -190,6 +190,28 @@ Back on simpledrm by 17:35 CEST (reboot; modules are not loaded at boot).
 35. **ACTLR prep, not booted.** Kernel `17f3dac8e`. No boot-chain change
     with the battery at 20 %.
 
+36. **ACTLR, 2026-10-21 09:12, failed.** Image built from `17f3dac8e`
+    (`KERNELRELEASE=6.16.0-gb3ee311dab85`), started once with `fastboot
+    boot` (nothing flashed), with the `d17` `msm.ko` (GDSC collapses).
+    The first enable after a session and a collapse: `Failed to initialize
+    panel: -110`, `cmd dma tx failed` 3, kickoff timeouts. The ACTLR entry
+    alone does not fix it.
+37. **VBIF AXI halt, 09:17, failed.** Diag `msm.ko` (`d17` basis plus
+    `patches-dodge/diag-vbif-axi-halt-2026-10-21.diff`, not committed): in
+    `dpu_runtime_suspend`, write `VBIF_AXI_HALT_CTRL0` (0x208) = 1 and poll
+    `CTRL1` (0x20c) bit 0 for 4 ms; clear it on resume. On the flashed
+    Oct 16 Image. Before the first modeset the halt acks (`CTRL1` 0x31, all
+    XIN halted). After a session it times out (`CTRL1` 0x30) although
+    `XIN_HALT_CTRL1` reads ffffffff, then the collapse and the same
+    enable failure. So an AXI transaction is still outstanding below the
+    XIN clients when the DPU suspends, and halting cannot drain it.
+38. **Control, 09:20, worked.** Back to `31453abbe` (`msm.ko` restored), 5
+    enable cycles, 0 `tx failed`. Root fix not found; `31453abbe` stays.
+
+Test note: on this Hyprland, `hyprctl dispatch 'hl.dsp.dpms("off")'` and
+`("on")` both toggle; check `bl_power` and the MDSS runtime status rather
+than trusting the argument. Logs: `logs/display-2026-10-21-{actlr,vbif,fixed}.log`.
+
 Battery sign: `current_now` is positive when discharging and negative when
 charging; `status` is unreliable (`Discharging` at -167 mA). The A/B
 numbers in 32 are net of the USB input (an SDP, 500 mA).
@@ -210,8 +232,9 @@ Logs: `logs/display-2026-10-20-{f..w}.log` on the laptop (not committed).
 - Idle: Martin sets a PIN (`omamobile-set-pin`), then `omarchy-apply-lock`;
   verify that the lock blanks, and which input wakes it
   (`libinput debug-events`).
-- Root fix candidates, one per boot: backport the upstream
-  `qcom,sm8750-mdss` SMMU ACTLR entry (`PREFETCH_DEFAULT | CMTLB`), or halt
-  the VBIF AXI port before MDSS suspend as downstream SDE does; if either
-  fixes it with the GDSC collapsing, drop `31453abbe`.
+- Root fix: the ACTLR entry and a VBIF AXI halt both failed (36, 37). The
+  halt timing out after a session points at an outstanding AXI read at
+  suspend, possibly the DSI command DMA or the SMMU/TBU path. Next
+  candidates: check whether DSI suspends after the DPU and halt there, or
+  compare downstream SDE's suspend order. `31453abbe` stays until then.
 - CPU: try 60 Hz on msm (llvmpipe is the cost); a GPU waits for A830.

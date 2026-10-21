@@ -4,6 +4,12 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-21: display root fix, two candidates fail; GDSC workaround stays
+
+- **SMMU ACTLR (`17f3dac8e`) does not fix off/on.** Started once with `fastboot boot` (no flash) with the module that lets `MDSS_GDSC` collapse: the first enable after a session and a collapse failed as before (`tx failed` 3).
+- **A VBIF AXI halt before the DPU suspends does not either.** The halt acks before the first modeset but times out after a session even with every XIN client halted, so something is still in flight on the AXI side when the DPU suspends. That narrows the cause; it is not fixed.
+- **`31453abbe` (GDSC kept on) stays.** The fixed module is back and passes 5 cycles. Battery 30 %, charging. Details: [dev-docs/2026-10-20-display-msm.md](dev-docs/2026-10-20-display-msm.md) items 36-38.
+
 ## 2026-10-20: idle turns the screen off (no lock); battery and charging
 
 - **Idle screen-off, no lock (Martin's choice):** `idle/install` adds a small Quickshell instance as a user unit, `omamobile-idle-off.service`. After 150 s without input it runs `omarchy-brightness-display off` (DPMS off plus `bl_power` 4); the first input runs `on`. It honours idle inhibitors and Omarchy's stay-awake toggle. Omarchy's screensaver is off through its own toggle (`toggles/screensaver-off`; `omarchy-toggle-screensaver` turns it back on). The lock and PAM are untouched.
