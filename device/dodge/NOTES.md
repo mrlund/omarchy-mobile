@@ -4,6 +4,12 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-21: modem install complete (flag-gated, default off)
+
+- **`modem/install`** now also installs `omamobile-mm-netport.service` (the tun `rmnet_mm0` before MM), the udev rule and a ModemManager drop-in conditional on `/etc/omamobile/modem-probe.enable`. MM is enabled, and its condition skips it without the flag. Overview: [modem/README.md](modem/README.md).
+- **Flag boot (11:47 CEST):** `mmcli -L` lists Modem/0 with no manual steps, `sim-missing`. EFS unchanged; display, audio, Wi-Fi and BT fine.
+- **Flag off again:** the battery was discharging, so the stack was stopped at runtime instead of a reboot.
+
 ## 2026-10-21: ModemManager sees the modem (sim-missing); modem units; flag stays off
 
 - **No SIM in the phone** (Martin): no physical SIM, no eSIM profile. Slot 2 `present` is the bare eUICC. No provisioning.
