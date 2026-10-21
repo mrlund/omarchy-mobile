@@ -1,0 +1,100 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 10:40:19 +0200
+Subject: [PATCH] misc: fastrpc: hand the audio PD its remote heap
+
+The create-static ioctl sent pageslen 0, so the ADSP was told
+the audio remote heap was empty and APM_CMD_GET_SPF_STATE
+timed out. Once the heap is assigned, report that page.
+
+Stock dodge uses VMIDs 0x16 and 0x25 for this node. The
+audio_heap_vmids parameter supplies them when the DTB does
+not. On this phone a 3 MiB heap at 0xf1e00000 made the
+following get-state command return.
+---
+ arch/arm64/boot/dts/qcom/sm8750.dtsi |  2 ++
+ drivers/misc/fastrpc.c               | 29 +++++++++++++++++++++++++++-
+ 2 files changed, 30 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8750.dtsi b/arch/arm64/boot/dts/qcom/sm8750.dtsi
+index 46db50a15..757a1a9a1 100644
+--- a/arch/arm64/boot/dts/qcom/sm8750.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm8750.dtsi
+@@ -17,6 +17,7 @@
+ #include <dt-bindings/phy/phy-qcom-qmp.h>
+ #include <dt-bindings/power/qcom,rpmhpd.h>
+ #include <dt-bindings/power/qcom-rpmpd.h>
++#include <dt-bindings/firmware/qcom,scm.h>
+ #include <dt-bindings/soc/qcom,gpr.h>
+ #include <dt-bindings/soc/qcom,rpmh-rsc.h>
+ #include <dt-bindings/sound/qcom,q6dsp-lpass-ports.h>
+@@ -2341,6 +2342,7 @@ fastrpc {
+ 					compatible = "qcom,fastrpc";
+ 					qcom,glink-channels = "fastrpcglink-apps-dsp";
+ 					label = "adsp";
++					qcom,vmids = <QCOM_SCM_VMID_LPASS QCOM_SCM_VMID_ADSP_HEAP>;
+ 					#address-cells = <1>;
+ 					#size-cells = <0>;
+ 
+diff --git a/drivers/misc/fastrpc.c b/drivers/misc/fastrpc.c
+index 378923594..a04b5208a 100644
+--- a/drivers/misc/fastrpc.c
++++ b/drivers/misc/fastrpc.c
+@@ -43,6 +43,16 @@
+ #define INIT_FILE_NAMELEN_MAX (128)
+ #define FASTRPC_DEVICE_NAME	"fastrpc"
+ 
++/*
++ * Stock dodge ADSP FastRPC assigns the audio remote heap to these VMIDs.
++ * The running DTB does not carry qcom,vmids yet, so the module parameter
++ * supplies them for the audio-PD probe.
++ */
++static bool audio_heap_vmids;
++module_param(audio_heap_vmids, bool, 0444);
++MODULE_PARM_DESC(audio_heap_vmids,
++		 "Assign the ADSP audio heap to the LPASS and ADSP-heap VMIDs");
++
+ /* Add memory to static PD pool, protection thru XPU */
+ #define ADSP_MMAP_HEAP_ADDR  4
+ /* MAP static DMA buffer on DSP User PD */
+@@ -1290,12 +1300,21 @@ static int fastrpc_init_create_static_process(struct fastrpc_user *fl,
+ 				goto err_map;
+ 			}
+ 			scm_done = true;
++			dev_info(fl->sctx->dev,
++				 "assigned audio heap phys 0x%llx size 0x%llx to %u VMIDs\n",
++				 fl->cctx->remote_heap->phys,
++				 fl->cctx->remote_heap->size,
++				 fl->cctx->vmcount);
+ 		}
+ 	}
+ 
+ 	inbuf.client_id = fl->client_id;
+ 	inbuf.namelen = init.namelen;
+-	inbuf.pageslen = 0;
++	/*
++	 * pageslen 0 tells the DSP there is no remote heap, so the audio
++	 * framework never starts. Hand over the page once it is assigned.
++	 */
++	inbuf.pageslen = (fl->cctx->vmcount && fl->cctx->remote_heap) ? 1 : 0;
+ 	fl->pd = USER_PD;
+ 
+ 	args[0].ptr = (u64)(uintptr_t)&inbuf;
+@@ -2294,6 +2313,14 @@ static int fastrpc_rpmsg_probe(struct rpmsg_device *rpdev)
+ 	else if (!qcom_scm_is_available())
+ 		return -EPROBE_DEFER;
+ 
++	if (audio_heap_vmids && vmcount == 0 && domain_id == ADSP_DOMAIN_ID) {
++		vmids[0] = QCOM_SCM_VMID_LPASS;
++		vmids[1] = QCOM_SCM_VMID_ADSP_HEAP;
++		vmcount = 2;
++		if (!qcom_scm_is_available())
++			return -EPROBE_DEFER;
++	}
++
+ 	data = kzalloc(sizeof(*data), GFP_KERNEL);
+ 	if (!data)
+ 		return -ENOMEM;
+-- 
+2.55.0
+

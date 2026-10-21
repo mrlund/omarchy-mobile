@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 11:51:25 +0200
+Subject: [PATCH] arm64: dts: qcom: sm8750-oneplus-dodge: add the speaker
+ amplifiers
+
+Two Awinic amplifiers (product id 0x2308) on hub I2C4 at 0x34 (left)
+and 0x35 (right), active-low resets on TLMM 2 and 164. The compatible
+is provisional until the part has a binding.
+---
+ .../boot/dts/qcom/sm8750-oneplus-dodge.dts    | 22 ++++++++++++++++---
+ 1 file changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+index 84eb7cb19..a6f0785cd 100644
+--- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
++++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+@@ -1305,12 +1305,28 @@ &mdss_dsi0_phy {
+ };
+ 
+ /*
+- * The two speaker amplifiers (Awinic, product id 0x2308) sit at 0x34 and
+- * 0x35, resets on TLMM 2 and 164, as in stock's live DT. Bus only for
+- * now: the amplifier driver binds through new_device during bring-up.
++ * The two speaker amplifiers (Awinic, product id 0x2308). Their I2S input
++ * is Secondary MI2S data1. The compatible is provisional until the part
++ * has a binding.
+  */
+ &i2c_hub_4 {
+ 	status = "okay";
++
++	speaker_left: audio-codec@34 {
++		compatible = "awinic,aw882308";
++		reg = <0x34>;
++		reset-gpios = <&tlmm 2 GPIO_ACTIVE_LOW>;
++		#sound-dai-cells = <0>;
++		sound-name-prefix = "Left";
++	};
++
++	speaker_right: audio-codec@35 {
++		compatible = "awinic,aw882308";
++		reg = <0x35>;
++		reset-gpios = <&tlmm 164 GPIO_ACTIVE_LOW>;
++		#sound-dai-cells = <0>;
++		sound-name-prefix = "Right";
++	};
+ };
+ 
+ &i2c_hub_3 {
+-- 
+2.55.0
+

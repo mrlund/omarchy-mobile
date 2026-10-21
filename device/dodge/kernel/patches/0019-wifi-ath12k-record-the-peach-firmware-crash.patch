@@ -1,0 +1,140 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Mon, 19 Oct 2026 17:34:37 +0200
+Subject: [PATCH] wifi: ath12k: record the peach firmware crash
+
+The BDF response says HW_XPA is set, matching stock. The
+firmware enters RDDM and the dump asserts in the aux MAC
+wakeup. Advertising host aux support does not change
+fw_caps, and the aux download is still rejected.
+---
+ drivers/net/wireless/ath/ath12k/core.c |  1 +
+ drivers/net/wireless/ath/ath12k/mhi.c  |  1 +
+ drivers/net/wireless/ath/ath12k/qmi.c  | 46 ++++++++++++++++++++++----
+ drivers/net/wireless/ath/ath12k/qmi.h  |  5 +++
+ 4 files changed, 46 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/core.c b/drivers/net/wireless/ath/ath12k/core.c
+index 89ae80934..762bf4214 100644
+--- a/drivers/net/wireless/ath/ath12k/core.c
++++ b/drivers/net/wireless/ath/ath12k/core.c
+@@ -1620,6 +1620,7 @@ static void ath12k_core_reset(struct work_struct *work)
+ 
+ 	if (!(test_bit(ATH12K_FLAG_QMI_FW_READY_COMPLETE, &ab->dev_flags))) {
+ 		ath12k_warn(ab, "ignore reset dev flags 0x%lx\n", ab->dev_flags);
++		ath12k_coredump_collect(ab);
+ 		return;
+ 	}
+ 
+diff --git a/drivers/net/wireless/ath/ath12k/mhi.c b/drivers/net/wireless/ath/ath12k/mhi.c
+index bf3a21206..7910faccd 100644
+--- a/drivers/net/wireless/ath/ath12k/mhi.c
++++ b/drivers/net/wireless/ath/ath12k/mhi.c
+@@ -285,6 +285,7 @@ static void ath12k_mhi_op_status_cb(struct mhi_controller *mhi_cntrl,
+ 			break;
+ 		}
+ 
++		ath12k_info(ab, "firmware entered RDDM\n");
+ 		if (!(test_bit(ATH12K_FLAG_UNREGISTERING, &ab->dev_flags))) {
+ 			set_bit(ATH12K_FLAG_CRASH_FLUSH, &ab->dev_flags);
+ 			set_bit(ATH12K_FLAG_RECOVERY, &ab->dev_flags);
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.c b/drivers/net/wireless/ath/ath12k/qmi.c
+index ee57602f7..0c1245cf2 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.c
++++ b/drivers/net/wireless/ath/ath12k/qmi.c
+@@ -1609,6 +1609,24 @@ static const struct qmi_elem_info qmi_wlanfw_bdf_download_resp_msg_v01_ei[] = {
+ 					   resp),
+ 		.ei_array	= qmi_response_type_v01_ei,
+ 	},
++	{
++		.data_type	= QMI_OPT_FLAG,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u8),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x10,
++		.offset		= offsetof(struct qmi_wlanfw_bdf_download_resp_msg_v01,
++					   host_bdf_data_valid),
++	},
++	{
++		.data_type	= QMI_UNSIGNED_8_BYTE,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u64),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x10,
++		.offset		= offsetof(struct qmi_wlanfw_bdf_download_resp_msg_v01,
++					   host_bdf_data),
++	},
+ 	{
+ 		.data_type	= QMI_EOTI,
+ 		.array_type	= NO_ARRAY,
+@@ -2331,6 +2349,17 @@ int ath12k_qmi_host_cap_send(struct ath12k_base *ab)
+ 		req.feature_list = ab->hw_params->qmi_cnss_feature_bitmap;
+ 	}
+ 
++	/* Stock sets this host feature for peach. The firmware then
++	 * advertises aux support and accepts aux_ucode20.elf. Without
++	 * it the aux MAC wakes up and asserts when its PLL is not ready.
++	 */
++	if (ab->id.device == 0x110e) {
++		req.feature_list_valid = 1;
++		req.feature_list |= BIT(6);
++		ath12k_info(ab, "qmi host feature list 0x%llx\n",
++			    req.feature_list);
++	}
++
+ 	/* BRINGUP: here we are piggybacking a lot of stuff using
+ 	 * internal_sleep_clock, should it be split?
+ 	 */
+@@ -3144,6 +3173,11 @@ static int ath12k_qmi_load_file_target_mem(struct ath12k_base *ab,
+ 			goto out;
+ 		}
+ 
++		if (resp.host_bdf_data_valid)
++			ath12k_info(ab, "qmi host bdf data 0x%llx xpa %u\n",
++				    resp.host_bdf_data,
++				    !!(resp.host_bdf_data & QMI_WLFW_HW_XPA_V01));
++
+ 		if (type == ATH12K_QMI_FILE_TYPE_EEPROM) {
+ 			remaining = 0;
+ 		} else {
+@@ -3446,14 +3480,12 @@ static int ath12k_qmi_aux_uc_info_send(struct ath12k_base *ab)
+ 	if (ab->id.device != 0x110e)
+ 		return 0;
+ 
+-	/* Stock sends AUX only when target cap sets this feature.
+-	 * Sending it otherwise is rejected with incompatible state.
++	/* fw_caps stays 0xf even after the host advertises aux.
++	 * Stock still downloads aux_ucode20.elf, and the crash dump
++	 * asserts in the aux MAC wakeup when that image is absent.
+ 	 */
+-	if (!ab->qmi.fw_caps_valid || !(ab->qmi.fw_caps & BIT(6))) {
+-		ath12k_info(ab, "qmi aux skipped, fw_caps 0x%llx\n",
+-			    ab->qmi.fw_caps);
+-		return 0;
+-	}
++	ath12k_info(ab, "qmi aux send despite fw_caps 0x%llx\n",
++		    ab->qmi.fw_caps);
+ 
+ 	ret = ath12k_qmi_load_mem_file(ab, aux, "aux_ucode20.elf");
+ 	if (ret)
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.h b/drivers/net/wireless/ath/ath12k/qmi.h
+index b9151a8e1..e63750be7 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.h
++++ b/drivers/net/wireless/ath/ath12k/qmi.h
+@@ -534,8 +534,13 @@ struct qmi_wlanfw_bdf_download_req_msg_v01 {
+ 
+ struct qmi_wlanfw_bdf_download_resp_msg_v01 {
+ 	struct qmi_response_type_v01 resp;
++	u8 host_bdf_data_valid;
++	u64 host_bdf_data;
+ };
+ 
++/* Bit in the BDF download response. Stock logs it as HW_XPA. */
++#define QMI_WLFW_HW_XPA_V01 1
++
+ #define QMI_WLANFW_M3_INFO_REQ_MSG_V01_MAX_MSG_LEN	18
+ #define QMI_WLANFW_M3_INFO_RESP_MSG_V01_MAX_MSG_LEN	7
+ #define QMI_WLANFW_M3_INFO_RESP_V01		0x003C
+-- 
+2.55.0
+

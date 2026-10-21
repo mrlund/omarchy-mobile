@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 15:10:14 +0200
+Subject: [PATCH] wifi: ath12k: do not tell peach the QDSS config is missing
+
+With CNSS_QDSS_CFG_MISS in the host feature list, peach starts
+initializing before the host has sent aux_ucode20.elf and the QDSS
+trace config: both are refused with QMI error 90 (incompatible
+state) and the firmware asserts in whal_aux_mac_trigger_wakeup.
+Stock cnss2 sets the bit only when the QDSS file is missing, and
+ROCKNIX's WCN7860 port (same PCI id) drops it for the same crash.
+Without it (feature list 0x50) aux and QDSS are accepted and the
+firmware reaches WMI ready; wlan0 registers.
+---
+ drivers/net/wireless/ath/ath12k/qmi.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.c b/drivers/net/wireless/ath/ath12k/qmi.c
+index 4fdb77480..098057eb2 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.c
++++ b/drivers/net/wireless/ath/ath12k/qmi.c
+@@ -2356,6 +2356,14 @@ int ath12k_qmi_host_cap_send(struct ath12k_base *ab)
+ 	if (ab->id.device == 0x110e) {
+ 		req.feature_list_valid = 1;
+ 		req.feature_list |= BIT(6);
++		/* Peach must wait for the QDSS config before it starts
++		 * initializing. With QDSS_CFG_MISS set it starts at once,
++		 * rejects aux and qdss with err 90 (incompatible state) and
++		 * asserts in the aux MAC wakeup. Stock cnss2 sets the bit
++		 * only when the qdss file is missing. ROCKNIX's WCN7860
++		 * (same PCI id) drops it for the same crash.
++		 */
++		req.feature_list &= ~BIT_ULL(CNSS_QDSS_CFG_MISS_V01);
+ 		ath12k_info(ab, "qmi host feature list 0x%llx\n",
+ 			    req.feature_list);
+ 	}
+-- 
+2.55.0
+

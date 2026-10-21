@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 11:16:48 +0200
+Subject: [PATCH] ASoC: qcom: q6apm-lpass-dais: let the I2S DAIs take a format
+
+q6i2s_ops has no .set_fmt, so snd_soc_dai_set_fmt() on an MI2S
+back end never reaches q6i2s_set_fmt(). The I2S module's ws_src
+then stays external and the DSP does not drive BCLK or WS for
+amplifiers that expect the SoC to be the clock provider, as the
+OnePlus 13's do on Secondary MI2S.
+---
+ sound/soc/qcom/qdsp6/q6apm-lpass-dais.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/sound/soc/qcom/qdsp6/q6apm-lpass-dais.c b/sound/soc/qcom/qdsp6/q6apm-lpass-dais.c
+index a0d90462f..36c034819 100644
+--- a/sound/soc/qcom/qdsp6/q6apm-lpass-dais.c
++++ b/sound/soc/qcom/qdsp6/q6apm-lpass-dais.c
+@@ -260,6 +260,7 @@ static const struct snd_soc_dai_ops q6i2s_ops = {
+ 	.shutdown	= q6apm_lpass_dai_shutdown,
+ 	.set_channel_map  = q6dma_set_channel_map,
+ 	.hw_params        = q6dma_hw_params,
++	.set_fmt	= q6i2s_set_fmt,
+ };
+ 
+ static const struct snd_soc_dai_ops q6hdmi_ops = {
+-- 
+2.55.0
+

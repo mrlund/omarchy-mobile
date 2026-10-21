@@ -1,0 +1,169 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 17 Oct 2026 18:09:15 +0200
+Subject: [PATCH] bus: mhi: host: boot a two-ELF TME firmware image
+
+Peach amss20.bin is an ARM SBL in the first 512 KiB and a second
+ELF after that. BHI of the first half succeeds, and BHI_EXECENV is
+already SBL before the host has an event ring, so the EE event
+never arrives and the 90 s wait expires.
+
+When tme_supported_image is set, BHIe sends only the bytes after
+sbl_size. If the execution environment is already SBL or AMSS when
+the ready transition finishes, queue that transition from the
+register.
+
+On a OnePlus 13 (PCI 17cb:110e) this gets the stock peach firmware
+to AMSS. QMI then reports WLAN.GNG.1.0-03342.
+
+Co-Authored-By: Grok 4.7 <noreply@x.ai>
+---
+ drivers/bus/mhi/host/boot.c | 46 +++++++++++++++++++++++++++++++++++--
+ drivers/bus/mhi/host/pm.c   | 30 ++++++++++++++++++++++++
+ include/linux/mhi.h         |  3 +++
+ 3 files changed, 77 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/bus/mhi/host/boot.c b/drivers/bus/mhi/host/boot.c
+index efa3b6ddd..db125ba0a 100644
+--- a/drivers/bus/mhi/host/boot.c
++++ b/drivers/bus/mhi/host/boot.c
+@@ -584,14 +584,35 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
+ 	 * device transitioning into MHI READY state
+ 	 */
+ 	if (fw_load_type == MHI_FW_LOAD_FBC) {
+-		ret = mhi_alloc_bhie_table(mhi_cntrl, &mhi_cntrl->fbc_image, fw_sz);
++		const u8 *img_buf = fw_data;
++		size_t img_size = fw_sz;
++
++		/*
++		 * A TME firmware file is two ELF images. BHI already sent
++		 * the first sbl_size bytes. BHIe has to send the second
++		 * ELF on its own.
++		 */
++		if (mhi_cntrl->tme_supported_image) {
++			if (!mhi_cntrl->sbl_size || fw_sz <= mhi_cntrl->sbl_size) {
++				dev_err(dev, "TME image is smaller than sbl_size\n");
++				release_firmware(firmware);
++				goto error_fw_load;
++			}
++			img_buf += mhi_cntrl->sbl_size;
++			img_size -= mhi_cntrl->sbl_size;
++			dev_info(dev, "TME image: BHIe %zu bytes from offset %zu\n",
++				 img_size, mhi_cntrl->sbl_size);
++		}
++
++		ret = mhi_alloc_bhie_table(mhi_cntrl, &mhi_cntrl->fbc_image, img_size);
+ 		if (ret) {
+ 			release_firmware(firmware);
+ 			goto error_fw_load;
+ 		}
+ 
+ 		/* Load the firmware into BHIE vec table */
+-		mhi_firmware_copy_bhie(mhi_cntrl, fw_data, fw_sz, mhi_cntrl->fbc_image);
++		mhi_firmware_copy_bhie(mhi_cntrl, img_buf, img_size,
++				       mhi_cntrl->fbc_image);
+ 	}
+ 
+ 	release_firmware(firmware);
+@@ -605,6 +626,27 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
+ 	}
+ 
+ 	dev_info(dev, "Wait for device to enter SBL or Mission mode\n");
++	/*
++	 * Peach sets BHI_EXECENV to SBL before the host has an event
++	 * ring that could carry the EE event, so the event never arrives.
++	 * Continue from the register.
++	 */
++	{
++		enum mhi_ee_type exec = mhi_get_exec_env(mhi_cntrl);
++		enum dev_st_transition st = DEV_ST_TRANSITION_MAX;
++
++		if (exec == MHI_EE_SBL)
++			st = DEV_ST_TRANSITION_SBL;
++		else if (exec == MHI_EE_AMSS || exec == MHI_EE_WFW)
++			st = DEV_ST_TRANSITION_MISSION_MODE;
++		else if (exec == MHI_EE_FP)
++			st = DEV_ST_TRANSITION_FP;
++
++		if (st != DEV_ST_TRANSITION_MAX) {
++			dev_info(dev, "EE 0x%x already set, continuing\n", exec);
++			mhi_queue_state_transition(mhi_cntrl, st);
++		}
++	}
+ 	return;
+ 
+ error_ready_state:
+diff --git a/drivers/bus/mhi/host/pm.c b/drivers/bus/mhi/host/pm.c
+index 33d92bf2f..bb812e5f7 100644
+--- a/drivers/bus/mhi/host/pm.c
++++ b/drivers/bus/mhi/host/pm.c
+@@ -818,6 +818,9 @@ void mhi_pm_st_worker(struct work_struct *work)
+ 			mhi_fw_load_handler(mhi_cntrl);
+ 			break;
+ 		case DEV_ST_TRANSITION_SBL:
++			/* The register path and the EE event can both queue this. */
++			if (mhi_cntrl->ee == MHI_EE_SBL)
++				break;
+ 			write_lock_irq(&mhi_cntrl->pm_lock);
+ 			mhi_cntrl->ee = MHI_EE_SBL;
+ 			write_unlock_irq(&mhi_cntrl->pm_lock);
+@@ -829,8 +832,35 @@ void mhi_pm_st_worker(struct work_struct *work)
+ 			mhi_create_devices(mhi_cntrl);
+ 			if (mhi_cntrl->fbc_download)
+ 				mhi_download_amss_image(mhi_cntrl);
++			/*
++			 * Same race as the SBL entry: the AMSS execution
++			 * environment can show up in BHI_EXECENV with no EE
++			 * event. Poll briefly. The event still works if it
++			 * arrives on its own.
++			 */
++			{
++				int n;
++
++				for (n = 0; n < 20; n++) {
++					u32 exec = MHI_EE_MAX;
++
++					if (!mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi,
++							  BHI_EXECENV, &exec))
++						dev_info(&mhi_cntrl->mhi_dev->dev,
++							 "post-AMSS %d ee=0x%x\n", n, exec);
++					if (exec == MHI_EE_AMSS || exec == MHI_EE_WFW ||
++					    exec == MHI_EE_FP) {
++						mhi_queue_state_transition(mhi_cntrl,
++							DEV_ST_TRANSITION_MISSION_MODE);
++						break;
++					}
++					msleep(100);
++				}
++			}
+ 			break;
+ 		case DEV_ST_TRANSITION_MISSION_MODE:
++			if (MHI_IN_MISSION_MODE(mhi_cntrl->ee))
++				break;
+ 			mhi_pm_mission_mode_transition(mhi_cntrl);
+ 			break;
+ 		case DEV_ST_TRANSITION_FP:
+diff --git a/include/linux/mhi.h b/include/linux/mhi.h
+index dd372b012..82f927b4d 100644
+--- a/include/linux/mhi.h
++++ b/include/linux/mhi.h
+@@ -359,6 +359,8 @@ struct mhi_controller_config {
+  * @index: Index of the MHI controller instance
+  * @bounce_buf: Use of bounce buffer
+  * @fbc_download: MHI host needs to do complete image transfer (optional)
++ * @tme_supported_image: Firmware file is two ELFs. BHI loads the first
++ *                       sbl_size bytes; BHIe loads only the rest (optional)
+  * @wake_set: Device wakeup set flag
+  * @irq_flags: irq flags passed to request_irq (optional)
+  * @mru: the default MRU for the MHI device
+@@ -444,6 +446,7 @@ struct mhi_controller {
+ 	int index;
+ 	bool bounce_buf;
+ 	bool fbc_download;
++	bool tme_supported_image;
+ 	bool wake_set;
+ 	unsigned long irq_flags;
+ 	u32 mru;
+-- 
+2.55.0
+

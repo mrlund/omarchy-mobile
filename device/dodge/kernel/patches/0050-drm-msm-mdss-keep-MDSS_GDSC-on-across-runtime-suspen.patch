@@ -1,0 +1,72 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 19:06:01 +0200
+Subject: [PATCH] drm/msm/mdss: keep MDSS_GDSC on across runtime suspend on
+ SM8750
+
+Collapsing MDSS_GDSC after a display session leaves the DSI command
+DMA engine unable to complete any transfer on the next enable (cmd dma
+tx timeout), with no DSI error interrupt and no SMMU fault. Collapses
+before the first modeset are harmless, and keeping only MDSS_GDSC on
+(clocks and interconnect votes still dropped) makes repeated
+disable/enable cycles reliable.
+
+Keep the power domain on while MDSS is runtime suspended on SM8750
+until the state lost across the collapse is identified.
+---
+ drivers/gpu/drm/msm/msm_mdss.c | 5 +++++
+ drivers/gpu/drm/msm/msm_mdss.h | 8 ++++++++
+ 2 files changed, 13 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/msm_mdss.c b/drivers/gpu/drm/msm/msm_mdss.c
+index 422da5ebf..8642ea8dc 100644
+--- a/drivers/gpu/drm/msm/msm_mdss.c
++++ b/drivers/gpu/drm/msm/msm_mdss.c
+@@ -13,6 +13,7 @@
+ #include <linux/irqchip/chained_irq.h>
+ #include <linux/of_platform.h>
+ #include <linux/platform_device.h>
++#include <linux/pm_domain.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/reset.h>
+ 
+@@ -509,6 +510,9 @@ static struct msm_mdss *msm_mdss_init(struct platform_device *pdev, bool is_mdp5
+ 
+ 	pm_runtime_enable(&pdev->dev);
+ 
++	if (msm_mdss->mdss_data && msm_mdss->mdss_data->keep_gdsc_on)
++		dev_pm_genpd_rpm_always_on(&pdev->dev, true);
++
+ 	return msm_mdss;
+ }
+ 
+@@ -762,6 +766,7 @@ static const struct msm_mdss_data sm8750_data = {
+ 	.highest_bank_bit = 3,
+ 	.macrotile_mode = true,
+ 	.reg_bus_bw = 57000,
++	.keep_gdsc_on = true,
+ };
+ 
+ static const struct msm_mdss_data x1e80100_data = {
+diff --git a/drivers/gpu/drm/msm/msm_mdss.h b/drivers/gpu/drm/msm/msm_mdss.h
+index dd0160c6b..91688d789 100644
+--- a/drivers/gpu/drm/msm/msm_mdss.h
++++ b/drivers/gpu/drm/msm/msm_mdss.h
+@@ -15,6 +15,14 @@ struct msm_mdss_data {
+ 	bool ubwc_bank_spread;
+ 	bool macrotile_mode;
+ 	u32 reg_bus_bw;
++	/*
++	 * Keep the MDSS power domain on while MDSS is runtime suspended.
++	 * FIXME: on SM8750, collapsing MDSS_GDSC after a display session
++	 * leaves DSI command DMA dead on the next enable (cmd dma tx
++	 * timeout, no DSI error, no SMMU fault). The lost state is outside
++	 * the DSI/PHY/MDSS/DPU register space; drop this once found.
++	 */
++	bool keep_gdsc_on;
+ };
+ 
+ #define UBWC_1_0 0x10000000
+-- 
+2.55.0
+

@@ -1,0 +1,251 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Mon, 19 Oct 2026 16:57:11 +0200
+Subject: [PATCH] wifi: ath12k: download peach PHY and aux ucode
+
+Stock sends phy_ucode20.elf as the M3 image and then
+aux_ucode20.elf. The PHY download is accepted. The aux
+download is answered with QMI_ERR_INCOMPATIBLE_STATE.
+---
+ drivers/net/wireless/ath/ath12k/qmi.c | 157 ++++++++++++++++++++++++--
+ drivers/net/wireless/ath/ath12k/qmi.h |  13 +++
+ 2 files changed, 159 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.c b/drivers/net/wireless/ath/ath12k/qmi.c
+index e7e1076ef..012c9f7c4 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.c
++++ b/drivers/net/wireless/ath/ath12k/qmi.c
+@@ -1657,6 +1657,50 @@ static const struct qmi_elem_info qmi_wlanfw_m3_info_resp_msg_v01_ei[] = {
+ 	},
+ };
+ 
++static const struct qmi_elem_info qmi_wlanfw_aux_uc_info_req_msg_v01_ei[] = {
++	{
++		.data_type	= QMI_UNSIGNED_8_BYTE,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u64),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x01,
++		.offset		= offsetof(struct qmi_wlanfw_aux_uc_info_req_msg_v01,
++					   addr),
++	},
++	{
++		.data_type	= QMI_UNSIGNED_4_BYTE,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u32),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x02,
++		.offset		= offsetof(struct qmi_wlanfw_aux_uc_info_req_msg_v01,
++					   size),
++	},
++	{
++		.data_type	= QMI_EOTI,
++		.array_type	= NO_ARRAY,
++		.tlv_type	= QMI_COMMON_TLV_TYPE,
++	},
++};
++
++static const struct qmi_elem_info qmi_wlanfw_aux_uc_info_resp_msg_v01_ei[] = {
++	{
++		.data_type	= QMI_STRUCT,
++		.elem_len	= 1,
++		.elem_size	= sizeof(struct qmi_response_type_v01),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x02,
++		.offset		= offsetof(struct qmi_wlanfw_aux_uc_info_resp_msg_v01,
++					   resp),
++		.ei_array	= qmi_response_type_v01_ei,
++	},
++	{
++		.data_type	= QMI_EOTI,
++		.array_type	= NO_ARRAY,
++		.tlv_type	= QMI_COMMON_TLV_TYPE,
++	},
++};
++
+ static const struct qmi_elem_info qmi_wlanfw_tme_lite_info_req_msg_v01_ei[] = {
+ 	{
+ 		.data_type	= QMI_SIGNED_4_BYTE_ENUM,
+@@ -2264,11 +2308,9 @@ int ath12k_qmi_host_cap_send(struct ath12k_base *ab)
+ 	req.bdf_support_valid = 1;
+ 	req.bdf_support = 1;
+ 
+-	/* Peach carries its PHY M3 inside amss. Advertising a host M3
+-	 * and then not providing one faults the secured init.
++	/* Peach downloads phy_ucode20.elf as its M3. Advertise it.
+ 	 */
+-	if (ab->hw_params->fw.m3_loader == ath12k_m3_fw_loader_driver &&
+-	    ab->id.device != 0x110e) {
++	if (ab->hw_params->fw.m3_loader == ath12k_m3_fw_loader_driver) {
+ 		req.m3_support_valid = 1;
+ 		req.m3_support = 1;
+ 		req.m3_cache_support_valid = 1;
+@@ -3231,6 +3273,45 @@ static void ath12k_qmi_m3_free(struct ath12k_base *ab)
+ 	m3_mem->size = 0;
+ }
+ 
++static int ath12k_qmi_load_mem_file(struct ath12k_base *ab,
++				    struct m3_mem_region *mem,
++				    const char *filename)
++{
++	const struct firmware *fw;
++	int ret;
++
++	fw = ath12k_core_firmware_request(ab, filename);
++	if (IS_ERR(fw)) {
++		ret = PTR_ERR(fw);
++		ath12k_err(ab, "failed to load %s: %d\n", filename, ret);
++		return ret;
++	}
++
++	if (mem->vaddr && mem->size < fw->size) {
++		dma_free_coherent(ab->dev, mem->size, mem->vaddr, mem->paddr);
++		mem->vaddr = NULL;
++		mem->size = 0;
++	}
++
++	if (!mem->vaddr) {
++		mem->vaddr = dma_alloc_coherent(ab->dev, fw->size, &mem->paddr,
++						GFP_KERNEL);
++		if (!mem->vaddr) {
++			ath12k_err(ab, "failed to allocate %zu bytes for %s\n",
++				   fw->size, filename);
++			release_firmware(fw);
++			return -ENOMEM;
++		}
++	}
++
++	memcpy(mem->vaddr, fw->data, fw->size);
++	mem->size = fw->size;
++	ath12k_info(ab, "qmi loaded %s size %zu addr %pad\n",
++		    filename, fw->size, &mem->paddr);
++	release_firmware(fw);
++	return 0;
++}
++
+ static int ath12k_qmi_m3_load(struct ath12k_base *ab)
+ {
+ 	struct m3_mem_region *m3_mem = &ab->qmi.m3_mem;
+@@ -3302,13 +3383,12 @@ int ath12k_qmi_wlanfw_m3_info_send(struct ath12k_base *ab)
+ 	struct qmi_txn txn;
+ 	int ret = 0;
+ 
+-	/* Same as host_cap: peach's M3 is already in amss. A separate
+-	 * m3.bin is the WCN7850 image and the firmware faults on it.
+-	 * Leave addr and size zero.
+-	 */
+-	if (ab->hw_params->fw.m3_loader == ath12k_m3_fw_loader_driver &&
+-	    ab->id.device != 0x110e) {
+-		ret = ath12k_qmi_m3_load(ab);
++	if (ab->hw_params->fw.m3_loader == ath12k_m3_fw_loader_driver) {
++		if (ab->id.device == 0x110e)
++			ret = ath12k_qmi_load_mem_file(ab, &ab->qmi.m3_mem,
++						       "phy_ucode20.elf");
++		else
++			ret = ath12k_qmi_m3_load(ab);
+ 		if (ret) {
+ 			ath12k_err(ab, "failed to load m3 firmware: %d", ret);
+ 			return ret;
+@@ -3349,6 +3429,55 @@ int ath12k_qmi_wlanfw_m3_info_send(struct ath12k_base *ab)
+ 	return ret;
+ }
+ 
++static int ath12k_qmi_aux_uc_info_send(struct ath12k_base *ab)
++{
++	struct m3_mem_region *aux = &ab->qmi.aux_mem;
++	struct qmi_wlanfw_aux_uc_info_req_msg_v01 req = {};
++	struct qmi_wlanfw_aux_uc_info_resp_msg_v01 resp = {};
++	struct qmi_txn txn;
++	int ret;
++
++	if (ab->id.device != 0x110e)
++		return 0;
++
++	ret = ath12k_qmi_load_mem_file(ab, aux, "aux_ucode20.elf");
++	if (ret)
++		return ret;
++
++	req.addr = aux->paddr;
++	req.size = aux->size;
++
++	ret = qmi_txn_init(&ab->qmi.handle, &txn,
++			   qmi_wlanfw_aux_uc_info_resp_msg_v01_ei, &resp);
++	if (ret < 0)
++		return ret;
++
++	ret = qmi_send_request(&ab->qmi.handle, NULL, &txn,
++			       QMI_WLANFW_AUX_UC_INFO_REQ_V01,
++			       QMI_WLANFW_AUX_UC_INFO_REQ_MSG_V01_MAX_MSG_LEN,
++			       qmi_wlanfw_aux_uc_info_req_msg_v01_ei, &req);
++	if (ret < 0) {
++		qmi_txn_cancel(&txn);
++		ath12k_warn(ab, "qmi failed to send AUX information request, err = %d\n",
++			    ret);
++		return ret;
++	}
++
++	ret = qmi_txn_wait(&txn, msecs_to_jiffies(ATH12K_QMI_WLANFW_TIMEOUT_MS));
++	if (ret < 0) {
++		ath12k_warn(ab, "qmi failed AUX information request %d\n", ret);
++		return ret;
++	}
++
++	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
++		ath12k_warn(ab, "qmi AUX info request failed, result: %d, err: %d\n",
++			    resp.resp.result, resp.resp.error);
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ static int ath12k_qmi_wlanfw_mode_send(struct ath12k_base *ab,
+ 				       u32 mode)
+ {
+@@ -3826,6 +3955,12 @@ int ath12k_qmi_event_load_bdf(struct ath12k_qmi *qmi)
+ 		return ret;
+ 	}
+ 
++	ret = ath12k_qmi_aux_uc_info_send(ab);
++	if (ret < 0) {
++		ath12k_warn(ab, "qmi failed to send aux info req:%d\n", ret);
++		return ret;
++	}
++
+ 	return ret;
+ }
+ 
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.h b/drivers/net/wireless/ath/ath12k/qmi.h
+index b53972304..1971f9794 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.h
++++ b/drivers/net/wireless/ath/ath12k/qmi.h
+@@ -156,6 +156,7 @@ struct ath12k_qmi {
+ 	u8 num_radios;
+ 	struct target_info target;
+ 	struct m3_mem_region m3_mem;
++	struct m3_mem_region aux_mem;
+ 	unsigned int service_ins_id;
+ 	struct dev_mem_info dev_mem[ATH12K_QMI_WLFW_MAX_DEV_MEM_NUM_V01];
+ };
+@@ -547,6 +548,18 @@ struct qmi_wlanfw_m3_info_resp_msg_v01 {
+ 	struct qmi_response_type_v01 resp;
+ };
+ 
++#define QMI_WLANFW_AUX_UC_INFO_REQ_MSG_V01_MAX_MSG_LEN	18
++#define QMI_WLANFW_AUX_UC_INFO_RESP_MSG_V01_MAX_MSG_LEN	7
++#define QMI_WLANFW_AUX_UC_INFO_REQ_V01			0x005A
++struct qmi_wlanfw_aux_uc_info_req_msg_v01 {
++	u64 addr;
++	u32 size;
++};
++
++struct qmi_wlanfw_aux_uc_info_resp_msg_v01 {
++	struct qmi_response_type_v01 resp;
++};
++
+ /* Peach (PCI 17cb:110e) needs this before board data. Stock cnss sends
+  * tmel_peach_20.elf here. Without it the secured PHY init faults and the
+  * later WLAN mode request times out.
+-- 
+2.55.0
+

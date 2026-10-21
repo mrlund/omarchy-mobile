@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Mon, 19 Oct 2026 15:09:35 +0200
+Subject: [PATCH] wifi: ath12k: allow skipping the peach TME-Lite download
+
+The firmware resets about 200 ms after the board file whether
+or not that download is sent. skip_tme takes the normal ini,
+config and mode path so that sequence can be logged on its own.
+---
+ drivers/net/wireless/ath/ath12k/qmi.c | 19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.c b/drivers/net/wireless/ath/ath12k/qmi.c
+index be38c8aa4..e7e1076ef 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.c
++++ b/drivers/net/wireless/ath/ath12k/qmi.c
+@@ -20,6 +20,14 @@
+ #define PLATFORM_CAP_PCIE_GLOBAL_RESET	0x08
+ #define ATH12K_QMI_MAX_CHUNK_SIZE	2097152
+ 
++/* Peach resets about 200 ms after a rejected TME-Lite download.
++ * Stock CNSS logs that error and carries on. Skip the download
++ * to see whether the reset is that message.
++ */
++static bool ath12k_skip_tme;
++module_param_named(skip_tme, ath12k_skip_tme, bool, 0644);
++MODULE_PARM_DESC(skip_tme, "Skip the peach TME-Lite QMI download");
++
+ static const struct qmi_elem_info wlfw_host_mlo_chip_info_s_v01_ei[] = {
+ 	{
+ 		.data_type      = QMI_UNSIGNED_1_BYTE,
+@@ -3710,6 +3718,11 @@ static int ath12k_qmi_tme_lite_info_send(struct ath12k_base *ab)
+ 	if (ab->id.device != 0x110e)
+ 		return 0;
+ 
++	if (ath12k_skip_tme) {
++		ath12k_info(ab, "qmi tme-lite skipped\n");
++		return 0;
++	}
++
+ 	fw = ath12k_core_firmware_request(ab, "tmel_peach_20.elf");
+ 	if (IS_ERR(fw)) {
+ 		ret = PTR_ERR(fw);
+@@ -4075,7 +4088,11 @@ static void ath12k_qmi_driver_event_work(struct work_struct *work)
+ 
+ 			clear_bit(ATH12K_FLAG_CRASH_FLUSH,
+ 				  &ab->dev_flags);
+-			if (ab->id.device == 0x110e && ab->qmi.cal_done == 0) {
++			/* Cold boot sends mode 7 before ini and cfg. With
++			 * skip_tme, take the normal path so those go out.
++			 */
++			if (ab->id.device == 0x110e && ab->qmi.cal_done == 0 &&
++			    !ath12k_skip_tme) {
+ 				ath12k_qmi_process_coldboot_calibration(ab);
+ 				break;
+ 			}
+-- 
+2.55.0
+
