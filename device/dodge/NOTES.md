@@ -4,6 +4,17 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-21: ModemManager sees the modem (sim-missing); modem units; flag stays off
+
+- **No SIM in the phone** (Martin): no physical SIM, no eSIM profile. Slot 2 `present` is the bare eUICC. No provisioning.
+- **Modem units** (`modem/install`): `omamobile-rmtfs` (only `rmtfs -r -o /var/lib/omamobile/modem-efs -v`, after `/dev/qcom_rmtfs_mem1`), `omamobile-tqftpserv` and `omamobile-modem` (start/stop by name). All are conditional on `/etc/omamobile/modem-probe.enable`. Two flag boots: modem `running`, 56 QRTR services, EFS sha256 unchanged, and display, audio, Wi-Fi and BT fine.
+- **Audio with the flag works:** the card and speaker come up, and a 1 s tone played (PCM RUNNING, amps running).
+- **ModemManager:** MM requires a net port for QMI modems (main too). A tun `rmnet_mm0` tagged by `78-omamobile-mm-fake-net.rules` (`ID_MM_DEVICE_PROCESS`, `ID_MM_QCOM_SOC`, `ID_MM_PHYSDEV_UID=qcom-soc`) gets MM to create **Modem/0, state failed: sim-missing**, with ports `qrtr0 (qmi)` and `rmnet_mm0 (net)`. Data can't work through it.
+- **IPA:** SM8750 is v5.5.2, close to SM8550's v5.5. Porting it is about 1-2 days (GSI backports, Eliza-style v5.5.2 data, DT node). That is the path to mobile data, not to calls.
+- **Flag default stays OFF:** no SIM, and screen-off power couldn't be compared (charging drift between boots: modem on -155/-164 mA, off -76 mA, all charging). MM is still masked.
+- **Slip:** the first boot of this round ran while discharging (+110 mA, 38 %). After that a script refuses to reboot unless `current_now` < 0.
+- Details: [dev-docs/2026-10-21-modem.md](dev-docs/2026-10-21-modem.md) Part 4.
+
 ## 2026-10-21: the modem DSP boots and offers QMI over QRTR; ModemManager needs a net port
 
 - **The MPSS runs** (11:21 CEST). The flag `/etc/omamobile/modem-probe.enable` makes `adsp-battery.sh` load pas with `only_adsp=0`; the default with no file stays 1. Then `qcom_rmtfs_mem`, `rmtfs -r -o /var/lib/omamobile/modem-efs -v`, `tqftpserv`, and `echo start`: "remote processor modem is now up" in 1 s, stable, no crash. `qrtr-lookup` node 0 lists UIM, NAS, Voice, WDS, PDC, IPA control and the rest.

@@ -1,0 +1,38 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# omamobile-modem rmtfs-mem|start|stop: helpers for the dodge modem units.
+# Only used when /etc/omamobile/modem-probe.enable exists (the units check it).
+set -u
+KO=/usr/local/lib/omamobile/modem/qcom_rmtfs_mem.ko
+log() { echo "omamobile-modem: $*"; }
+modem_rproc() {
+	local r
+	for r in /sys/class/remoteproc/remoteproc*; do
+		[ "$(cat "$r/name" 2>/dev/null)" = modem ] && { echo "$r"; return 0; }
+	done
+	return 1
+}
+case "${1:-}" in
+rmtfs-mem)
+	# rmtfs falls back to /dev/mem without this device; never let it.
+	grep -q '^qcom_rmtfs_mem ' /proc/modules || insmod "$KO" || exit 1
+	for _ in $(seq 20); do [ -c /dev/qcom_rmtfs_mem1 ] && exit 0; sleep 0.5; done
+	log "no /dev/qcom_rmtfs_mem1"; exit 1 ;;
+start)
+	r=""
+	for _ in $(seq 40); do r=$(modem_rproc) && break; sleep 0.5; done
+	[ -n "$r" ] || { log "no modem remoteproc (only_adsp=1?)"; exit 1; }
+	[ "$(cat "$r/state")" = running ] || echo start > "$r/state" || exit 1
+	for _ in $(seq 60); do
+		s=$(cat "$r/state")
+		[ "$s" = running ] && { log "modem running"; exit 0; }
+		[ "$s" = crashed ] && break
+		sleep 0.5
+	done
+	log "modem state $(cat "$r/state")"; exit 1 ;;
+stop)
+	r=$(modem_rproc) || exit 0
+	[ "$(cat "$r/state")" = running ] && echo stop > "$r/state"
+	exit 0 ;;
+*) echo "usage: $0 rmtfs-mem|start|stop" >&2; exit 2 ;;
+esac
