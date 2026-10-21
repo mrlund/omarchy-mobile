@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-21 | [sensors](2026-10-21-sensors.md) | Accel, proximity and compass work through the ADSP SSC: hexagonrpcd (sensorspd) serving read-only copies of the phone's registry and config, libssc, and iio-sensor-proxy with ssc-support. Light not found yet. Autorotate is opt-in. |
 | 2026-10-21 | [modem](2026-10-21-modem.md) | Modem assessment: MPSS DT/driver/firmware ready (firmware staged read-only from `modem_a`); missing `rmtfs_mem` DT node, rmtfs/tqftpserv/ModemManager userland, IPA for data. rmtfs must never write the real EFS/NV partitions. |
 | 2026-10-20 | [display-msm](2026-10-20-display-msm.md) | msm DPU/DSI with the AA569 panel in command mode: first modeset at 120 Hz and DCS brightness work by hand; any disable/enable breaks panel init (`cmd dma tx -110`). VCI at stock 3.0 V. |
 | 2026-10-20 | [bluetooth](2026-10-20-bluetooth.md) | hci_qca with WCN7860 support on UART14: hci0 at boot, scan sees devices, survives a reboot. Random BD address kept on the phone (real one is in persist). Pairing waits for Martin. |
