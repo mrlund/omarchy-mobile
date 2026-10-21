@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 16:23:04 +0200
+Subject: [PATCH 14/21] arm64: dts: qcom: sm8750-oneplus-dodge: enable
+ Bluetooth
+
+The Bluetooth half of the WCN7860 sits on QUP UART14, as on stock
+(qcom,msm-geni-serial-hs at 0x898000 with the BT wake byte). Use the
+qcom,wcn7860-bt compatible and enable it. Power comes from the PMU
+node's bluetooth target.
+---
+ arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+index b103e010a..c3eec2bc2 100644
+--- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
++++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+@@ -1389,7 +1389,7 @@ &uart14 {
+ 	status = "okay";
+ 
+ 	bluetooth {
+-		compatible = "qcom,wcn7880-bt";
++		compatible = "qcom,wcn7860-bt";
+ 
+ 		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
+ 		vddaon-supply = <&vreg_pmu_aon_0p59>;
+@@ -1400,7 +1400,6 @@ bluetooth {
+ 		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
+ 
+ 		max-speed = <3200000>;
+-		status = "disabled";
+ 	};
+ };
+ 
+-- 
+2.55.0
+

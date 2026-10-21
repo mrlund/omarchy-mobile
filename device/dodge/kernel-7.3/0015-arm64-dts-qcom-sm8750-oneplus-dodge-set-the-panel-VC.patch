@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 17:01:47 +0200
+Subject: [PATCH 15/21] arm64: dts: qcom: sm8750-oneplus-dodge: set the panel
+ VCI rail to 3.0 V
+
+The panel's VCI supply (vreg_l13b_3p0) was constrained to 1.8 V. Stock
+asks for 3.0 V on that rail, and the SM8750 MTP and QRD boards set
+vreg_l13b_3p0 to 3.0 V. Use 3.0 V.
+---
+ arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+index c3eec2bc2..f7d3286e5 100644
+--- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
++++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+@@ -712,8 +712,8 @@ vreg_l12b_1p8: ldo12 {
+ 
+ 		vreg_l13b_3p0: ldo13 {
+ 			regulator-name = "vreg_l13b_3p0";
+-			regulator-min-microvolt = <1800000>;
+-			regulator-max-microvolt = <1800000>;
++			regulator-min-microvolt = <3000000>;
++			regulator-max-microvolt = <3000000>;
+ 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+ 			regulator-allow-set-load;
+ 			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
+-- 
+2.55.0
+

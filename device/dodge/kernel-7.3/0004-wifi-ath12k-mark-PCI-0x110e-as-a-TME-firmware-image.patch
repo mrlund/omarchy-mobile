@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 17 Oct 2026 18:09:15 +0200
+Subject: [PATCH 04/21] wifi: ath12k: mark PCI 0x110e as a TME firmware image
+
+Stock peach amss20.bin is two ELF files. Tell MHI, so BHIe sends
+only the second one. The same firmware asks for memory region
+0xb. Allocate it the way upstream ath12k does for the LPASS
+shared region. That allocation has not been retested: reloading
+the module on the same boot oopsed in qrtr before QMI came back.
+
+Co-Authored-By: Grok 4.7 <noreply@x.ai>
+---
+ drivers/net/wireless/ath/ath12k/mhi.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/net/wireless/ath/ath12k/mhi.c b/drivers/net/wireless/ath/ath12k/mhi.c
+index ee87f00bc..3b29052fc 100644
+--- a/drivers/net/wireless/ath/ath12k/mhi.c
++++ b/drivers/net/wireless/ath/ath12k/mhi.c
+@@ -256,6 +256,12 @@ int ath12k_mhi_register(struct ath12k_pci *ab_pci)
+ 	mhi_ctrl->sbl_size = SZ_512K;
+ 	mhi_ctrl->seg_len = SZ_512K;
+ 	mhi_ctrl->fbc_download = true;
++	/*
++	 * PCI 0x110e (peach) firmware is two ELF files. The second one
++	 * starts at sbl_size, and that is what BHIe has to send.
++	 */
++	if (ab_pci->pdev->device == 0x110e)
++		mhi_ctrl->tme_supported_image = true;
+ 	mhi_ctrl->runtime_get = ath12k_mhi_op_runtime_get;
+ 	mhi_ctrl->runtime_put = ath12k_mhi_op_runtime_put;
+ 	mhi_ctrl->status_cb = ath12k_mhi_op_status_cb;
+-- 
+2.55.0
+

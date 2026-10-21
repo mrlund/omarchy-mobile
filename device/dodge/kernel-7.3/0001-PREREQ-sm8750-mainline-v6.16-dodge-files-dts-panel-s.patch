@@ -1,0 +1,7179 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: t <t@t>
+Date: Wed, 21 Oct 2026 12:21:26 +0200
+Subject: [PATCH 01/21] PREREQ: sm8750-mainline v6.16 dodge files (dts, panel,
+ syna_tcm2, sm8750.config)
+
+---
+ arch/arm64/boot/dts/qcom/Makefile             |    1 +
+ .../boot/dts/qcom/sm8750-oneplus-dodge.dts    | 1305 +++++++++
+ arch/arm64/configs/sm8750.config              |  992 +++++++
+ drivers/gpu/drm/panel/Kconfig                 |   11 +
+ drivers/gpu/drm/panel/Makefile                |    1 +
+ .../gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c |  475 ++++
+ drivers/input/touchscreen/Kconfig             |   12 +
+ drivers/input/touchscreen/Makefile            |    3 +
+ drivers/input/touchscreen/syna_tcm2.c         | 2382 +++++++++++++++++
+ drivers/input/touchscreen/syna_tcm2.h         | 1218 +++++++++
+ drivers/input/touchscreen/syna_tcm2_spi.c     |  669 +++++
+ 11 files changed, 7069 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+ create mode 100644 arch/arm64/configs/sm8750.config
+ create mode 100644 drivers/gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c
+ create mode 100644 drivers/input/touchscreen/syna_tcm2.c
+ create mode 100644 drivers/input/touchscreen/syna_tcm2.h
+ create mode 100644 drivers/input/touchscreen/syna_tcm2_spi.c
+
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index 1c86e7e98..9559330a2 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -407,6 +407,7 @@ dtb-$(CONFIG_ARCH_QCOM)	+= sm8650-hdk.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8650-mtp.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8650-qrd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8750-mtp.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= sm8750-oneplus-dodge.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= sm8750-qrd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= talos-evk.dtb
+ 
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+new file mode 100644
+index 000000000..569487bc0
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+@@ -0,0 +1,1305 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Copyright (c) 2025 index986. All rights reserved.
++ */
++
++/dts-v1/;
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/leds/common.h>
++#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
++#include "sm8750.dtsi"
++#include "pm8010.dtsi"
++#include "pm8550.dtsi"
++#define PMK8550VE_SID 8
++#include "pm8550ve.dtsi"
++#include "pmih0108.dtsi"
++#include "pmk8550.dtsi"
++#include "pmr735d_a.dtsi"
++#include "sm8750-pmics.dtsi"
++
++/delete-node/ &{/reserved-memory};
++
++/ {
++	model = "OnePlus 13";
++	compatible = "OnePlus,13", "qcom,sm8750";
++	chassis-type = "handset";
++
++	aliases {
++		serial0 = &uart7;
++	};
++
++	memory {
++		ddr_device_type = <0x08>;
++		device_type = "memory";
++		reg = <0x00 0x81960000 0x00 0xa0000 0x00 0x81a40000 0x00 0x1c0000 0x00 0x81cf4000 0x00 0xc000 0x00 0x82460000 0x00 0x40000 0x00 0xd8600000 0x00 0x00 0x00 0xe3720000 0x00 0x1c0e0000 0x08 0x80000000 0x00 0x2f700000 0x08 0xb0000000 0x00 0x52c0000 0x0a 0x00 0x02 0x00 0x08 0xc0000000 0x01 0x40000000 0x00 0x82800000 0x00 0x2200000 0x00 0x89d80000 0x00 0x1c80000 0x00 0xa4880000 0x00 0x13780000 0x00 0xb81c0000 0x00 0x1cc63000 0x00 0xd5100000 0x00 0x2f00000>;
++	};
++
++
++	chosen {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++	};
++	
++	pmic-glink {
++		compatible = "qcom,sm8750-pmic-glink",
++			     "qcom,sm8550-pmic-glink",
++			     "qcom,pmic-glink";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		orientation-gpios = <&tlmm 61 GPIO_ACTIVE_HIGH>; // qrd value
++
++		connector@0 {
++			compatible = "usb-c-connector";
++			reg = <0>;
++
++			power-role = "dual";
++			data-role = "dual";
++
++			ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				port@0 {
++					reg = <0>;
++					pmic_glink_hs_in: endpoint {
++						remote-endpoint = <&usb_dwc3_hs>;
++					};
++				};
++
++				port@1 {
++					reg = <1>;
++					pmic_glink_ss_in: endpoint {
++						remote-endpoint = <&usb_dp_qmpphy_out>;
++					};
++				};
++			};
++		};
++	};
++
++	bat: battery {
++		compatible = "simple-battery";
++		voltage-min-design-microvolt = <6300000>;
++	};
++
++	clocks {
++		xo_board: xo-board {
++			compatible = "fixed-clock";
++			clock-frequency = <76800000>;
++			#clock-cells = <0>;
++		};
++
++		sleep_clk: sleep-clk {
++			compatible = "fixed-clock";
++			clock-frequency = <32000>;
++			#clock-cells = <0>;
++		};
++
++		bi_tcxo_div2: bi-tcxo-div2-clk {
++			compatible = "fixed-factor-clock";
++			#clock-cells = <0>;
++
++			clocks = <&rpmhcc RPMH_CXO_CLK>;
++			clock-mult = <1>;
++			clock-div = <2>;
++		};
++
++		bi_tcxo_ao_div2: bi-tcxo-ao-div2-clk {
++			compatible = "fixed-factor-clock";
++			#clock-cells = <0>;
++
++			clocks = <&rpmhcc RPMH_CXO_CLK_A>;
++			clock-mult = <1>;
++			clock-div = <2>;
++		};
++	};
++
++	reserved_memory: reserved-memory {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++
++		hyp_mem: hyp-region@80000000 {
++			no-map;
++			reg = <0x00 0x80000000 0x00 0xe00000>;
++		};
++
++		cpusys_vm_mem: cpusys-vm-region@80e00000 {
++			no-map;
++			reg = <0x00 0x80e00000 0x00 0x400000>;
++		};
++
++		cpucp_mem: cpucp@81200000 {
++			no-map;
++			reg = <0x00 0x81200000 0x00 0x200000>;
++		};
++
++		bl_dtlog_mem: xbl-dtlog@81a00000 {
++			no-map;
++			reg = <0x00 0x81a00000 0x00 0x40000>;
++		};
++
++		aop_image_mem: aop-image@81c00000 {
++			no-map;
++			reg = <0x00 0x81c00000 0x00 0x60000>;
++		};
++
++		aop_cmd_db_mem: aop-cmd-db@81c60000 {
++			compatible = "qcom,cmd-db";
++			no-map;
++			reg = <0x00 0x81c60000 0x00 0x20000>;
++		};
++
++		aop_tme_uefi_merged_mem: aop-tme-uefi-merged@81c80000 {
++			no-map;
++			reg = <0x00 0x81c80000 0x00 0x74000>;
++		};
++
++		smem_region@81d00000 {
++			compatible = "qcom,smem";
++			reg = <0x00 0x81d00000 0x00 0x200000>;
++			hwlocks = <&tcsr_mutex 3>;
++			no-map;
++		};
++
++		pdp_ns_shared_mem: pdp-ns-shared@81f00000 {
++			no-map;
++			reg = <0x00 0x81f00000 0x00 0x100000>;
++		};
++
++		cpucp_scandump_mem: cpucp-scandump@82000000 {
++			no-map;
++			reg = <0x00 0x82000000 0x00 0x380000>;
++		};
++
++		adsp_mhi_mem: adsp-mhi@82380000 {
++			no-map;
++			reg = <0x00 0x82380000 0x00 0x20000>;
++		};
++
++		soccp_sdi_mem: soccp-sdi@823a0000 {
++			no-map;
++			reg = <0x00 0x823a0000 0x00 0x40000>;
++		};
++
++		pmic_minii_dump_mem: pmic-minii-dump@823e0000 {
++			no-map;
++			reg = <0x00 0x823e0000 0x00 0x80000>;
++		};
++
++		pvmfw_mem: pvmfw@824a0000 {
++			no-map;
++			reg = <0x00 0x824a0000 0x00 0x100000>;
++		};
++
++		global_sync_mem: global-sync@82600000 {
++			no-map;
++			reg = <0x00 0x82600000 0x00 0x100000>;
++		};
++
++		tz_stat_mem: tz-stat@82700000 {
++			no-map;
++			reg = <0x00 0x82700000 0x00 0x100000>;
++		};
++
++		qdss_mem: qdss@82800000 {
++			compatible = "shared-dma-pool";
++			reg = <0x00 0x82800000 0x00 0x2000000>;
++			no-map;
++		};
++
++		dsm_partition_1_mem: dsm-partition-1@84a00000 {
++			no-map;
++			reg = <0x00 0x84a00000 0x00 0x4900000>;
++		};
++
++		dsm_partition_2_mem: dsm-partition-2@89300000 {
++			no-map;
++			reg = <0x00 0x89300000 0x00 0xa80000>;
++		};
++
++		mpss_mem: mpss@8ba00000 {
++			no-map;
++			reg = <0x00 0x8ba00000 0x00 0xf600000>;
++		};
++
++		q6_mpss_dtb_mem: q6-mpss-dtb@9b000000 {
++			no-map;
++			reg = <0x00 0x9b000000 0x00 0x80000>;
++		};
++
++		ipa_fw_mem: ipa-fw@9b080000 {
++			no-map;
++			reg = <0x00 0x9b080000 0x00 0x10000>;
++		};
++
++		ipa_gsi_mem: ipa-gsi@9b090000 {
++			no-map;
++			reg = <0x00 0x9b090000 0x00 0xa000>;
++		};
++
++		gpu_micro_code_mem: gpu-micro-code@9b09a000 {
++			no-map;
++			reg = <0x00 0x9b09a000 0x00 0x2000>;
++		};
++
++		spss_region_region@9b0a0000 {
++			no-map;
++			reg = <0x00 0x9b0a0000 0x00 0x1e0000>;
++		};
++
++		/* First part of the "SPU secure shared memory" region */
++		spu_tz_shared_mem: spu-tz-shared@9b280000 {
++			no-map;
++			reg = <0x00 0x9b280000 0x00 0x40000>;
++		};
++
++		/* Second part of the "SPU secure shared memory" region */
++		spu_modem_shared_mem: spu-modem-shared@9b2c0000 {
++			no-map;
++			reg = <0x00 0x9b2c0000 0x00 0x40000>;
++		};
++
++		camera_mem: camera@9b300000 {
++			no-map;
++			reg = <0x00 0x9b300000 0x00 0x800000>;
++		};
++
++		camera_2_mem: camera-2@9bb00000 {
++			no-map;
++			reg = <0x00 0x9bb00000 0x00 0x800000>;
++		};
++
++		video_mem: video@9c300000 {
++			no-map;
++			reg = <0x00 0x9c300000 0x00 0x800000>;
++		};
++
++		cvp_mem: cvp@9cb00000 {
++			no-map;
++			reg = <0x00 0x9cb00000 0x00 0x700000>;
++		};
++
++		cdsp_mem: cdsp@9d200000 {
++			no-map;
++			reg = <0x00 0x9d200000 0x00 0x1900000>;
++		};
++
++		q6_cdsp_dtb_mem: q6-cdsp-dtb@9eb00000 {
++			no-map;
++			reg = <0x00 0x9eb00000 0x00 0x80000>;
++		};
++
++		soccp_mem: soccp@9ec00000 {
++			no-map;
++			reg = <0x00 0x9ec00000 0x00 0x180000>;
++		};
++
++		q6_adsp_dtb_mem: q6-adsp-dtb@9ed80000 {
++			no-map;
++			reg = <0x00 0x9ed80000 0x00 0x80000>;
++		};
++
++		adspslpi_mem: adspslpi@9ee00000 {
++			no-map;
++			reg = <0x00 0x9ee00000 0x00 0x5a80000>;
++		};
++
++		xbl_ramdump_mem: xbl-ramdump@b8000000 {
++			no-map;
++			reg = <0x00 0xb8000000 0x00 0x1c0000>;
++		};
++
++		hwfence_shbuf: hwfence-shbuf@d4e23000 {
++			no-map;
++			reg = <0x00 0xd4e23000 0x00 0x2dd000>;
++		};
++
++		/* Merged tz_reserved, xbl_sc, and qtee regions */
++		tz_merged_mem: tz-merged@d8000000 {
++			no-map;
++			reg = <0x00 0xd8000000 0x00 0x600000>;
++		};
++
++		trust_ui_vm_mem: trust-ui-vm@f3800000 {
++			compatible = "shared-dma-pool";
++			reg = <0x00 0xf3800000 0x00 0x4400000>;
++			no-map;
++		};
++
++		oem_vm_mem: oem-vm@f7c00000 {
++			compatible = "shared-dma-pool";
++			reg = <0x00 0xf7c00000 0x00 0x4c00000>;
++			no-map;
++		};
++
++		llcc_lpi_mem: llcc-lpi@ff800000 {
++			no-map;
++			reg = <0x00 0xff800000 0x00 0x800000>;
++		};
++
++		device_info_mem: memory@a4f00000 {
++			no-map;
++			reg = <0x00 0xa4f00000 0x00 0x8000>;
++			label = "dump_device_info_mem";
++		};
++	};
++
++	gpio-keys {
++		compatible = "gpio-keys";
++
++		pinctrl-0 = <&volume_down_n>;
++		pinctrl-names = "default";
++
++		key-volume-down {
++			label = "Volume Down";
++			linux,code = <KEY_VOLUMEDOWN>;
++			gpios = <&pm8550_gpios 6 GPIO_ACTIVE_LOW>;
++			debounce-interval = <15>;
++			linux,can-disable;
++			wakeup-source;
++		};
++	};
++
++	vph_pwr: vph-pwr-regulator {
++		compatible = "regulator-fixed";
++
++		regulator-name = "vph_pwr";
++		regulator-min-microvolt = <3700000>;
++		regulator-max-microvolt = <3700000>;
++
++		regulator-always-on;
++		regulator-boot-on;
++	};
++
++	wcn7880-pmu { // No compatible drivers
++		compatible = "qcom,wcn7880-pmu";
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&wlan_en>, <&bt_default>;
++
++		wlan-enable-gpios = <&tlmm 16 GPIO_ACTIVE_HIGH>;
++		bt-enable-gpios = <&pm8550ve_f_gpios 3 GPIO_ACTIVE_HIGH>;
++
++		vdd-supply = <&vreg_s5f_0p85>;
++		vddio-supply = <&vreg_l3f_1p8>;
++		vddio1p2-supply = <&vreg_l2f_1p2>;
++		vddaon-supply = <&vreg_s4d_0p85>;
++		vdddig-supply = <&vreg_s1d_0p97>;
++		vddrfa1p2-supply = <&vreg_s7i_1p2>;
++		vddrfa1p8-supply = <&vreg_s3g_1p8>;
++			
++		status = "disabled";
++
++		clocks = <&rpmhcc RPMH_RF_CLK1>;
++
++		regulators {
++			vreg_pmu_rfa_cmn: ldo0 {
++				regulator-name = "vreg_pmu_rfa_cmn";
++			};
++
++			vreg_pmu_aon_0p59: ldo1 {
++				regulator-name = "vreg_pmu_aon_0p59";
++			};
++
++			vreg_pmu_wlcx_0p8: ldo2 {
++				regulator-name = "vreg_pmu_wlcx_0p8";
++			};
++
++			vreg_pmu_wlmx_0p85: ldo3 {
++				regulator-name = "vreg_pmu_wlmx_0p85";
++			};
++
++			vreg_pmu_btcmx_0p85: ldo4 {
++				regulator-name = "vreg_pmu_btcmx_0p85";
++			};
++
++			vreg_pmu_rfa_0p8: ldo5 {
++				regulator-name = "vreg_pmu_rfa_0p8";
++			};
++
++			vreg_pmu_rfa_1p2: ldo6 {
++				regulator-name = "vreg_pmu_rfa_1p2";
++			};
++
++			vreg_pmu_rfa_1p8: ldo7 {
++				regulator-name = "vreg_pmu_rfa_1p8";
++			};
++
++			vreg_pmu_pcie_0p9: ldo8 {
++				regulator-name = "vreg_pmu_pcie_0p9";
++			};
++
++			vreg_pmu_pcie_1p8: ldo9 {
++				regulator-name = "vreg_pmu_pcie_1p8";
++			};
++		};
++	};
++};
++
++&apps_rsc {
++	regulators-0 {
++		compatible = "qcom,pm8550-rpmh-regulators";
++
++		vdd-bob1-supply = <&vph_pwr>;
++		vdd-bob2-supply = <&vph_pwr>;
++		vdd-l1-l4-l10-supply = <&vreg_s3g_1p8>;
++		vdd-l2-l13-l14-supply = <&vreg_bob1>;
++		vdd-l3-supply = <&vreg_s7i_1p2>;
++		vdd-l5-l16-supply = <&vreg_bob1>;
++		vdd-l6-l7-supply = <&vreg_bob1>;
++		vdd-l8-l9-supply = <&vreg_bob1>;
++		vdd-l11-supply = <&vreg_s7i_1p2>;
++		vdd-l12-supply = <&vreg_s3g_1p8>;
++		vdd-l15-supply = <&vreg_s3g_1p8>;
++		vdd-l17-supply = <&vreg_bob2>;
++
++		qcom,pmic-id = "b";
++
++		vreg_bob1: bob1 {
++			regulator-name = "vreg_bob1";
++			regulator-min-microvolt = <3008000>;
++			regulator-max-microvolt = <3960000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++		};
++
++		vreg_bob2: bob2 {
++			regulator-name = "vreg_bob2";
++			regulator-min-microvolt = <2704000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++		};
++
++		vreg_l1b_1p8: ldo1 {
++			regulator-name = "vreg_l1b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2b_3p0: ldo2 {
++			regulator-name = "vreg_l2b_3p0";
++			regulator-min-microvolt = <3008000>;
++			regulator-max-microvolt = <3048000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l4b_1p8: ldo4 {
++			regulator-name = "vreg_l4b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l5b_3p1: ldo5 {
++			regulator-name = "vreg_l5b_3p1";
++			regulator-min-microvolt = <3100000>;
++			regulator-max-microvolt = <3148000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l6b_1p8: ldo6 {
++			regulator-name = "vreg_l6b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l7b_1p8: ldo7 {
++			regulator-name = "vreg_l7b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l8b_1p8: ldo8 {
++			regulator-name = "vreg_l8b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l9b_2p9: ldo9 {
++			regulator-name = "vreg_l9b_2p9";
++			regulator-min-microvolt = <2960000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l10b_1p8: ldo10 {
++			regulator-name = "vreg_l10b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l11b_1p0: ldo11 {
++			regulator-name = "vreg_l11b_1p0";
++			regulator-min-microvolt = <1000000>;
++			regulator-max-microvolt = <1100000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l12b_1p8: ldo12 {
++			regulator-name = "vreg_l12b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l13b_3p0: ldo13 {
++			regulator-name = "vreg_l13b_3p0";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l14b_3p2: ldo14 {
++			regulator-name = "vreg_l14b_3p2";
++			regulator-min-microvolt = <2800000>;
++			regulator-max-microvolt = <2800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l15b_1p8: ldo15 {
++			regulator-name = "vreg_l15b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l16b_2p8: ldo16 {
++			regulator-name = "vreg_l16b_2p8";
++			regulator-min-microvolt = <3000000>;
++			regulator-max-microvolt = <3200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l17b_2p5: ldo17 {
++			regulator-name = "vreg_l17b_2p5";
++			regulator-min-microvolt = <2504000>;
++			regulator-max-microvolt = <2504000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-1 {
++		compatible = "qcom,pm8550ve-rpmh-regulators";
++
++		vdd-l1-supply = <&vreg_s7i_1p2>;
++		vdd-l2-supply = <&vreg_s1d_0p97>;
++		vdd-l3-supply = <&vreg_s1d_0p97>;
++		vdd-s1-supply = <&vph_pwr>;
++		vdd-s3-supply = <&vph_pwr>;
++		vdd-s4-supply = <&vph_pwr>;
++
++		qcom,pmic-id = "d";
++
++		vreg_s1d_0p97: smps1 {
++			regulator-name = "vreg_s1d_0p97";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <1100000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_s3d_1p2: smps3 {
++			regulator-name = "vreg_s3d_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1300000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_s4d_0p85: smps4 {
++			regulator-name = "vreg_s4d_0p85";
++			regulator-min-microvolt = <852000>;
++			regulator-max-microvolt = <1036000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l1d_1p2: ldo1 {
++			regulator-name = "vreg_l1d_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2d_0p88: ldo2 {
++			regulator-name = "vreg_l2d_0p88";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <912000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l3d_0p88: ldo3 {
++			regulator-name = "vreg_l3d_0p88";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-2 {
++		compatible = "qcom,pm8550ve-rpmh-regulators";
++
++		vdd-l1-supply = <&vreg_s1d_0p97>;
++		vdd-l2-supply = <&vreg_s7i_1p2>;
++		vdd-l3-supply = <&vreg_s3g_1p8>;
++		vdd-s5-supply = <&vph_pwr>;
++
++		qcom,pmic-id = "f";
++
++		vreg_s5f_0p85: smps5 {
++			regulator-name = "vreg_s5f_0p85";
++			regulator-min-microvolt = <852000>;
++			regulator-max-microvolt = <1000000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++		};
++
++		vreg_l1f_0p88: ldo1 {
++			regulator-name = "vreg_l1f_0p88";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2f_1p2: ldo2 {
++			regulator-name = "vreg_l2f_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_LPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l3f_1p8: ldo3 {
++			regulator-name = "vreg_l3f_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_LPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++	};
++
++	regulators-3 {
++		compatible = "qcom,pm8550ve-rpmh-regulators";
++
++		vdd-l1-supply = <&vreg_s1d_0p97>;
++		vdd-l2-supply = <&vreg_s3g_1p8>;
++		vdd-l3-supply = <&vreg_s7i_1p2>;
++		vdd-s1-supply = <&vph_pwr>;
++		vdd-s3-supply = <&vph_pwr>;
++
++		qcom,pmic-id = "g";
++
++		vreg_s1g_0p5: smps1 {
++			regulator-name = "vreg_s1g_0p5";
++			regulator-min-microvolt = <300000>;
++			regulator-max-microvolt = <700000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_s3g_1p8: smps3 {
++			regulator-name = "vreg_s3g_1p8";
++			regulator-min-microvolt = <1856000>;
++			regulator-max-microvolt = <2000000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_LPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_s4g_0p75: smps4 {
++			regulator-name = "vreg_s4g_0p75";
++			regulator-min-microvolt = <300000>;
++			regulator-max-microvolt = <900000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l1g_0p91: ldo1 {
++			regulator-name = "vreg_l1g_0p91";
++			regulator-min-microvolt = <912000>;
++			regulator-max-microvolt = <936000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2g_1p8: ldo2 {
++			regulator-name = "vreg_l2g_1p8";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1860000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l3g_1p2: ldo3 {
++			regulator-name = "vreg_l3g_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1256000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-4 {
++		compatible = "qcom,pm8550ve-rpmh-regulators";
++
++		vdd-l1-supply = <&vreg_s7i_1p2>;
++		vdd-l2-supply = <&vreg_s7i_1p2>;
++		vdd-l3-supply = <&vreg_s1d_0p97>;
++		vdd-s7-supply = <&vph_pwr>;
++		vdd-s8-supply = <&vph_pwr>;
++
++		qcom,pmic-id = "i";
++
++		vreg_s7i_1p2: smps7 {
++			regulator-name = "vreg_s7i_1p2";
++			regulator-min-microvolt = <1224000>;
++			regulator-max-microvolt = <1340000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_s8i_0p9: smps8 {
++			regulator-name = "vreg_s8i_0p9";
++			regulator-min-microvolt = <900000>;
++			regulator-max-microvolt = <972000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l1i_1p2: ldo1 {
++			regulator-name = "vreg_l1i_1p2";
++			regulator-min-microvolt = <1000000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2i_1p2: ldo2 {
++			regulator-name = "vreg_l2i_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l3i_0p88: ldo3 {
++			regulator-name = "vreg_l3i_0p88";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <912000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-5 {
++		compatible = "qcom,pm8550vs-rpmh-regulators";
++
++		vdd-l1-supply = <&vreg_s1d_0p97>;
++		vdd-l2-supply = <&vreg_s7i_1p2>;
++		vdd-s2-supply = <&vph_pwr>;
++		vdd-s3-supply = <&vph_pwr>;
++
++		qcom,pmic-id = "j";
++
++		vreg_s2j_1p1: smps2 {
++			regulator-name = "vreg_s2j_1p1";
++			regulator-min-microvolt = <1000000>;
++			regulator-max-microvolt = <1100000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_s3j_1p1: smps3 {
++			regulator-name = "vreg_s3j_1p1";
++			regulator-min-microvolt = <1000000>;
++			regulator-max-microvolt = <1100000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++
++		vreg_l1j_0p91: ldo1 {
++			regulator-name = "vreg_l1j_0p91";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		vreg_l2j_1p2: ldo2 {
++			regulator-name = "vreg_l2j_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++};
++
++&pm8550_flash {
++	status = "okay";
++	led-0 {
++		function = LED_FUNCTION_FLASH;
++		color = <LED_COLOR_ID_WHITE>;
++		led-sources = <1>, <4>;
++		led-max-microamp = <500000>;
++		flash-max-microamp = <2000000>;
++		flash-max-timeout-us = <1280000>;
++		function-enumerator = <0>;
++	};
++};
++
++
++&pm8550_gpios {
++	volume_down_n: volume-down-n-state {
++		pins = "gpio6";
++		function = "normal";
++		bias-pull-up;
++		input-enable;
++		power-source = <1>;
++	};
++};
++
++&pon_pwrkey {
++	status = "okay";
++};
++
++&pon_resin {
++	linux,code = <KEY_VOLUMEUP>;
++
++	status = "okay";
++};
++
++&pcie0 {
++	wake-gpios = <&tlmm 104 GPIO_ACTIVE_HIGH>;
++	perst-gpios = <&tlmm 102 GPIO_ACTIVE_LOW>;
++
++	pinctrl-0 = <&pcie0_default_state>;
++	pinctrl-names = "default";
++
++	status = "okay";
++};
++
++&pcie0_phy {
++	vdda-phy-supply = <&vreg_l1f_0p88>;
++	vdda-pll-supply = <&vreg_l3g_1p2>;
++
++	status = "okay";
++};
++
++&pcieport0 {
++	wifi@0 {
++		compatible = "pci17cb,1107";
++		reg = <0x10000 0x0 0x0 0x0 0x0>;
++
++		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
++		vddaon-supply = <&vreg_pmu_aon_0p59>;
++		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
++		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
++		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
++		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
++		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
++		vddpcie0p9-supply = <&vreg_pmu_pcie_0p9>;
++		vddpcie1p8-supply = <&vreg_pmu_pcie_1p8>;
++	};
++};
++
++&pmih0108_eusb2_repeater {
++	status = "okay";
++
++	vdd18-supply = <&vreg_l15b_1p8>;
++	vdd3-supply = <&vreg_l5b_3p1>;
++};
++
++&qupv3_1 {
++	status = "okay";
++};
++
++&qupv3_2 {
++	status = "okay";
++};
++
++&i2c_master_hub_0 {
++	status = "okay";
++};
++
++&i2c_hub_9 {
++	status = "okay";
++	magnachip: magnachip@10 {
++		compatible = "oplus,dhall-ak09970";
++		reg = <0x10>;
++		vcc-supply = <&vreg_l1b_1p8>;
++		interrupt-parent = <&tlmm>;
++		interrupts = <17 2>;
++		threeaxis_hall_support;
++		dhall,irq-gpio = <&tlmm 17 0x2008>;
++		pinctrl-names = "hall_interrupt_input";
++		pinctrl-0 = <&hall_interrupt_input>;
++	};
++};
++
++&spi4 {
++	status = "okay";
++	synaptics_tcm_hbp@0 {
++		compatible = "synaptics,tcm-spi-hbp";
++		reg = <0>;
++		chip-name = "S3910";
++		spi-max-frequency = <19000000>;
++		interrupt-parent = <&tlmm>;
++		interrupts = <162 0x2008>;
++		vdd-supply = <&vreg_l4b_1p8>;
++		synaptics,irq-gpio   = <&tlmm 162 0x2008>;
++		synaptics,reset-gpio = <&tlmm 161 GPIO_ACTIVE_LOW>;
++		synaptics,avdd-gpio  = <&pm8550vs_j_gpios 3 GPIO_ACTIVE_LOW>;
++		pinctrl-names = "ts_spi_active", "ts_spi_suspend";
++		pinctrl-0 = <&ts_int_active &ts_reset_active>;
++		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
++		panel_type = <10 3 3 3>;
++		firmware_name = "AA545";
++		touchpanel,panel-coords = <20224 44480>;
++		touchpanel,tx-rx-num = <17 38>;
++		touchpanel,tp_ic_type = <2>;
++
++		S3910_PANEL7 {
++			touchpanel,tx-rx-num = <18 40>;
++		};
++	};
++};
++
++
++&gpi_dma1 {
++	status = "okay";
++};
++
++&gpi_dma2 {
++	status = "okay";
++};
++
++&remoteproc_adsp {
++	firmware-name = "qcom/sm8750/OnePlus/adsp.mbn",
++			"qcom/sm8750/OnePlus/adsp_dtb.mbn";
++
++	status = "okay";
++};
++
++&remoteproc_cdsp {
++	firmware-name = "qcom/sm8750/OnePlus/cdsp.mbn",
++			"qcom/sm8750/OnePlus/cdsp_dtb.mbn";
++
++	status = "okay";
++};
++
++&remoteproc_mpss {
++	firmware-name = "qcom/sm8750/OnePlus/modem.mbn",
++			"qcom/sm8750/OnePlus/modem_dtb.mbn";
++
++	status = "okay";
++};
++
++&tlmm {
++	/* reserved for secure world */
++	gpio-reserved-ranges = <36 4>, <74 1>;
++
++	ts_reset_active: ts_reset_active-state {
++		pins = "gpio161";
++		function = "gpio";
++		bias-disable;
++		output-low;
++		drive-strength = <8>;
++	};
++
++	ts_int_active: ts_int_active-state {
++		pins = "gpio162";
++		function = "gpio";
++		bias-pull-up;
++		drive-strength = <8>;
++		input-enable;
++	};
++
++	ts_reset_suspend: ts_reset_suspend-state {
++		pins = "gpio161";
++		function = "gpio";
++		bias-pull-down;
++		drive-strength = <2>;
++	};
++
++	ts_int_suspend: ts_int_suspend-state {
++		pins = "gpio162";
++		function = "gpio";
++		bias-pull-down;
++		drive-strength = <2>;
++	};
++	
++	hall_interrupt_input: hall-interrupt-input-state {
++		pins = "gpio97";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-pull-up;
++	};
++
++	bt_default: bt-default-state {
++		sw-ctrl-pins {
++			pins = "gpio18";
++			function = "gpio";
++			bias-pull-down;
++		};
++	};
++
++	disp0_reset_n_active: disp0-reset-n-active-state {
++		pins = "gpio98";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-disable;
++	};
++
++	disp0_reset_n_suspend: disp0-reset-n-suspend-state {
++		pins = "gpio98";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-pull-down;
++	};
++
++	mdp_vsync_active: mdp-vsync-active-state {
++		pins = "gpio86";
++		function = "mdp_vsync";
++		drive-strength = <2>;
++		bias-pull-down;
++	};
++
++	mdp_vsync_suspend: mdp-vsync-suspend-state {
++		pins = "gpio86";
++		function = "mdp_vsync";
++		drive-strength = <2>;
++		bias-pull-down;
++	};
++
++	wlan_en: wlan-en-state {
++		pins = "gpio16";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-pull-down;
++	};
++};
++
++&uart14 {
++	status = "okay";
++
++	bluetooth {
++		compatible = "qcom,wcn7880-bt";
++
++		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
++		vddaon-supply = <&vreg_pmu_aon_0p59>;
++		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
++		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
++		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
++		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
++		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
++
++		max-speed = <3200000>;
++		status = "disabled";
++	};
++};
++
++&uart7 {
++	status = "okay";
++};
++
++&ufs_mem_phy {
++	vdda-phy-supply = <&vreg_l1j_0p91>;
++	vdda-pll-supply = <&vreg_l3g_1p2>;
++
++	status = "okay";
++};
++
++&ufs_mem_hc {
++	reset-gpios = <&tlmm 215 GPIO_ACTIVE_LOW>;
++
++	vcc-supply = <&vreg_l17b_2p5>;
++	vcc-max-microamp = <1300000>;
++	vccq-supply = <&vreg_l1d_1p2>;
++	vccq-max-microamp = <1200000>;
++
++	status = "okay";
++};
++
++&pm8010_n {
++  status = "disabled";
++};
++
++&usb {
++	status = "okay";
++	dr_mode = "otg";
++	usb-role-switch;
++};
++
++&usb_dwc3_hs {
++	remote-endpoint = <&pmic_glink_hs_in>;
++};
++
++&usb_hsphy {
++	vdd-supply = <&vreg_l2d_0p88>;
++	vdda12-supply = <&vreg_l3g_1p2>;
++
++	phys = <&pmih0108_eusb2_repeater>;
++
++	status = "okay";
++};
++
++&usb_dp_qmpphy {
++	vdda-phy-supply = <&vreg_l3g_1p2>;
++	vdda-pll-supply = <&vreg_l2d_0p88>;
++
++	status = "okay";
++};
++
++&usb_dp_qmpphy_out {
++	remote-endpoint = <&pmic_glink_ss_in>;
++};
++
++&mdss {
++	status = "okay";
++};
++
++// Disabled for now until upstream DP merged
++&mdss_dp0 {
++	status = "disabled";
++};
++
++&mdss_dp0_out {
++	data-lanes = <0 1>;
++};
++
++&mdss_dsi0 {
++	vdda-supply = <&vreg_l3g_1p2>;
++
++	status = "okay";
++
++	panel@0 {
++		compatible = "oneplus,dodge-panel";
++		reg = <0>;
++
++		pinctrl-names = "default", "sleep";
++		pinctrl-0 = <&disp0_reset_n_active>, <&mdp_vsync_active>;
++		pinctrl-1 = <&disp0_reset_n_suspend>, <&mdp_vsync_suspend>;
++
++		vddio-supply = <&vreg_l12b_1p8>;
++		vci-supply = <&vreg_l13b_3p0>;
++		vdd-supply = <&vreg_l11b_1p0>;
++
++		reset-gpios = <&tlmm 98 GPIO_ACTIVE_LOW>;
++
++		port {
++			panel0_in: endpoint {
++				remote-endpoint = <&mdss_dsi0_out>;
++			};
++		};
++	};
++};
++
++&mdss_dsi0_out {
++	remote-endpoint = <&panel0_in>;
++	data-lanes = <0 1 2 3>;
++};
++
++&mdss_dsi0_phy {
++	vdds-supply = <&vreg_l3i_0p88>;
++
++	status = "okay";
++};
++
++&i2c_hub_3 {
++    status = "okay";
++    bq28z610: fuel-gauge@55 {
++        compatible = "ti,bq27541";
++        reg = <0x55>;
++        monitored-battery = <&bat>;
++    };
++};
++
++&reserved_memory {
++	adsp_rpc_remote_heap_mem: adsp-rpc-remote-heap {
++		compatible = "shared-dma-pool";
++		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
++		alignment = <0x0 0x400000>;
++		size = <0x0 0xc00000>;
++		reusable;
++	};
++};
+diff --git a/arch/arm64/configs/sm8750.config b/arch/arm64/configs/sm8750.config
+new file mode 100644
+index 000000000..01a224012
+--- /dev/null
++++ b/arch/arm64/configs/sm8750.config
+@@ -0,0 +1,992 @@
++# Qualcomm Snapdragon 8 Elite (SM8750) config fragment
++CONFIG_LOCALVERSION="-sm8750"
++
++# OnePlus 13
++CONFIG_ARM64_APPENDED_DTB=y
++CONFIG_TOUCHSCREEN_SYNA_TCM2=y
++CONFIG_TOUCHPANEL_CUSTOM=y
++CONFIG_OPLUS_FW_UPDATE=y
++CONFIG_TOUCHPANEL_NOTIFY=y
++CONFIG_DRM_PANEL_ONEPLUS_DODGE=y
++CONFIG_VIDEO_QCOM_IRIS=n
++CONFIG_INPUT_TRI_KEY=n
++CONFIG_AK09970=n
++CONFIG_BATTERY_BQ27XXX_I2C=y
++# NCM ( Needed for SSH )
++CONFIG_USB_G_NCM=y
++
++# SOC
++CONFIG_NR_CPUS=8
++CONFIG_SCHED_CLUSTER=y
++CONFIG_SCSI_UFS_QCOM=y
++CONFIG_QCOM_LLCC=y
++CONFIG_QCOM_RMTFS_MEM=y
++CONFIG_QCOM_SOCINFO=y
++CONFIG_QCOM_APR=y
++CONFIG_POWER_RESET_QCOM_PON=y
++CONFIG_QCOM_SPMI_TEMP_ALARM=y
++CONFIG_SCSI_UFS_BSG=y
++CONFIG_QCOM_GPI_DMA=y
++CONFIG_I2C_QCOM_GENI=y
++CONFIG_QCOM_ICC_BWMON=y
++CONFIG_QCOM_OCMEM=y
++
++CONFIG_PINCTRL_SM8750=y
++CONFIG_SM_CAMCC_8750=n
++CONFIG_SM_DISPCC_8750=y
++CONFIG_SM_GCC_8750=y
++CONFIG_SM_GPUCC_8750=n
++CONFIG_SM_TCSRCC_8750=y
++CONFIG_SM_VIDEOCC_8750=n
++CONFIG_INTERCONNECT_QCOM_SM8750=y
++
++# Sound
++#CONFIG_PINCTRL_SM8550_LPASS_LPI=m
++#CONFIG_SND_SOC_WCD938X_SDW=m
++#CONFIG_SND_SOC_LPASS_RX_MACRO=m
++#CONFIG_SND_SOC_LPASS_TX_MACRO=m
++#CONFIG_SND_SOC_SM8550=m
++
++# Notification LED
++# Must be builtin as it won't be automatically modprobed
++CONFIG_LEDS_TRIGGER_PATTERN=y
++CONFIG_LEDS_TRIGGER_ONESHOT=y
++CONFIG_LEDS_TRIGGER_BACKLIGHT=y
++CONFIG_LEDS_TRIGGER_ACTIVITY=y
++CONFIG_LEDS_CLASS_MULTICOLOR=m
++CONFIG_LEDS_QCOM_LPG=m
++
++# Flash LED
++CONFIG_LEDS_CLASS_FLASH=y
++CONFIG_LEDS_QCOM_FLASH=y
++
++# Remoteproc
++CONFIG_SLIMBUS=y
++CONFIG_SLIM_QCOM_CTRL=y
++CONFIG_SLIM_QCOM_NGD_CTRL=y
++CONFIG_REMOTEPROC_CDEV=y
++
++# Graphics
++CONFIG_DRM=y
++CONFIG_FB_SIMPLE=y
++CONFIG_DRM_MSM=y
++
++# Brightness Control
++CONFIG_BACKLIGHT_CLASS_DEVICE=y
++
++# Power management
++CONFIG_PM_AUTOSLEEP=y
++CONFIG_PM_WAKELOCKS=y
++
++# MGLRU
++CONFIG_LRU_GEN=y
++CONFIG_LRU_GEN_ENABLED=y
++
++# Misc useful things
++CONFIG_SCSI_SCAN_ASYNC=y
++CONFIG_DMABUF_HEAPS=y
++CONFIG_UDMABUF=y
++CONFIG_DMABUF_HEAPS_CMA=y
++CONFIG_DMABUF_HEAPS_SYSTEM=y
++CONFIG_HZ_1000=y
++CONFIG_MODULE_COMPRESS_ZSTD=y
++CONFIG_MODULE_DECOMPRESS=y
++CONFIG_SPI_GPIO=y
++CONFIG_IIO_KFIFO_BUF=y
++CONFIG_IIO_TRIGGERED_BUFFER=y
++
++# HID/Input
++CONFIG_I2C_HID=y
++CONFIG_HID_GENERIC=m
++CONFIG_UHID=m
++CONFIG_USB_HID=m
++CONFIG_INPUT_EVDEV=y
++CONFIG_BT_HIDP=m
++CONFIG_INPUT_JOYDEV=m
++
++# Persistent store
++CONFIG_PSTORE=y
++CONFIG_PSTORE_CONSOLE=y
++CONFIG_PSTORE_PMSG=y
++CONFIG_PSTORE_RAM=y
++CONFIG_PSTORE_COMPRESS=y
++
++# USB
++CONFIG_USB_GADGET=y
++CONFIG_USB_DWC3=y
++CONFIG_USB_DWC3_GADGET=y
++CONFIG_USB_DWC3_DUAL_ROLE=y
++CONFIG_USB_G_SERIAL=n
++
++CONFIG_PPP=y
++CONFIG_PPP_BSDCOMP=y
++CONFIG_PPP_DEFLATE=y
++CONFIG_PPP_FILTER=y
++CONFIG_PPPOE_HASH_BITS=4
++CONFIG_PPP_ASYNC=y
++CONFIG_PPP_SYNC_TTY=y
++
++CONFIG_TYPEC=y
++CONFIG_TYPEC_UCSI=y
++CONFIG_QCOM_PMIC_GLINK=y
++CONFIG_UCSI_PMIC_GLINK=y
++
++# Disable fs for now such that serial is only active
++CONFIG_USB_CONFIGFS=n
++CONFIG_USB_CONFIGFS_F_HID=n
++CONFIG_USB_CONFIGFS_F_NCM=n
++CONFIG_USB_CONFIGFS_F_RNDIS=n
++CONFIG_USB_GADGETFS=n
++
++CONFIG_USB_DWC3_ULPI=y
++CONFIG_PHY_QCOM_SNPS_EUSB2=y
++CONFIG_PHY_QCOM_EUSB2_REPEATER=y
++CONFIG_PHY_QCOM_M31_EUSB=y
++
++CONFIG_RPMSG_CHAR=y
++CONFIG_BT_RFCOMM=y
++CONFIG_BT_RFCOMM_TTY=y
++CONFIG_BT_BNEP=y
++CONFIG_BT_BNEP_MC_FILTER=y
++CONFIG_BT_BNEP_PROTO_FILTER=y
++CONFIG_BT_HS=y
++CONFIG_BT_LE=y
++CONFIG_HID_BATTERY_STRENGTH=y
++CONFIG_HIDRAW=y
++CONFIG_QCOM_FASTRPC=m
++CONFIG_PHY_QCOM_QMP=y
++CONFIG_PHY_QCOM_QMP_UFS=y
++CONFIG_PHY_QCOM_QMP_PCIE=y
++CONFIG_PHY_QCOM_QMP_USB=y
++CONFIG_PHY_QCOM_QMP_COMBO=y
++CONFIG_TCP_CONG_ADVANCED=y
++CONFIG_TCP_CONG_WESTWOOD=y
++CONFIG_DEFAULT_WESTWOOD=y
++CONFIG_BLK_DEV_RAM=y
++CONFIG_BLK_DEV_RAM_SIZE=8192
++CONFIG_BTRFS_FS=y
++CONFIG_BTRFS_FS_POSIX_ACL=y
++CONFIG_F2FS_FS=y
++CONFIG_NLS_UTF8=y
++CONFIG_NLS_DEFAULT="utf8"
++CONFIG_FAT_DEFAULT_UTF8=y
++CONFIG_EXFAT_FS=m
++CONFIG_CPU_FREQ_GOV_POWERSAVE=y
++CONFIG_SYN_COOKIES=y
++CONFIG_UEVENT_HELPER=y
++CONFIG_INPUT_UINPUT=m
++CONFIG_U_SERIAL_CONSOLE=y
++CONFIG_USB_ANNOUNCE_NEW_DEVICES=y
++
++# Filesystem Encryption
++CONFIG_BLK_INLINE_ENCRYPTION=y
++CONFIG_SCSI_UFS_CRYPTO=y
++CONFIG_FS_ENCRYPTION=y
++CONFIG_FS_ENCRYPTION_INLINE_CRYPT=y
++CONFIG_CRYPTO_USER_API_AEAD=y
++CONFIG_CRYPTO_DEV_QCE=y
++
++# Anbox
++CONFIG_BRIDGE_NETFILTER=y
++CONFIG_CHECKPOINT_RESTORE=y
++CONFIG_PACKET_DIAG=y
++CONFIG_UNIX_DIAG=y
++CONFIG_NETLINK_DIAG=m
++CONFIG_NETFILTER_XT_MATCH_COMMENT=m
++CONFIG_ANDROID=y
++CONFIG_ANDROID_BINDER_IPC=y
++CONFIG_SQUASHFS_XATTR=y
++CONFIG_SQUASHFS_LZ4=y
++CONFIG_SQUASHFS_LZO=y
++CONFIG_SQUASHFS_XZ=y
++
++# Waydroid
++CONFIG_PSI=y
++CONFIG_ANDROID_BINDERFS=y
++
++# WLAN debugging
++CONFIG_ATH12K_DEBUG=y
++CONFIG_ATH12K_DEBUGFS=y
++CONFIG_CFG80211_DEBUGFS=y
++CONFIG_MAC80211_DEBUGFS=y
++
++CONFIG_NET_SCH_HTB=y
++CONFIG_NET_SCH_PRIO=y
++CONFIG_NET_SCH_MULTIQ=y
++
++# Debugging stuff
++CONFIG_STACKTRACE=y
++
++#pmOS Related
++CONFIG_VT=y
++CONFIG_CRYPTO_XTS=y
++CONFIG_TMPFS_XATTR=y
++CONFIG_BLK_DEV_DM=y
++CONFIG_DM_CRYPT=y
++CONFIG_BINFMT_MISC=m
++CONFIG_NLS_ASCII=y
++
++CONFIG_NF_TABLES=m
++CONFIG_NF_TABLES_INET=y
++CONFIG_NFT_CT=m
++CONFIG_NFT_COUNTER=m
++CONFIG_NFT_LOG=m
++CONFIG_NFT_LIMIT=m
++CONFIG_NFT_MASQ=m
++CONFIG_NFT_NAT=m
++CONFIG_NFT_REJECT=m
++CONFIG_NF_TABLES_IPV4=y
++CONFIG_NF_TABLES_IPV6=y
++CONFIG_SND_USB_AUDIO=m
++CONFIG_CIFS=y
++
++CONFIG_DRM_GUD=m
++
++# pmos containers kconfig
++CONFIG_CGROUP_FREEZER=y
++CONFIG_NETFILTER_XT_MATCH_IPVS=m
++CONFIG_NETFILTER_XT_MARK=m
++CONFIG_DUMMY=m
++CONFIG_BLK_DEV_THROTTLING=y
++CONFIG_NET_CLS_CGROUP=m
++CONFIG_IP_NF_TARGET_REDIRECT=m
++CONFIG_IP_VS=m
++CONFIG_IP_VS_NFCT=y
++CONFIG_IP_VS_PROTO_TCP=y
++CONFIG_IP_VS_PROTO_UDP=y
++CONFIG_IP_VS_RR=y
++CONFIG_EXT4_FS_SECURITY=y
++CONFIG_CFS_BANDWIDTH=y
++CONFIG_DM_THIN_PROVISIONING=y
++CONFIG_VXLAN=m
++CONFIG_CGROUP_NET_PRIO=y
++CONFIG_IPVLAN=m
++
++# pmOS ZRAM kconfig
++CONFIG_ZSMALLOC=m
++CONFIG_ZSMALLOC_STAT=y
++CONFIG_ZRAM=m
++CONFIG_ZRAM_DEF_COMP_ZSTD=y
++CONFIG_ZRAM_DEF_COMP="zstd"
++CONFIG_ZRAM_MEMORY_TRACKING=y
++CONFIG_ZRAM_MULTI_COMP=y
++CONFIG_CRYPTO_LZ4=m
++CONFIG_LZ4_COMPRESS=m
++CONFIG_CRYPTO_LZO=m
++CONFIG_CRYPTO_ZSTD=m
++
++# pmOS iwd kconfig
++CONFIG_CRYPTO_USER_API_HASH=m
++CONFIG_CRYPTO_USER_API_SKCIPHER=m
++CONFIG_KEY_DH_OPERATIONS=y
++CONFIG_CRYPTO_KPP=y
++CONFIG_PKCS8_PRIVATE_KEY_PARSER=y
++
++# pmOS wireguard kconfig
++CONFIG_WIREGUARD=m
++CONFIG_IP_ADVANCED_ROUTER=y
++CONFIG_IP_MULTIPLE_TABLES=y
++CONFIG_IPV6_MULTIPLE_TABLES=y
++CONFIG_NF_CONNTRACK_MARK=y
++CONFIG_NFT_FIB=m
++CONFIG_NFT_FIB_IPV4=m
++CONFIG_NFT_FIB_IPV6=m
++CONFIG_FIB_RULES=y
++
++# pmOS community kconfig
++CONFIG_NETFILTER_XT_TARGET_TCPMSS=m
++CONFIG_NETFILTER_XT_MATCH_TCPMSS=m
++
++# LEDs
++CONFIG_NEW_LEDS=y
++CONFIG_LEDS_CLASS=y
++
++# Game controllers, etc
++CONFIG_HID_SONY=m
++CONFIG_SONY_FF=y
++CONFIG_HID_NINTENDO=m
++
++# Disable all unrelated stuffs afaik
++CONFIG_VIDEO_IMX412=n
++CONFIG_VIDEO_OV5640=n
++CONFIG_BATTERY_QCOM_BATTMGR=n
++CONFIG_BATTERY_MAX17042=n
++CONFIG_CHARGER_MT6360=n
++CONFIG_CHARGER_BQ25890=n
++CONFIG_CHARGER_BQ25980=n
++CONFIG_CHARGER_RK817=n
++CONFIG_HIBERNATION=n
++CONFIG_FW_LOADER_USER_HELPER=n
++CONFIG_FW_LOADER_USER_HELPER_FALLBACK=n
++CONFIG_BLK_DEV_NVME=n
++CONFIG_ATA=n
++CONFIG_MTD=n
++CONFIG_SRAM=n
++CONFIG_MEGARAID_SAS=n
++CONFIG_EEPROM_AT25=n
++CONFIG_SCSI_MPT3SAS=n
++CONFIG_BLK_DEV_MD=n
++CONFIG_DM_MIRROR=n
++CONFIG_DM_ZERO=n
++CONFIG_EXT2_FS=n
++CONFIG_EXT3_FS=n
++CONFIG_USB_DWC2=n
++CONFIG_USB_CHIPIDEA=n
++CONFIG_USB_MUSB_HDRC=n
++CONFIG_USB_ISP1760=n
++CONFIG_USB_HSIC_USB3503=n
++CONFIG_USB_NET_PLUSB=n
++CONFIG_TYPEC_FUSB302=n
++CONFIG_EXTCON_PTN5150=n
++CONFIG_REALTEK_PHY=n
++CONFIG_NET_VENDOR_NI=n
++CONFIG_NET_9P=n
++CONFIG_CAN=n
++CONFIG_BNX2X=n
++CONFIG_MACB=n
++CONFIG_IGB=n
++CONFIG_IGBVF=n
++CONFIG_SMC91X=n
++CONFIG_MLX4_EN=n
++CONFIG_MLX5_CORE=n
++CONFIG_STMMAC_ETH=n
++CONFIG_ATL1C=n
++CONFIG_BRCMFMAC=n
++CONFIG_WL18XX=n
++CONFIG_WLCORE=n
++CONFIG_ATH10K_PCI=n
++CONFIG_NET_SCH_CBS=n
++CONFIG_NET_SCH_ETF=n
++CONFIG_NET_SCH_TAPRIO=n
++CONFIG_NET_SCH_MQPRIO=n
++CONFIG_NET_CLS_BASIC=n
++CONFIG_NET_CLS_FLOWER=n
++CONFIG_NET_CLS_ACT=n
++CONFIG_NET_ACT_GACT=n
++CONFIG_NET_ACT_MIRRED=n
++CONFIG_NET_ACT_GATE=n
++CONFIG_MDIO_BUS_MUX_MMIOREG=n
++CONFIG_MDIO_BUS_MUX_MULTIPLEXER=n
++CONFIG_SND_SOC_ES7134=n
++CONFIG_SND_SOC_ES7241=n
++CONFIG_SND_SOC_TAS571X=n
++CONFIG_SND_SOC_SIMPLE_AMPLIFIER=n
++CONFIG_GPIO_DWAPB=n
++CONFIG_COMMON_CLK_XGENE=n
++CONFIG_SENSORS_ARM_SCPI=n
++CONFIG_TCG_TPM=n
++CONFIG_BATTERY_SBS=n
++CONFIG_REGULATOR_VCTRL=n
++CONFIG_SND_SOC_MAX98357A=n
++CONFIG_SND_SOC_RL6231=n
++CONFIG_THUNDER_NIC_BGX=n
++CONFIG_THUNDER_NIC_RGX=n
++CONFIG_MDIO_THUNDER=n
++CONFIG_CAVIUM_ERRATUM_22375=n
++CONFIG_CAVIUM_ERRATUM_23154=n
++CONFIG_CAVIUM_ERRATUM_27456=n
++CONFIG_CAVIUM_ERRATUM_30115=n
++CONFIG_CAVIUM_TX2_ERRATUM_219=n
++CONFIG_HW_RANDOM_CAVIUM=n
++CONFIG_EEPROM_AT24=n
++CONFIG_NET_DSA=n
++CONFIG_AQUANTIA_PHY=n
++CONFIG_MICROSEMI_PHY=n
++CONFIG_VITESSE_PHY=n
++CONFIG_I2C_MUX_PCA954x=n
++CONFIG_SND_SOC_PCM3168A_I2C=n
++CONFIG_SENSORS_LM90=n
++CONFIG_SENSORS_INA2XX=n
++CONFIG_RTC_DRV_DS3232=n
++CONFIG_SPI_NXP_FLEXSPI=n
++CONFIG_GPIO_MAX732X=n
++CONFIG_SENSORS_ISL29018=n
++CONFIG_MPL3115=n
++CONFIG_MFD_ROHM_BD718XX=n
++CONFIG_ARM_SBSA_WATCHDOG=n
++CONFIG_ARM_SMC_WATCHDOG=n
++CONFIG_REGULATOR_PCA9450=n
++CONFIG_REGULATOR_PFUZE100=n
++CONFIG_DRM_PANEL_RAYDIUM_RM67191=n
++CONFIG_DRM_PANEL_SITRONIX_ST7703=n
++CONFIG_PHY_MIXEL_MIPI_DPHY=n
++CONFIG_DRM_NWL_MIPI_DSI=n
++CONFIG_DRM_MXSFB=n
++CONFIG_SND_SOC_FSL_SAI=n
++CONFIG_SND_SOC_FSL_ASRC=n
++CONFIG_SND_SOC_FSL_MICFIL=n
++CONFIG_SND_SOC_FSL_AUDMIX=n
++CONFIG_SND_SOC_FSL_SPDIF=n
++CONFIG_SND_SOC_WM8904=n
++CONFIG_RTC_DRV_RV8803=n
++CONFIG_RTC_DRV_DS1307=n
++CONFIG_RTC_DRV_PCF85363=n
++CONFIG_RTC_DRV_PCF2127=n
++CONFIG_PHY_FSL_IMX8MQ_USB=n
++CONFIG_FUJITSU_ERRATUM_010001=n
++CONFIG_PCI_PASID=n
++CONFIG_UACCE=n
++CONFIG_SPI_CADENCE_QUADSPI=n
++CONFIG_DW_WATCHDOG=n
++CONFIG_NOP_USB_XCEIV=n
++CONFIG_SURFACE_PLATFORMS=n
++CONFIG_GPIO_PCA953X=n
++CONFIG_BACKLIGHT_LP855X=n
++CONFIG_MFD_MAX77620=n
++CONFIG_SENSORS_PWM_FAN=n
++CONFIG_SENSORS_INA3221=n
++CONFIG_REGULATOR_MAX8973=n
++CONFIG_USB_CONN_GPIO=n
++CONFIG_MICREL_PHY=n
++CONFIG_MFD_BD9571MWV=n
++CONFIG_DRM_PANEL_LVDS=n
++CONFIG_DRM_RCAR_LVDS=n
++CONFIG_COMMON_CLK_VC5=n
++CONFIG_CRYPTO_DEV_CCREE=n
++CONFIG_VIDEO_IMX219=n
++CONFIG_VIDEO_OV5645=n
++CONFIG_SND_SOC_AK4613=n
++CONFIG_SND_SIMPLE_CARD=n
++CONFIG_SND_SIMPLE_CARD_UTILS=n
++CONFIG_SND_AUDIO_GRAPH_CARD=n
++CONFIG_TYPEC_HD3SS3220=n
++CONFIG_RTC_DRV_RX8581=n
++CONFIG_COMMON_CLK_CS2000_CP=n
++CONFIG_KEYBOARD_ADC=n
++CONFIG_REGULATOR_FAN53555=n
++CONFIG_TOUCHSCREEN_ATMEL_MXT=n
++CONFIG_RTC_DRV_HYM8563=n
++CONFIG_MFD_SEC_CORE=n
++CONFIG_PL330_DMA=n
++CONFIG_GPIO_MB86S7X=n
++CONFIG_MMC_SDHCI_F_SDH30=n
++CONFIG_MMC_SDHCI_CADENCE=n
++CONFIG_SOCIONEXT_SYNQUACER_PREITS=n
++CONFIG_NET_VENDOR_SOCIONEXT=n
++CONFIG_ARCH_ACTIONS=n
++CONFIG_ARCH_AGILEX=n
++CONFIG_ARCH_N5X=n
++CONFIG_ARCH_SUNXI=n
++CONFIG_ARCH_ALPINE=n
++CONFIG_ARCH_APPLE=n
++CONFIG_ARCH_BCM2835=n
++CONFIG_ARCH_BCM4908=n
++CONFIG_ARCH_BCM_IPROC=n
++CONFIG_ARCH_BERLIN=n
++CONFIG_ARCH_BRCMSTB=n
++CONFIG_ARCH_EXYNOS=n
++CONFIG_ARCH_K3=n
++CONFIG_ARCH_LAYERSCAPE=n
++CONFIG_ARCH_LG1K=n
++CONFIG_ARCH_HISI=n
++CONFIG_ARCH_KEEMBAY=n
++CONFIG_ARCH_MEDIATEK=n
++CONFIG_ARCH_MESON=n
++CONFIG_ARCH_MVEBU=n
++CONFIG_ARCH_MXC=n
++CONFIG_ARCH_RENESAS=n
++CONFIG_ARCH_ROCKCHIP=n
++CONFIG_ARCH_S32=n
++CONFIG_ARCH_SEATTLE=n
++CONFIG_ARCH_INTEL_SOCFPGA=n
++CONFIG_ARCH_SYNQUACER=n
++CONFIG_ARCH_TEGRA=n
++CONFIG_ARCH_SPRD=n
++CONFIG_ARCH_THUNDER=n
++CONFIG_ARCH_THUNDER2=n
++CONFIG_ARCH_UNIPHIER=n
++CONFIG_ARCH_VEXPRESS=n
++CONFIG_ARCH_VISCONTI=n
++CONFIG_ARCH_XGENE=n
++CONFIG_ARCH_ZX=n
++CONFIG_ARCH_ZYNQMP=n
++CONFIG_ARM_ALLWINNER_SUN50I_CPUFREQ_NVMEM=n
++CONFIG_ARM_ARMADA_37XX_CPUFREQ=n
++CONFIG_ARM_IMX_CPUFREQ_DT=n
++CONFIG_ARM_RASPBERRYPI_CPUFREQ=n
++CONFIG_ARM_TEGRA186_CPUFREQ=n
++CONFIG_QORIQ_CPUFREQ=n
++CONFIG_RASPBERRYPI_FIRMWARE=n
++CONFIG_INTEL_STRATIX10_SERVICE=n
++CONFIG_INTEL_STRATIX10_RSU=n
++CONFIG_IMX_SCU=n
++CONFIG_IMX_SCU_PD=n
++CONFIG_CAN_RCAR=n
++CONFIG_CAN_RCAR_CANFD=n
++CONFIG_CAN_FLEXCAN=n
++CONFIG_PCI_AARDVARK=n
++CONFIG_PCI_TEGRA=n
++CONFIG_PCIE_RCAR_HOST=n
++CONFIG_PCIE_RCAR_EP=n
++CONFIG_PCI_XGENE=n
++CONFIG_PCIE_ALTERA=n
++CONFIG_PCIE_ALTERA_MSI=n
++CONFIG_PCI_HOST_THUNDER_PEM=n
++CONFIG_PCI_HOST_THUNDER_ECAM=n
++CONFIG_PCIE_ROCKCHIP_HOST=n
++CONFIG_PCIE_BRCMSTB=n
++CONFIG_PCI_IMX6=n
++CONFIG_PCI_LAYERSCAPE=n
++CONFIG_PCIE_LAYERSCAPE_GEN4=n
++CONFIG_PCI_HISI=n
++CONFIG_PCIE_ARMADA_8K=n
++CONFIG_PCIE_KIRIN=n
++CONFIG_PCIE_HISI_STB=n
++CONFIG_PCIE_TEGRA194_HOST=n
++CONFIG_HISILICON_LPC=n
++CONFIG_FSL_MC_BUS=n
++CONFIG_TEGRA_ACONNECT=n
++CONFIG_MTD_CFI_INTELEXT=n
++CONFIG_MTD_CFI_AMDSTD=n
++CONFIG_MTD_CFI_STAA=n
++CONFIG_MTD_SST25L=n
++CONFIG_MTD_NAND_DENALI_DT=n
++CONFIG_MTD_NAND_MARVELL=n
++CONFIG_MTD_NAND_FSL_IFC=n
++CONFIG_SCSI_HISI_SAS=n
++CONFIG_SCSI_HISI_SAS_PCI=n
++CONFIG_SCSI_UFS_HISI=n
++CONFIG_SCSI_UFS_EXYNOS=n
++CONFIG_AHCI_CEVA=n
++CONFIG_AHCI_MVEBU=n
++CONFIG_AHCI_XGENE=n
++CONFIG_AHCI_QORIQ=n
++CONFIG_SATA_SIL24=n
++CONFIG_SATA_RCAR=n
++CONFIG_FSL_FMAN=n
++CONFIG_FSL_DPAA_ETH=n
++CONFIG_FSL_DPAA2_ETH=n
++CONFIG_FSL_ENETC=n
++CONFIG_FSL_ENETC_VF=n
++CONFIG_FSL_ENETC_QOS=n
++CONFIG_HIX5HD2_GMAC=n
++CONFIG_HNS_DSAF=n
++CONFIG_HNS_ENET=n
++CONFIG_HNS3=n
++CONFIG_HNS3_HCLGE=n
++CONFIG_HNS3_ENET=n
++CONFIG_SERIAL_MESON=n
++CONFIG_SERIAL_MESON_CONSOLE=n
++CONFIG_SERIAL_SAMSUNG=n
++CONFIG_SERIAL_SAMSUNG_CONSOLE=n
++CONFIG_SERIAL_TEGRA=n
++CONFIG_SERIAL_TEGRA_TCU=n
++CONFIG_SERIAL_IMX=n
++CONFIG_SERIAL_IMX_CONSOLE=n
++CONFIG_SERIAL_XILINX_PS_UART=n
++CONFIG_SERIAL_XILINX_PS_UART_CONSOLE=n
++CONFIG_SERIAL_FSL_LPUART=n
++CONFIG_SERIAL_FSL_LPUART_CONSOLE=n
++CONFIG_SERIAL_FSL_LINFLEXUART=n
++CONFIG_SERIAL_FSL_LINFLEXUART_CONSOLE=n
++CONFIG_SERIAL_MVEBU_UART=n
++CONFIG_SERIAL_OWL=n
++CONFIG_I2C_BCM2835=n
++CONFIG_I2C_DESIGNWARE_PLATFORM=n
++CONFIG_I2C_IMX=n
++CONFIG_I2C_IMX_LPI2C=n
++CONFIG_I2C_MESON=n
++CONFIG_I2C_MT65XX=n
++CONFIG_I2C_MV64XXX=n
++CONFIG_I2C_OMAP=n
++CONFIG_I2C_OWL=n
++CONFIG_I2C_PXA=n
++CONFIG_I2C_RK3X=n
++CONFIG_I2C_SH_MOBILE=n
++CONFIG_I2C_TEGRA=n
++CONFIG_I2C_UNIPHIER_F=n
++CONFIG_I2C_RCAR=n
++CONFIG_SPI_ARMADA_3700=n
++CONFIG_SPI_BCM2835=n
++CONFIG_SPI_BCM2835AUX=n
++CONFIG_SPI_DESIGNWARE=n
++CONFIG_SPI_DW_DMA=n
++CONFIG_SPI_DW_MMIO=n
++CONFIG_SPI_FSL_LPSPI=n
++CONFIG_SPI_FSL_QUADSPI=n
++CONFIG_SPI_IMX=n
++CONFIG_SPI_FSL_DSPI=n
++CONFIG_SPI_MESON_SPICC=n
++CONFIG_SPI_MESON_SPIFC=n
++CONFIG_SPI_ORION=n
++CONFIG_SPI_PL022=n
++CONFIG_SPI_ROCKCHIP=n
++CONFIG_SPI_RPCIF=n
++CONFIG_SPI_S3C64XX=n
++CONFIG_SPI_SH_MSIOF=n
++CONFIG_SPI_SUN6I=n
++CONFIG_PINCTRL_MAX77620=n
++CONFIG_PINCTRL_OWL=n
++CONFIG_PINCTRL_S700=n
++CONFIG_PINCTRL_S900=n
++CONFIG_PINCTRL_IMX8MM=n
++CONFIG_PINCTRL_IMX8MN=n
++CONFIG_PINCTRL_IMX8MP=n
++CONFIG_PINCTRL_IMX8MQ=n
++CONFIG_PINCTRL_IMX8QM=n
++CONFIG_PINCTRL_IMX8QXP=n
++CONFIG_PINCTRL_IMX8DXL=n
++CONFIG_GPIO_ALTERA=n
++CONFIG_GPIO_DAVINCI=n
++CONFIG_GPIO_MPC8XXX=n
++CONFIG_GPIO_MXC=n
++CONFIG_GPIO_PL061=n
++CONFIG_GPIO_RCAR=n
++CONFIG_GPIO_UNIPHIER=n
++CONFIG_GPIO_VISCONTI=n
++CONFIG_GPIO_XGENE=n
++CONFIG_GPIO_XGENE_SB=n
++CONFIG_GPIO_PCA953X_IRQ=n
++CONFIG_GPIO_BD9571MWV=n
++CONFIG_GPIO_MAX77620=n
++CONFIG_GPIO_SL28CPLD=n
++CONFIG_ROCKCHIP_IODOMAIN=n
++CONFIG_POWER_RESET_XGENE=n
++CONFIG_POWER_RESET_SYSCON=n
++CONFIG_GNSS_MTK_SERIAL=n
++CONFIG_SENSORS_RASPBERRYPI_HWMON=n
++CONFIG_SENSORS_SL28CPLD=n
++CONFIG_QORIQ_THERMAL=n
++CONFIG_SUN8I_THERMAL=n
++CONFIG_IMX_SC_THERMAL=n
++CONFIG_IMX8MM_THERMAL=n
++CONFIG_ROCKCHIP_THERMAL=n
++CONFIG_RCAR_THERMAL=n
++CONFIG_RCAR_GEN3_THERMAL=n
++CONFIG_ARMADA_THERMAL=n
++CONFIG_BCM2711_THERMAL=n
++CONFIG_BCM2835_THERMAL=n
++CONFIG_BRCMSTB_THERMAL=n
++CONFIG_EXYNOS_THERMAL=n
++CONFIG_TEGRA_BPMP_THERMAL=n
++CONFIG_TEGRA_SOCTHERM=n
++CONFIG_UNIPHIER_THERMAL=n
++CONFIG_SL28CPLD_WATCHDOG=n
++CONFIG_ARM_SP805_WATCHDOG=n
++CONFIG_S3C2410_WATCHDOG=n
++CONFIG_SUNXI_WATCHDOG=n
++CONFIG_IMX2_WDT=n
++CONFIG_IMX_SC_WDT=n
++CONFIG_MESON_GXBB_WATCHDOG=n
++CONFIG_MESON_WATCHDOG=n
++CONFIG_RENESAS_WDT=n
++CONFIG_UNIPHIER_WATCHDOG=n
++CONFIG_BCM2835_WDT=n
++CONFIG_MFD_ALTERA_SYSMGR=n
++CONFIG_MFD_AXP20X_I2C=n
++CONFIG_MFD_AXP20X_RSB=n
++CONFIG_MFD_EXYNOS_LPASS=n
++CONFIG_MFD_HI6421_PMIC=n
++CONFIG_MFD_HI655X_PMIC=n
++CONFIG_MFD_MT6397=n
++CONFIG_MFD_RK808=n
++CONFIG_MFD_SL28CPLD=n
++CONFIG_REGULATOR_AXP20X=n
++CONFIG_REGULATOR_BD718XX=n
++CONFIG_REGULATOR_BD9571MWV=n
++CONFIG_REGULATOR_HI6421V530=n
++CONFIG_REGULATOR_HI655X=n
++CONFIG_REGULATOR_MAX77620=n
++CONFIG_REGULATOR_MP8859=n
++CONFIG_REGULATOR_MT6358=n
++CONFIG_REGULATOR_MT6397=n
++CONFIG_REGULATOR_PF8X00=n
++CONFIG_REGULATOR_RK808=n
++CONFIG_REGULATOR_S2MPS11=n
++CONFIG_REGULATOR_TPS65132=n
++CONFIG_IR_MESON=n
++CONFIG_IR_SUNXI=n
++CONFIG_MEDIA_ANALOG_TV_SUPPORT=n
++CONFIG_MEDIA_DIGITAL_TV_SUPPORT=n
++CONFIG_MEDIA_SDR_SUPPORT=n
++CONFIG_VIDEO_RCAR_CSI2=n
++CONFIG_VIDEO_RCAR_VIN=n
++CONFIG_VIDEO_SUN6I_CSI=n
++CONFIG_VIDEO_SAMSUNG_S5P_JPEG=n
++CONFIG_VIDEO_SAMSUNG_S5P_MFC=n
++CONFIG_VIDEO_SAMSUNG_EXYNOS_GSC=n
++CONFIG_VIDEO_RENESAS_FDP1=n
++CONFIG_VIDEO_RENESAS_FCP=n
++CONFIG_VIDEO_RENESAS_VSP1=n
++CONFIG_SDR_PLATFORM_DRIVERS=n
++CONFIG_VIDEO_RCAR_DRIF=n
++CONFIG_DRM_I2C_NXP_TDA998X=n
++CONFIG_DRM_MALI_DISPLAY=n
++CONFIG_DRM_NOUVEAU=n
++CONFIG_DRM_EXYNOS=n
++CONFIG_DRM_EXYNOS5433_DECON=n
++CONFIG_DRM_EXYNOS7_DECON=n
++CONFIG_DRM_EXYNOS_DSI=n
++CONFIG_DRM_EXYNOS_HDMI=n
++CONFIG_DRM_EXYNOS_MIC=n
++CONFIG_DRM_ROCKCHIP=n
++CONFIG_ROCKCHIP_ANALOGIX_DP=n
++CONFIG_ROCKCHIP_CDN_DP=n
++CONFIG_ROCKCHIP_DW_HDMI=n
++CONFIG_ROCKCHIP_DW_MIPI_DSI=n
++CONFIG_ROCKCHIP_INNO_HDMI=n
++CONFIG_ROCKCHIP_LVDS=n
++CONFIG_DRM_RCAR_DU=n
++CONFIG_DRM_RCAR_DW_HDMI=n
++CONFIG_DRM_SUN4I=n
++CONFIG_DRM_SUN6I_DSI=n
++CONFIG_DRM_SUN8I_DW_HDMI=n
++CONFIG_DRM_SUN8I_MIXER=n
++CONFIG_DRM_TEGRA=n
++CONFIG_DRM_PARADE_PS8640=n
++CONFIG_DRM_SII902X=n
++CONFIG_DRM_THINE_THC63LVD1024=n
++CONFIG_DRM_VC4=n
++CONFIG_DRM_ETNAVIV=n
++CONFIG_DRM_HISI_HIBMC=n
++CONFIG_DRM_HISI_KIRIN=n
++CONFIG_DRM_MEDIATEK=n
++CONFIG_DRM_MEDIATEK_HDMI=n
++CONFIG_DRM_MESON=n
++CONFIG_DRM_PL111=n
++CONFIG_DRM_LIMA=n
++CONFIG_DRM_PANFROST=n
++CONFIG_SND_HDA_TEGRA=n
++CONFIG_SND_HDA_CODEC_HDMI=n
++CONFIG_SND_BCM2835_SOC_I2S=n
++CONFIG_SND_SOC_FSL_EASRC=n
++CONFIG_SND_IMX_SOC=n
++CONFIG_SND_SOC_IMX_SGTL5000=n
++CONFIG_SND_SOC_IMX_SPDIF=n
++CONFIG_SND_SOC_IMX_AUDMIX=n
++CONFIG_SND_SOC_FSL_ASOC_CARD=n
++CONFIG_SND_MESON_AXG_SOUND_CARD=n
++CONFIG_SND_MESON_GX_SOUND_CARD=n
++CONFIG_SND_SOC_ROCKCHIP=n
++CONFIG_SND_SOC_ROCKCHIP_SPDIF=n
++CONFIG_SND_SOC_ROCKCHIP_RT5645=n
++CONFIG_SND_SOC_RK3399_GRU_SOUND=n
++CONFIG_SND_SOC_SAMSUNG=n
++CONFIG_SND_SOC_RCAR=n
++CONFIG_SND_SUN4I_I2S=n
++CONFIG_SND_SUN4I_SPDIF=n
++CONFIG_SND_SOC_TEGRA=n
++CONFIG_SND_SOC_TEGRA210_AHUB=n
++CONFIG_SND_SOC_TEGRA210_DMIC=n
++CONFIG_SND_SOC_TEGRA210_I2S=n
++CONFIG_SND_SOC_TEGRA186_DSPK=n
++CONFIG_SND_SOC_TEGRA210_ADMAIF=n
++CONFIG_SND_SOC_TEGRA_AUDIO_GRAPH_CARD=n
++CONFIG_SND_SOC_GTM601=n
++CONFIG_SND_SOC_RT5659=n
++CONFIG_SND_SOC_WM8960=n
++CONFIG_SND_SOC_WM8962=n
++CONFIG_USB_XHCI_PCI_RENESAS=n
++CONFIG_USB_XHCI_TEGRA=n
++CONFIG_USB_EHCI_EXYNOS=n
++CONFIG_USB_OHCI_EXYNOS=n
++CONFIG_USB_RENESAS_USBHS_HCD=n
++CONFIG_USB_RENESAS_USBHS=n
++CONFIG_USB_CHIPIDEA_UDC=n
++CONFIG_USB_CHIPIDEA_HOST=n
++CONFIG_USB_RENESAS_USBHS_UDC=n
++CONFIG_USB_RENESAS_USB3=n
++CONFIG_USB_TEGRA_XUDC=n
++CONFIG_MMC_SDHCI_OF_ARASAN=n
++CONFIG_MMC_SDHCI_OF_ESDHC=n
++CONFIG_MMC_SDHCI_ESDHC_IMX=n
++CONFIG_MMC_SDHCI_TEGRA=n
++CONFIG_MMC_MESON_GX=n
++CONFIG_MMC_DW_EXYNOS=n
++CONFIG_MMC_DW_HI3798CV200=n
++CONFIG_MMC_DW_K3=n
++CONFIG_MMC_DW_ROCKCHIP=n
++CONFIG_MMC_SUNXI=n
++CONFIG_MMC_BCM2835=n
++CONFIG_MMC_MTK=n
++CONFIG_MMC_SDHCI_XENON=n
++CONFIG_MMC_SDHCI_AM654=n
++CONFIG_MMC_OWL=n
++CONFIG_RTC_DRV_MAX77686=n
++CONFIG_RTC_DRV_RK808=n
++CONFIG_RTC_DRV_M41T80=n
++CONFIG_RTC_DRV_RV3028=n
++CONFIG_RTC_DRV_S5M=n
++CONFIG_RTC_DRV_FSL_FTM_ALARM=n
++CONFIG_RTC_DRV_S3C=n
++CONFIG_RTC_DRV_PL031=n
++CONFIG_RTC_DRV_SUN6I=n
++CONFIG_RTC_DRV_ARMADA38X=n
++CONFIG_RTC_DRV_TEGRA=n
++CONFIG_RTC_DRV_SNVS=n
++CONFIG_RTC_DRV_IMX_SC=n
++CONFIG_RTC_DRV_XGENE=n
++CONFIG_DMA_BCM2835=n
++CONFIG_DMA_SUN6I=n
++CONFIG_FSL_EDMA=n
++CONFIG_IMX_SDMA=n
++CONFIG_K3_DMA=n
++CONFIG_MV_XOR=n
++CONFIG_MV_XOR_V2=n
++CONFIG_OWL_DMA=n
++CONFIG_TEGRA20_APB_DMA=n
++CONFIG_TEGRA210_ADMA=n
++CONFIG_RCAR_DMAC=n
++CONFIG_RENESAS_USB_DMAC=n
++CONFIG_TI_K3_UDMA=n
++CONFIG_TI_K3_UDMA_GLUE_LAYER=n
++CONFIG_COMMON_CLK_RK808=n
++CONFIG_COMMON_CLK_FSL_SAI=n
++CONFIG_COMMON_CLK_S2MPS11=n
++CONFIG_COMMON_CLK_ZYNQMP=n
++CONFIG_COMMON_CLK_BD718XX=n
++CONFIG_CLK_RASPBERRYPI=n
++CONFIG_CLK_IMX8MM=n
++CONFIG_CLK_IMX8MN=n
++CONFIG_CLK_IMX8MP=n
++CONFIG_CLK_IMX8MQ=n
++CONFIG_CLK_IMX8QXP=n
++CONFIG_TI_SCI_CLK=n
++CONFIG_IMX_MBOX=n
++CONFIG_BCM2835_MBOX=n
++CONFIG_ROCKCHIP_IOMMU=n
++CONFIG_TEGRA_IOMMU_SMMU=n
++CONFIG_MTK_IOMMU=n
++CONFIG_OWL_PM_DOMAINS=n
++CONFIG_RASPBERRYPI_POWER=n
++CONFIG_FSL_DPAA=n
++CONFIG_FSL_MC_DPIO=n
++CONFIG_FSL_RCPM=n
++CONFIG_MTK_PMIC_WRAP=n
++CONFIG_ARCH_R8A774A1=n
++CONFIG_ARCH_R8A774B1=n
++CONFIG_ARCH_R8A774C0=n
++CONFIG_ARCH_R8A774E1=n
++CONFIG_ARCH_R8A77950=n
++CONFIG_ARCH_R8A77951=n
++CONFIG_ARCH_R8A77960=n
++CONFIG_ARCH_R8A77961=n
++CONFIG_ARCH_R8A77965=n
++CONFIG_ARCH_R8A77970=n
++CONFIG_ARCH_R8A77980=n
++CONFIG_ARCH_R8A77990=n
++CONFIG_ARCH_R8A77995=n
++CONFIG_ARCH_R8A779A0=n
++CONFIG_ARCH_R9A07G044=n
++CONFIG_ROCKCHIP_PM_DOMAINS=n
++CONFIG_ARCH_TEGRA_132_SOC=n
++CONFIG_ARCH_TEGRA_210_SOC=n
++CONFIG_ARCH_TEGRA_186_SOC=n
++CONFIG_ARCH_TEGRA_194_SOC=n
++CONFIG_ARCH_TEGRA_234_SOC=n
++CONFIG_TI_SCI_PM_DOMAINS=n
++CONFIG_ARM_IMX_BUS_DEVFREQ=n
++CONFIG_ARM_IMX8M_DDRC_DEVFREQ=n
++CONFIG_RENESAS_RPCIF=n
++CONFIG_EXYNOS_ADC=n
++CONFIG_MAX9611=n
++CONFIG_ROCKCHIP_SARADC=n
++CONFIG_PWM_BCM2835=n
++CONFIG_PWM_IMX27=n
++CONFIG_PWM_MESON=n
++CONFIG_PWM_MTK_DISP=n
++CONFIG_PWM_MEDIATEK=n
++CONFIG_PWM_RCAR=n
++CONFIG_PWM_ROCKCHIP=n
++CONFIG_PWM_SAMSUNG=n
++CONFIG_PWM_SL28CPLD=n
++CONFIG_PWM_SUN4I=n
++CONFIG_PWM_TEGRA=n
++CONFIG_PWM_VISCONTI=n
++CONFIG_SL28CPLD_INTC=n
++CONFIG_RESET_IMX7=n
++CONFIG_RESET_TI_SCI=n
++CONFIG_PHY_XGENE=n
++CONFIG_PHY_SUN4I_USB=n
++CONFIG_PHY_HI6220_USB=n
++CONFIG_PHY_HISTB_COMBPHY=n
++CONFIG_PHY_HISI_INNO_USB2=n
++CONFIG_PHY_MVEBU_CP110_COMPHY=n
++CONFIG_PHY_MTK_TPHY=n
++CONFIG_PHY_RCAR_GEN3_PCIE=n
++CONFIG_PHY_RCAR_GEN3_USB2=n
++CONFIG_PHY_RCAR_GEN3_USB3=n
++CONFIG_PHY_ROCKCHIP_EMMC=n
++CONFIG_PHY_ROCKCHIP_INNO_HDMI=n
++CONFIG_PHY_ROCKCHIP_INNO_USB2=n
++CONFIG_PHY_ROCKCHIP_INNO_DSIDPHY=n
++CONFIG_PHY_ROCKCHIP_PCIE=n
++CONFIG_PHY_ROCKCHIP_TYPEC=n
++CONFIG_PHY_SAMSUNG_UFS=n
++CONFIG_PHY_UNIPHIER_USB2=n
++CONFIG_PHY_UNIPHIER_USB3=n
++CONFIG_PHY_TEGRA_XUSB=n
++CONFIG_FSL_IMX8_DDR_PMU=n
++CONFIG_HISI_PMU=n
++CONFIG_NVMEM_IMX_OCOTP=n
++CONFIG_NVMEM_IMX_OCOTP_SCU=n
++CONFIG_MTK_EFUSE=n
++CONFIG_ROCKCHIP_EFUSE=n
++CONFIG_NVMEM_SUNXI_SID=n
++CONFIG_UNIPHIER_EFUSE=n
++CONFIG_MESON_EFUSE=n
++CONFIG_NVMEM_RMEM=n
++CONFIG_FPGA=n
++CONFIG_FPGA_MGR_STRATIX10_SOC=n
++CONFIG_FPGA_BRIDGE=n
++CONFIG_ALTERA_FREEZE_BRIDGE=n
++CONFIG_FPGA_REGION=n
++CONFIG_OF_FPGA_REGION=n
++CONFIG_INTERCONNECT_IMX=n
++CONFIG_INTERCONNECT_IMX8MQ=n
++CONFIG_INTERCONNECT_QCOM_MSM8996=n
++CONFIG_INTERCONNECT_QCOM_QCS404=n
++CONFIG_INTERCONNECT_QCOM_SC7180=n
++CONFIG_INTERCONNECT_QCOM_SM8150=n
++CONFIG_INTERCONNECT_QCOM_SM8250=n
++CONFIG_INTERCONNECT_QCOM_SM8350=n
++CONFIG_INTERCONNECT_QCOM_SM8450=n
++CONFIG_INTERCONNECT_QCOM_SC8280XP=n
++CONFIG_ARCH_BCMBCA=n
++CONFIG_ARCH_NPCM=n
++CONFIG_SERIAL_BCM63XX=n
++CONFIG_PINCTRL_SC8280XP=n
++CONFIG_SC_GCC_8280XP=n
++CONFIG_BCM_SBA_RAID=n
++CONFIG_DMA_ENGINE_RAID=n
++CONFIG_SENSORS_GPIO_FAN=n
++CONFIG_ARCH_BCM=n
++CONFIG_ARCH_NXP=n
++CONFIG_NET_VENDOR_ADI=n
++CONFIG_PINCTRL_SC8180X=n
++CONFIG_SND_SOC_SC7180=n
++CONFIG_SND_SOC_SC7280=n
++CONFIG_SND_SOC_ADAU7002=n
++CONFIG_SND_SOC_RT5682=n
++CONFIG_SND_SOC_RT5682_I2C=n
++CONFIG_SND_SOC_RT5682S=n
++CONFIG_MMC_SDHCI_OF_DWCMSHC=n
++CONFIG_CROS_TYPEC_SWITCH=n
++CONFIG_SC_GCC_8180X=n
++CONFIG_IOMMU_IO_PGTABLE_DART=n
++CONFIG_INTERCONNECT_QCOM_SC8180X=n
++CONFIG_MEMORY_HOTPLUG=n
++CONFIG_MELLANOX_PLATFORM=n
++CONFIG_CHROME_PLATFORMS=n
++CONFIG_PINCTRL_SM8150=n
++CONFIG_SM_GCC_8150=n
++CONFIG_SM_GPUCC_8150=n
++CONFIG_PINCTRL_SM8250=n
++CONFIG_PINCTRL_SM8250_LPASS_LPI=n
++CONFIG_SND_SOC_SM8250=n
++CONFIG_SM_CAMCC_8250=n
++CONFIG_SM_GCC_8250=n
++CONFIG_SM_GPUCC_8250=n
++CONFIG_SM_VIDEOCC_8250=n
++CONFIG_PINCTRL_SM8350=n
++CONFIG_SM_GCC_8350=n
++CONFIG_SM_DISPCC_8450=n
++CONFIG_SM_GCC_8450=n
++CONFIG_ARCH_SPARX5=n
++CONFIG_ARCH_MA35=n
++CONFIG_ARCH_REALTEK=n
++CONFIG_ARCH_STM32=n
++CONFIG_DRM_TIDSS=n
++CONFIG_DRM_POWERVR=n
++CONFIG_ARCH_AIROHA=n
++CONFIG_DRM_PANTHOR=n
+diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
+index e77a48b57..df9af8393 100644
+--- a/drivers/gpu/drm/panel/Kconfig
++++ b/drivers/gpu/drm/panel/Kconfig
+@@ -1430,4 +1430,15 @@ config DRM_PANEL_XINPENG_XPP055C272
+ 	  Say Y here if you want to enable support for the Xinpeng
+ 	  XPP055C272 controller for 720x1280 LCD panels with MIPI/RGB/SPI
+ 	  system interfaces.
++
++config DRM_PANEL_ONEPLUS_DODGE
++	tristate "OnePlus dodge panel driver"
++	depends on OF
++	depends on DRM_MIPI_DSI
++	depends on BACKLIGHT_CLASS_DEVICE
++	select DRM_DISPLAY_DP_HELPER
++	select DRM_DISPLAY_HELPER
++	help
++	  Say Y here if you want to enable support for the OnePlus screen
++
+ endmenu
+diff --git a/drivers/gpu/drm/panel/Makefile b/drivers/gpu/drm/panel/Makefile
+index 83beb2645..798d98339 100644
+--- a/drivers/gpu/drm/panel/Makefile
++++ b/drivers/gpu/drm/panel/Makefile
+@@ -138,3 +138,4 @@ obj-$(CONFIG_DRM_PANEL_VISIONOX_VTDR6130) += panel-visionox-vtdr6130.o
+ obj-$(CONFIG_DRM_PANEL_VISIONOX_R66451) += panel-visionox-r66451.o
+ obj-$(CONFIG_DRM_PANEL_WIDECHIPS_WS2401) += panel-widechips-ws2401.o
+ obj-$(CONFIG_DRM_PANEL_XINPENG_XPP055C272) += panel-xinpeng-xpp055c272.o
++obj-$(CONFIG_DRM_PANEL_ONEPLUS_DODGE) += panel-aa569-p-3-a0019-dsc.o
+diff --git a/drivers/gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c b/drivers/gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c
+new file mode 100644
+index 000000000..7d519bdc2
+--- /dev/null
++++ b/drivers/gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c
+@@ -0,0 +1,475 @@
++// SPDX-License-Identifier: GPL-2.0-only
++// Copyright (c) 2025 FIXME
++// Generated with linux-mdss-dsi-panel-driver-generator from vendor device tree:
++//   Copyright (c) 2013, The Linux Foundation. All rights reserved. (FIXME)
++
++#include <linux/backlight.h>
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++
++#include <drm/display/drm_dsc.h>
++#include <drm/display/drm_dsc_helper.h>
++#include <drm/drm_mipi_dsi.h>
++#include <drm/drm_modes.h>
++#include <drm/drm_panel.h>
++#include <drm/drm_probe_helper.h>
++
++struct panel_aa569_p_3_a0019_dsc {
++	struct drm_panel panel;
++	struct mipi_dsi_device *dsi;
++	struct drm_dsc_config dsc;
++	struct gpio_desc *reset_gpio;
++};
++
++static inline
++struct panel_aa569_p_3_a0019_dsc *to_panel_aa569_p_3_a0019_dsc(struct drm_panel *panel)
++{
++	return container_of(panel, struct panel_aa569_p_3_a0019_dsc, panel);
++}
++
++static void panel_aa569_p_3_a0019_dsc_reset(struct panel_aa569_p_3_a0019_dsc *ctx)
++{
++	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
++    msleep(10);
++    gpiod_set_value_cansleep(ctx->reset_gpio, 1);
++    msleep(5);
++    gpiod_set_value_cansleep(ctx->reset_gpio, 0);
++    msleep(30);
++	
++}
++
++static int panel_aa569_p_3_a0019_dsc_on(struct panel_aa569_p_3_a0019_dsc *ctx)
++{
++	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
++
++	ctx->dsi->mode_flags |= MIPI_DSI_MODE_LPM;
++
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x07);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x8a, 0x01);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x31);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xd0, 0x80);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x08);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xbe, 0x01);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x08);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xd2, 0x05);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xd3, 0x0f);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xd4, 0x40);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xf5, 0x55);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xf6, 0x18);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x21);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa4, 0x18);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x1f);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x8f,
++				     0x03, 0x08, 0x50, 0x0e, 0x01, 0x00, 0x00,
++				     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++				     0x00, 0x00, 0x02, 0x0e, 0x00, 0x00, 0x08,
++				     0x02, 0x00, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x05);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x9e, 0x77);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x14);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x80, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x17);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa0, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x13);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xf9, 0x5c);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x05);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x85, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x1c);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xe2,
++				     0x0a, 0x0a, 0x0a, 0x1a, 0x1a, 0x1a, 0x1a,
++				     0x1a, 0x0a, 0x0a, 0x0a, 0x04, 0x27, 0x12,
++				     0x23, 0x09, 0x46, 0x45);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x01);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xfb, 0x08);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x09);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x8e,
++				     0x10, 0x82, 0x00, 0x00, 0x00, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x02);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x88, 0xc0, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x14);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x82, 0x01);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x07);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x91, 0x03);
++	// Changes from downstream kernel
++	//mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x8a, 0x00);
++	//mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x8b, 0xa0, 0x21);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x81,
++				     0x00, 0x00, 0x00, 0x00, 0x00, 0x12, 0x00,
++				     0x00, 0xab, 0x21, 0x00, 0x0c, 0x60, 0x05,
++				     0xa0, 0x00, 0x16, 0x02, 0xd0, 0x02, 0xd0,
++				     0x01, 0x55, 0x01, 0xe2, 0x00, 0x0a, 0x01,
++				     0x4d, 0x00, 0x3c, 0x00, 0x0d, 0x04, 0xf4,
++				     0x13, 0xa3, 0x08, 0x00, 0x0c, 0x00, 0x07,
++				     0x10, 0x20, 0x00, 0x06, 0x0f, 0x0f, 0x33,
++				     0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54, 0x62,
++				     0x69, 0x70, 0x77, 0x79, 0x7b, 0x7d, 0x7e,
++				     0x00, 0x82, 0x11, 0x40, 0x19, 0xc0, 0x22,
++				     0x3e, 0x32, 0x7c, 0x3a, 0xba, 0x3a, 0xf8,
++				     0x3b, 0x38, 0x3b, 0x38, 0x3b, 0x76, 0x4b,
++				     0x76, 0x4b, 0x74, 0x4b, 0x74, 0x5b, 0xb4,
++				     0x73, 0xf4, 0x01, 0x00, 0x00, 0x00, 0x00,
++				     0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x5e, 0x01);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x60, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x61, 0x0d);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x6d, 0x01);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x35, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x53, 0x20);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x60, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x2d);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x83, 0x00, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xf2, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x02);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xb0, 0x01, 0x80, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x02);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x84, 0x01, 0x05);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x1e);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x98, 0x99, 0xaa, 0x99);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x99,
++				     0x88, 0x00, 0x00, 0x88, 0x00, 0x00, 0x88,
++				     0x00, 0x00, 0x08, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa3, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x1e);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x81, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x22);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xd8,
++				     0x01, 0x0c, 0x11, 0x10, 0x32, 0x19, 0x19);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xdc,
++				     0x84, 0x94, 0xbb, 0x00, 0x20, 0xc4, 0xa1,
++				     0xcc, 0x10);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xdd, 0x01);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xde, 0xf1);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xdf, 0x80);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xe0,
++				     0x02, 0x00, 0x5f, 0x21, 0x00, 0x28);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x2d);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xed, 0x05, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x97, 0x02);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x98, 0x03);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x99, 0x0b);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x9a, 0x17);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa0, 0x00, 0x02);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa1, 0x02, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa4, 0x02);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa5, 0x02);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa6, 0x08);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa7, 0x11);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xad, 0x00, 0x02);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xae, 0x02, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x08);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x98, 0x66);
++	mipi_dsi_dcs_exit_sleep_mode_multi(&dsi_ctx);
++	mipi_dsi_msleep(&dsi_ctx, 120);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x4f);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x80, 0x01);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x53);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xf0, 0x01);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x63);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xf8,
++				     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++				     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++				     0x00, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xf9,
++				     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++				     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++				     0x00, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xfa,
++				     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++				     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++				     0x00, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x53);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xf0, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x49);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xd9, 0x03);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xda, 0x1e);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xdb, 0xfc);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xdf, 0x06);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x5a);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x81, 0x07, 0x1a, 0x04);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x8a, 0xf6, 0x17, 0x12);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x8f, 0x12, 0x3a, 0x33);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa5, 0x09, 0x1a, 0x08);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xb3, 0x30, 0x38, 0x31);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xc9, 0x08, 0x0d, 0x06);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xca, 0x03, 0x06, 0x03);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xd7, 0x2f, 0x34, 0x2d);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x5b);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x81, 0x05, 0x09, 0x03);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x83, 0x02, 0x0c, 0x05);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x93, 0x00, 0x01, 0x07);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x94, 0x05, 0x06, 0x05);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa5, 0x09, 0x0c, 0x04);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa7, 0xfd, 0x0f, 0x04);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xb7, 0x02, 0x07, 0x07);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xb8, 0x05, 0x07, 0x06);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xc9, 0x05, 0x07, 0x02);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xca, 0x00, 0x00, 0x00);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xcb, 0x02, 0x09, 0xff);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xdb, 0x00, 0x04, 0x06);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xdc, 0x00, 0x06, 0x04);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x5c);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x81, 0x00, 0x03, 0x02);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x83, 0x01, 0x08, 0x05);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x93, 0xff, 0x01, 0x02);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x94, 0xff, 0x06, 0x04);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xa5, 0x01, 0x03, 0x02);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xb7, 0xff, 0x01, 0x06);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xb8, 0xff, 0x06, 0x03);
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
++	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
++
++	return dsi_ctx.accum_err;
++}
++
++static int panel_aa569_p_3_a0019_dsc_off(struct panel_aa569_p_3_a0019_dsc *ctx)
++{
++	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
++
++	ctx->dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
++
++	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0xff, 0x5a, 0xa5, 0x00);
++	mipi_dsi_dcs_set_display_off_multi(&dsi_ctx);
++	mipi_dsi_msleep(&dsi_ctx, 20);
++	mipi_dsi_dcs_enter_sleep_mode_multi(&dsi_ctx);
++	mipi_dsi_msleep(&dsi_ctx, 120);
++
++	return dsi_ctx.accum_err;
++}
++
++static int panel_aa569_p_3_a0019_dsc_prepare(struct drm_panel *panel)
++{
++	struct panel_aa569_p_3_a0019_dsc *ctx = to_panel_aa569_p_3_a0019_dsc(panel);
++	struct device *dev = &ctx->dsi->dev;
++	struct drm_dsc_picture_parameter_set pps;
++	int ret;
++
++	panel_aa569_p_3_a0019_dsc_reset(ctx);
++
++	ret = panel_aa569_p_3_a0019_dsc_on(ctx);
++	if (ret < 0) {
++		dev_err(dev, "Failed to initialize panel: %d\n", ret);
++		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
++		return ret;
++	}
++
++	drm_dsc_pps_payload_pack(&pps, &ctx->dsc);
++
++	ret = mipi_dsi_picture_parameter_set(ctx->dsi, &pps);
++	if (ret < 0) {
++		dev_err(panel->dev, "failed to transmit PPS: %d\n", ret);
++		return ret;
++	}
++
++	ret = mipi_dsi_compression_mode(ctx->dsi, true);
++	if (ret < 0) {
++		dev_err(dev, "failed to enable compression mode: %d\n", ret);
++		return ret;
++	}
++	
++
++	msleep(28); /* TODO: Is this panel-dependent? */
++
++	return 0;
++}
++
++static int panel_aa569_p_3_a0019_dsc_unprepare(struct drm_panel *panel)
++{
++	struct panel_aa569_p_3_a0019_dsc *ctx = to_panel_aa569_p_3_a0019_dsc(panel);
++	struct device *dev = &ctx->dsi->dev;
++	int ret;
++
++	ret = panel_aa569_p_3_a0019_dsc_off(ctx);
++	if (ret < 0)
++		dev_err(dev, "Failed to un-initialize panel: %d\n", ret);
++
++	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
++
++	return 0;
++}
++
++static const struct drm_display_mode panel_aa569_p_3_a0019_dsc_mode = {
++	.clock = (1440 + 64 + 8 + 50) * (3168 + 16 + 4 + 12) * 120 / 1000,
++	.hdisplay = 1440,
++	.hsync_start = 1440 + 64,
++	.hsync_end = 1440 + 64 + 8,
++	.htotal = 1440 + 64 + 8 + 50,
++	.vdisplay = 3168,
++	.vsync_start = 3168 + 16,
++	.vsync_end = 3168 + 16 + 4,
++	.vtotal = 3168 + 16 + 4 + 12,
++	.width_mm = 71,
++	.height_mm = 158,
++	.type = DRM_MODE_TYPE_DRIVER,
++};
++
++static int panel_aa569_p_3_a0019_dsc_get_modes(struct drm_panel *panel,
++					       struct drm_connector *connector)
++{
++	return drm_connector_helper_get_modes_fixed(connector, &panel_aa569_p_3_a0019_dsc_mode);
++}
++
++static const struct drm_panel_funcs panel_aa569_p_3_a0019_dsc_panel_funcs = {
++	.prepare = panel_aa569_p_3_a0019_dsc_prepare,
++	.unprepare = panel_aa569_p_3_a0019_dsc_unprepare,
++	.get_modes = panel_aa569_p_3_a0019_dsc_get_modes,
++};
++
++static int panel_aa569_p_3_a0019_dsc_bl_update_status(struct backlight_device *bl)
++{
++	struct mipi_dsi_device *dsi = bl_get_data(bl);
++	u16 brightness = backlight_get_brightness(bl);
++	int ret;
++
++	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
++
++	ret = mipi_dsi_dcs_set_display_brightness_large(dsi, brightness);
++	if (ret < 0)
++		return ret;
++
++	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
++
++	return 0;
++}
++
++
++static int panel_aa569_p_3_a0019_dsc_bl_get_brightness(struct backlight_device *bl)
++{
++	struct mipi_dsi_device *dsi = bl_get_data(bl);
++	u16 brightness;
++	int ret;
++
++	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
++
++	ret = mipi_dsi_dcs_get_display_brightness_large(dsi, &brightness);
++	if (ret < 0)
++		return ret;
++
++	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
++
++	return brightness;
++}
++
++static const struct backlight_ops panel_aa569_p_3_a0019_dsc_bl_ops = {
++	.update_status = panel_aa569_p_3_a0019_dsc_bl_update_status,
++	.get_brightness = panel_aa569_p_3_a0019_dsc_bl_get_brightness,
++};
++
++static struct backlight_device *
++panel_aa569_p_3_a0019_dsc_create_backlight(struct mipi_dsi_device *dsi)
++{
++	struct device *dev = &dsi->dev;
++	const struct backlight_properties props = {
++		.type = BACKLIGHT_RAW,
++		.brightness = 2047,
++		.max_brightness = 3502, // 15% cut to prevent burn in ( original value 4095 )
++	};
++
++	return devm_backlight_device_register(dev, dev_name(dev), dev, dsi,
++					      &panel_aa569_p_3_a0019_dsc_bl_ops, &props);
++}
++
++static int panel_aa569_p_3_a0019_dsc_probe(struct mipi_dsi_device *dsi)
++{
++	struct device *dev = &dsi->dev;
++	struct panel_aa569_p_3_a0019_dsc *ctx;
++	int ret;
++
++	ctx = devm_drm_panel_alloc(dev, struct panel_aa569_p_3_a0019_dsc, panel,
++				   &panel_aa569_p_3_a0019_dsc_panel_funcs,
++				   DRM_MODE_CONNECTOR_DSI);
++	if (IS_ERR(ctx))
++		return PTR_ERR(ctx);
++
++	ctx->reset_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
++	if (IS_ERR(ctx->reset_gpio))
++		return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
++				     "Failed to get reset-gpios\n");
++
++	ctx->dsi = dsi;
++	mipi_dsi_set_drvdata(dsi, ctx);
++
++	dsi->lanes = 4;
++	dsi->format = MIPI_DSI_FMT_RGB101010;
++	dsi->mode_flags = MIPI_DSI_MODE_VIDEO_BURST |
++			  MIPI_DSI_MODE_NO_EOT_PACKET |
++			  MIPI_DSI_CLOCK_NON_CONTINUOUS;
++
++	ctx->panel.prepare_prev_first = true;
++
++	ctx->panel.backlight = panel_aa569_p_3_a0019_dsc_create_backlight(dsi);
++	if (IS_ERR(ctx->panel.backlight))
++		return dev_err_probe(dev, PTR_ERR(ctx->panel.backlight),
++				     "Failed to create backlight\n");
++					 
++
++	drm_panel_add(&ctx->panel);
++
++	/* This panel only supports DSC; unconditionally enable it */
++	dsi->dsc = &ctx->dsc;
++
++	ctx->dsc.dsc_version_major = 1;
++	ctx->dsc.dsc_version_minor = 2;
++
++	ctx->dsc.slice_height = 22;
++	ctx->dsc.slice_width = 720;
++	ctx->dsi->dsc_slice_per_pkt = 1;
++	ctx->dsc.slice_count = 2;
++	ctx->dsc.convert_rgb = true;
++	ctx->dsc.bits_per_component = 10;
++	ctx->dsc.bits_per_pixel = 8 << 4; /* 4 fractional bits */
++	ctx->dsc.block_pred_enable = true;
++	
++
++	ret = mipi_dsi_attach(dsi);
++	if (ret < 0) {
++		drm_panel_remove(&ctx->panel);
++		return dev_err_probe(dev, ret, "Failed to attach to DSI host\n");
++	}
++
++	return 0;
++}
++
++
++static void panel_aa569_p_3_a0019_dsc_remove(struct mipi_dsi_device *dsi)
++{
++	struct panel_aa569_p_3_a0019_dsc *ctx = mipi_dsi_get_drvdata(dsi);
++	int ret;
++
++	ret = mipi_dsi_detach(dsi);
++	if (ret < 0)
++		dev_err(&dsi->dev, "Failed to detach from DSI host: %d\n", ret);
++
++	drm_panel_remove(&ctx->panel);
++}
++
++static const struct of_device_id panel_aa569_p_3_a0019_dsc_of_match[] = {
++	{ .compatible = "oneplus,dodge-panel" }, // FIXME
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, panel_aa569_p_3_a0019_dsc_of_match);
++
++static struct mipi_dsi_driver panel_aa569_p_3_a0019_dsc_driver = {
++	.probe = panel_aa569_p_3_a0019_dsc_probe,
++	.remove = panel_aa569_p_3_a0019_dsc_remove,
++	.driver = {
++		.name = "panel-panel-aa569-p-3-a0019-dsc",
++		.of_match_table = panel_aa569_p_3_a0019_dsc_of_match,
++	},
++};
++module_mipi_dsi_driver(panel_aa569_p_3_a0019_dsc_driver);
++
++MODULE_AUTHOR("linux-mdss-dsi-panel-driver-generator <fix@me>"); // FIXME
++MODULE_DESCRIPTION("DRM driver for AA569 P 3 A0019 dsc cmd mode panel");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/input/touchscreen/Kconfig b/drivers/input/touchscreen/Kconfig
+index 10f4ddb2c..d9b408851 100644
+--- a/drivers/input/touchscreen/Kconfig
++++ b/drivers/input/touchscreen/Kconfig
+@@ -1429,4 +1429,16 @@ config TOUCHSCREEN_HIMAX_HX83112B
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called himax_hx83112b.
+ 
++config TOUCHSCREEN_SYNA_TCM2
++	tristate "Synaptics TCM touchscreen"
++	depends on I2C
++	select REGMAP_I2C
++	help
++	  Say Y here if you have a Synaptics TCM touchscreen connected
++	  to your system.
++
++	  If unsure, say N.
++
++	  To compile this driver as a module, choose M here.
++
+ endif
+diff --git a/drivers/input/touchscreen/Makefile b/drivers/input/touchscreen/Makefile
+index db500698e..8f9f3f730 100644
+--- a/drivers/input/touchscreen/Makefile
++++ b/drivers/input/touchscreen/Makefile
+@@ -120,3 +120,6 @@ obj-$(CONFIG_TOUCHSCREEN_IQS5XX)	+= iqs5xx.o
+ obj-$(CONFIG_TOUCHSCREEN_IQS7211)	+= iqs7211.o
+ obj-$(CONFIG_TOUCHSCREEN_ZINITIX)	+= zinitix.o
+ obj-$(CONFIG_TOUCHSCREEN_HIMAX_HX83112B)	+= himax_hx83112b.o
++syna_tcm2-y := syna_tcm2.o
++syna_tcm2-y += syna_tcm2_spi.o
++obj-$(CONFIG_TOUCHSCREEN_SYNA_TCM2) += syna_tcm2.o
+diff --git a/drivers/input/touchscreen/syna_tcm2.c b/drivers/input/touchscreen/syna_tcm2.c
+new file mode 100644
+index 000000000..4255bb72b
+--- /dev/null
++++ b/drivers/input/touchscreen/syna_tcm2.c
+@@ -0,0 +1,2382 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Synaptics TouchCom touchscreen driver
++ *
++ * Copyright (C) 2017-2020 Synaptics Incorporated. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
++ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
++ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
++ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
++ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
++ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
++ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
++ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION DOES
++ * NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES, SYNAPTICS'
++ * TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT EXCEED ONE HUNDRED U.S.
++ * DOLLARS.
++ */
++
++#include "syna_tcm2.h"
++#include <linux/sched/signal.h>
++#include <linux/wait.h>
++
++static DECLARE_WAIT_QUEUE_HEAD(state_waiter);
++
++extern struct platform_device *syna_spi_device;
++
++static void syna_dev_free_input_events(struct syna_tcm *tcm)
++{
++	struct input_dev *input_dev = tcm->input_dev;
++	unsigned int idx;
++	if (input_dev == NULL)
++		return;
++	syna_pal_mutex_lock(&tcm->tp_event_mutex);
++	for (idx = 0; idx < MAX_NUM_OBJECTS; idx++) {
++		input_mt_slot(input_dev, idx);
++		input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, 0);
++	}
++	input_report_key(input_dev, BTN_TOUCH, 0);
++	input_report_key(input_dev, BTN_TOOL_FINGER, 0);
++	input_sync(input_dev);
++	syna_pal_mutex_unlock(&tcm->tp_event_mutex);
++
++}
++
++static void syna_dev_report_input_events(struct syna_tcm *tcm)
++{
++	unsigned int idx;
++	unsigned int x;
++	unsigned int y;
++	int wx;
++	int wy;
++	unsigned int status;
++	unsigned int touch_count;
++	struct input_dev *input_dev = tcm->input_dev;
++	unsigned int max_objects = tcm->tcm_dev->max_objects;
++	struct tcm_touch_data_blob *touch_data;
++	struct tcm_objects_data_blob *object_data;
++	if (input_dev == NULL)
++		return;
++	syna_pal_mutex_lock(&tcm->tp_event_mutex);
++	touch_data = &tcm->tp_data;
++	object_data = &tcm->tp_data.object_data[0];
++
++	if (tcm->pwr_state == LOW_PWR)
++		goto exit;
++	touch_count = 0;
++	for (idx = 0; idx < max_objects; idx++) {
++		if (tcm->prev_obj_status[idx] == LIFT &&
++				object_data[idx].status == LIFT)
++			status = NOP;
++		else
++			status = object_data[idx].status;
++
++		switch (status) {
++		case LIFT:
++			input_mt_slot(input_dev, idx);
++			input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, 0);
++			break;
++		case FINGER:
++		case GLOVED_OBJECT:
++			x = object_data[idx].x_pos;
++			y = object_data[idx].y_pos;
++			wx = object_data[idx].x_width;
++			wy = object_data[idx].y_width;
++			input_mt_slot(input_dev, idx);
++			input_mt_report_slot_state(input_dev, MT_TOOL_FINGER, 1);
++			input_report_key(input_dev, BTN_TOUCH, 1);
++			input_report_key(input_dev, BTN_TOOL_FINGER, 1);
++			if (tcm->dts_max_x && tcm->dts_max_y) {
++				input_report_abs(input_dev, ABS_MT_POSITION_X, x * tcm->dts_max_x / tcm->firmware_max_x);
++				input_report_abs(input_dev, ABS_MT_POSITION_Y, y * tcm->dts_max_y / tcm->firmware_max_y);
++			} else {
++				input_report_abs(input_dev, ABS_MT_POSITION_X, x);
++				input_report_abs(input_dev, ABS_MT_POSITION_Y, y);
++			}
++			input_report_abs(input_dev, ABS_MT_TOUCH_MAJOR, MAX(wx, wy));
++			input_report_abs(input_dev, ABS_MT_TOUCH_MINOR, MIN(wx, wy));
++			touch_count++;
++			break;
++		default:
++			break;
++		}
++		tcm->prev_obj_status[idx] = object_data[idx].status;
++	}
++	if (touch_count == 0) {
++		input_report_key(input_dev, BTN_TOUCH, 0);
++		input_report_key(input_dev, BTN_TOOL_FINGER, 0);
++	}
++	input_sync(input_dev);
++exit:
++	syna_pal_mutex_unlock(&tcm->tp_event_mutex);
++}
++
++static int syna_dev_create_input_device(struct syna_tcm *tcm)
++{
++	int retval = 0;
++	struct tcm_dev *tcm_dev = tcm->tcm_dev;
++	struct input_dev *input_dev = NULL;
++	input_dev = input_allocate_device();
++	if (input_dev == NULL)
++		return -ENODEV;
++	input_dev->name = TOUCH_INPUT_NAME;
++	input_dev->phys = TOUCH_INPUT_PHYS_PATH;
++	input_dev->id.product = SYNAPTICS_TCM_DRIVER_ID;
++	input_dev->id.version = SYNAPTICS_TCM_DRIVER_VERSION;
++	input_dev->dev.parent = tcm->pdev->dev.parent;
++	input_set_drvdata(input_dev, tcm);
++	set_bit(EV_SYN, input_dev->evbit);
++	set_bit(EV_KEY, input_dev->evbit);
++	set_bit(EV_ABS, input_dev->evbit);
++	set_bit(ABS_MT_TOUCH_MAJOR, input_dev->absbit);
++	set_bit(ABS_MT_POSITION_X, input_dev->absbit);
++	set_bit(ABS_MT_POSITION_Y, input_dev->absbit);
++	set_bit(ABS_MT_TOOL_TYPE, input_dev->absbit);
++	set_bit(BTN_TOUCH, input_dev->keybit);
++	set_bit(BTN_TOOL_FINGER, input_dev->keybit);
++#ifdef INPUT_PROP_DIRECT
++	set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
++#endif
++	set_bit(KEY_SLEEP, input_dev->keybit);
++	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0, tcm_dev->max_x, 0, 0);
++	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0, tcm_dev->max_y, 0, 0);
++	input_mt_init_slots(input_dev, tcm_dev->max_objects, INPUT_MT_DIRECT);
++	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
++	input_set_abs_params(input_dev, ABS_MT_TOUCH_MINOR, 0, 255, 0, 0);
++	input_set_abs_params(input_dev, ABS_PROFILE, 0, 1, 0, 0);
++	tcm->input_dev_params.max_x = tcm_dev->max_x;
++	tcm->input_dev_params.max_y = tcm_dev->max_y;
++	tcm->input_dev_params.max_objects = tcm_dev->max_objects;
++
++	retval = input_register_device(input_dev);
++	if (retval < 0) {
++		input_free_device(input_dev);
++		input_dev = NULL;
++		return retval;
++	}
++
++	tcm->input_dev = input_dev;
++
++	return 0;
++}
++
++static void syna_dev_release_input_device(struct syna_tcm *tcm)
++{
++	if (!tcm->input_dev)
++		return;
++	input_unregister_device(tcm->input_dev);
++	tcm->input_dev = NULL;
++}
++
++static int syna_dev_set_up_input_device(struct syna_tcm *tcm)
++{
++	int retval = 0;
++	if (IS_NOT_APP_FW_MODE(tcm->tcm_dev->dev_mode))
++		return 0;
++	syna_dev_free_input_events(tcm);
++	syna_pal_mutex_lock(&tcm->tp_event_mutex);
++	if (tcm->input_dev != NULL)
++		syna_dev_release_input_device(tcm);
++	retval = syna_dev_create_input_device(tcm);
++	if (retval < 0)
++		goto exit;
++
++exit:
++	syna_pal_mutex_unlock(&tcm->tp_event_mutex);
++	return retval;
++}
++
++int syna_tcm_get_touch_data(const unsigned char *report,
++		unsigned int report_size, unsigned int offset,
++		unsigned int bits, unsigned int *data)
++{
++	unsigned char mask;
++	unsigned char byte_data;
++	unsigned int output_data;
++	unsigned int bit_offset;
++	unsigned int byte_offset;
++	unsigned int data_bits;
++	unsigned int available_bits;
++	unsigned int remaining_bits;
++
++	if (bits == 0 || bits > 32 || !report)
++		return _EINVAL;
++
++	if (offset + bits > report_size * 8) {
++		*data = 0;
++		return 0;
++	}
++
++	output_data = 0;
++	remaining_bits = bits;
++
++	bit_offset = offset % 8;
++	byte_offset = offset / 8;
++
++	while (remaining_bits) {
++		byte_data = report[byte_offset];
++		byte_data >>= bit_offset;
++
++		available_bits = 8 - bit_offset;
++		data_bits = MIN(available_bits, remaining_bits);
++		mask = 0xff >> (8 - data_bits);
++
++		byte_data &= mask;
++
++		output_data |= byte_data << (bits - remaining_bits);
++
++		bit_offset = 0;
++		byte_offset += 1;
++		remaining_bits -= data_bits;
++	}
++
++	*data = output_data;
++
++	return 0;
++}
++
++int syna_tcm_get_event_data(struct tcm_dev *tcm_dev,
++		unsigned char *code, struct tcm_buffer *data)
++{
++	int retval = 0;
++
++	if (!tcm_dev || !code)
++		return _EINVAL;
++
++	retval = tcm_dev->read_message(tcm_dev,
++			code);
++	if (retval < 0)
++		return retval;
++
++	if (!data)
++		goto exit;
++
++	if (*code >= REPORT_IDENTIFY && *code != STATUS_INVALID) {
++		if (tcm_dev->report_buf.data_length == 0)
++			goto exit;
++
++		syna_tcm_buf_lock(&tcm_dev->report_buf);
++
++		retval = syna_tcm_buf_copy(data, &tcm_dev->report_buf);
++		if (retval < 0) {
++			syna_tcm_buf_unlock(&tcm_dev->report_buf);
++			goto exit;
++		}
++
++		syna_tcm_buf_unlock(&tcm_dev->report_buf);
++	}
++
++	if (*code > STATUS_IDLE && *code <= STATUS_ERROR) {
++		if (tcm_dev->resp_buf.data_length == 0)
++			goto exit;
++
++		syna_tcm_buf_lock(&tcm_dev->resp_buf);
++
++		retval = syna_tcm_buf_copy(data, &tcm_dev->resp_buf);
++		if (retval < 0) {
++			syna_tcm_buf_unlock(&tcm_dev->resp_buf);
++			goto exit;
++		}
++
++		syna_tcm_buf_unlock(&tcm_dev->resp_buf);
++	}
++
++exit:
++	return retval;
++}
++
++static int syna_tcm_get_gesture_data(const unsigned char *report,
++		unsigned int report_size, unsigned int offset,
++		unsigned int bits, struct tcm_gesture_data_blob *gesture_data,
++		unsigned int gesture_id)
++{
++	int retval;
++	unsigned int idx;
++	unsigned int data;
++	unsigned int size;
++	unsigned int data_end;
++
++	if (!report)
++		return _EINVAL;
++
++	if (offset + bits > report_size * 8)
++		return 0;
++
++	data_end = offset + bits;
++
++	size = (sizeof(gesture_data->data) / sizeof(unsigned char));
++
++	idx = 0;
++	while (offset < data_end && idx < size) {
++		retval = syna_tcm_get_touch_data(report, report_size, offset, 16, &data);
++		if (retval < 0) 
++			return retval;
++		gesture_data->data[idx++] = (unsigned char)(data & 0xff);
++		gesture_data->data[idx++] = (unsigned char)((data >> 8) & 0xff);
++		offset += 16;
++	}
++
++	return 0;
++}
++
++int syna_tcm_parse_touch_report(struct tcm_dev *tcm_dev,
++		unsigned char *report, unsigned int report_size,
++		struct tcm_touch_data_blob *touch_data)
++{
++	int retval;
++	bool active_only;
++	bool num_of_active_objects;
++	unsigned char code;
++	unsigned int size;
++	unsigned int idx;
++	unsigned int obj;
++	unsigned int next;
++	unsigned int data;
++	unsigned int bits;
++	unsigned int offset;
++	unsigned int objects;
++	unsigned int active_objects;
++	unsigned int config_size;
++	unsigned char *config_data;
++	struct tcm_objects_data_blob *object_data;
++	static unsigned int end_of_foreach;
++
++	if (!tcm_dev || !report || report_size <= 0 || !touch_data || tcm_dev->max_objects == 0)
++		return _EINVAL;
++
++	object_data = touch_data->object_data;
++
++	if (!object_data)
++		return _EINVAL;
++
++	config_data = tcm_dev->touch_config.buf;
++	config_size = tcm_dev->touch_config.data_length;
++
++	if (!config_data || config_size == 0)
++		return _EINVAL;
++
++	size = sizeof(touch_data->object_data);
++	memset(touch_data->object_data, 0x00, size);
++
++	num_of_active_objects = false;
++
++	idx = 0;
++	offset = 0;
++	objects = 0;
++	active_objects = 0;
++	active_only = false;
++	obj = 0;
++	next = 0;
++
++	while (idx < config_size) {
++		code = config_data[idx++];
++		switch (code) {
++		case TOUCH_REPORT_END:
++			goto exit;
++		case TOUCH_REPORT_FOREACH_ACTIVE_OBJECT:
++			obj = 0;
++			next = idx;
++			active_only = true;
++			break;
++		case TOUCH_REPORT_FOREACH_OBJECT:
++			obj = 0;
++			next = idx;
++			active_only = false;
++			break;
++		case TOUCH_REPORT_FOREACH_END:
++			end_of_foreach = idx;
++			if (active_only) {
++				if (num_of_active_objects) {
++					objects++;
++					obj++;
++					if (objects < active_objects)
++						idx = next;
++				} else if (offset < report_size * 8) {
++					obj++;
++					idx = next;
++				}
++			} else {
++				obj++;
++				if (obj < tcm_dev->max_objects)
++					idx = next;
++			}
++			break;
++		case TOUCH_REPORT_PAD_TO_NEXT_BYTE:
++			offset = syna_pal_ceil_div(offset, 8) * 8;
++			break;
++		case TOUCH_REPORT_TIMESTAMP:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			touch_data->timestamp = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_OBJECT_N_INDEX:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			obj = data;
++			touch_data->obji = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_OBJECT_N_CLASSIFICATION:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			object_data[obj].status = (unsigned char)data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_OBJECT_N_X_POSITION:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			object_data[obj].x_pos = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_OBJECT_N_Y_POSITION:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			object_data[obj].y_pos = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_OBJECT_N_Z:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			object_data[obj].z = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_OBJECT_N_X_WIDTH:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			object_data[obj].x_width = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_OBJECT_N_Y_WIDTH:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			object_data[obj].y_width = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_OBJECT_N_TX_POSITION_TIXELS:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			object_data[obj].tx_pos = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_OBJECT_N_RX_POSITION_TIXELS:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			object_data[obj].rx_pos = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_NUM_OF_ACTIVE_OBJECTS:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			active_objects = data;
++			num_of_active_objects = true;
++			touch_data->num_of_active_objects = data;
++			offset += bits;
++			if (touch_data->num_of_active_objects == 0) {
++				if (end_of_foreach == 0)
++					return 0;
++
++				idx = end_of_foreach;
++			}
++			break;
++		case TOUCH_REPORT_0D_BUTTONS_STATE:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			touch_data->buttons_state = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_GESTURE_ID:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report,
++				report_size, offset, bits, &data);
++			touch_data->gesture_id = data;
++			offset += bits;
++			if (retval < 0)
++				return retval;
++			break;
++		case TOUCH_REPORT_GESTURE_DATA:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_gesture_data(report,
++					report_size,
++					offset, bits,
++					&touch_data->gesture_data,
++					touch_data->gesture_id);
++			offset += bits;
++			if (retval < 0)
++				return retval;
++			break;
++		case TOUCH_REPORT_FRAME_RATE:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			touch_data->frame_rate = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_FORCE_MEASUREMENT:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			touch_data->force_data = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_POWER_IM:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			touch_data->power_im = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_CID_IM:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			touch_data->cid_im = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_RAIL_IM:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			touch_data->rail_im = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_CID_VARIANCE_IM:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			touch_data->cid_variance_im = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_NSM_FREQUENCY_INDEX:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			touch_data->nsm_frequency = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_NSM_STATE:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			touch_data->nsm_state = data;
++			offset += bits;
++			break;
++		case TOUCH_REPORT_SENSING_MODE:
++			bits = config_data[idx++];
++			retval = syna_tcm_get_touch_data(report, report_size,
++					offset, bits, &data);
++			if (retval < 0)
++				return retval;
++			touch_data->sensing_mode = data;
++			offset += bits;
++			break;
++		default:
++			bits = config_data[idx++];
++			offset += bits;
++			break;
++		}
++	}
++
++exit:
++	return 0;
++}
++
++static irqreturn_t syna_dev_isr(int irq, void *data)
++{
++	int retval;
++	unsigned char code = 0;
++	struct syna_tcm *tcm = data;
++	struct syna_hw_attn_data *attn = &tcm->hw_if->bdata_attn;
++
++	if (unlikely(gpio_get_value(attn->irq_gpio) != attn->irq_on_state))
++		goto exit;
++
++	tcm->isr_pid = current->pid;
++	
++	retval = syna_tcm_get_event_data(tcm->tcm_dev,
++			&code,
++			&tcm->event_data);
++	if (retval < 0)
++		goto exit;
++
++	if (code == REPORT_TOUCH) {
++		retval = syna_tcm_parse_touch_report(tcm->tcm_dev,
++				tcm->event_data.buf,
++				tcm->event_data.data_length,
++				&tcm->tp_data);
++		if (retval < 0)
++			goto exit;
++		syna_dev_report_input_events(tcm);
++	}
++
++exit:
++	return IRQ_HANDLED;
++}
++
++static int syna_dev_request_irq(struct syna_tcm *tcm)
++{
++	int retval;
++	struct syna_hw_attn_data *attn = &tcm->hw_if->bdata_attn;
++
++	if (attn->irq_gpio < 0) {
++		retval = -EINVAL;
++		goto exit;
++	}
++
++	attn->irq_id = gpio_to_irq(attn->irq_gpio);
++	retval = request_threaded_irq(attn->irq_id,
++			NULL,
++			syna_dev_isr,
++			attn->irq_flags | IRQF_ONESHOT,
++			PLATFORM_DRIVER_NAME,
++			tcm);
++	if (retval < 0)
++		goto exit;
++
++	attn->irq_enabled = true;
++	tcm->bus_ready = true;
++
++exit:
++	return retval;
++}
++
++static void syna_dev_release_irq(struct syna_tcm *tcm)
++{
++	struct syna_hw_attn_data *attn = &tcm->hw_if->bdata_attn;
++
++	if (attn->irq_id <= 0)
++		return;
++
++	if (tcm->hw_if->ops_enable_irq)
++		tcm->hw_if->ops_enable_irq(tcm->hw_if, false);
++
++	free_irq(attn->irq_id, tcm);
++
++	attn->irq_id = 0;
++	attn->irq_enabled = false;
++}
++
++int syna_tcm_preserve_touch_report_config(struct tcm_dev *tcm_dev)
++{
++	int retval = 0;
++	unsigned char resp_code;
++	unsigned int size = 0;
++
++	if (!tcm_dev || IS_NOT_APP_FW_MODE(tcm_dev->dev_mode))
++		return _EINVAL;
++
++	retval = tcm_dev->write_message(tcm_dev,
++			CMD_GET_TOUCH_REPORT_CONFIG,
++			NULL,
++			0,
++			&resp_code,
++			tcm_dev->msg_data.default_resp_reading);
++	if (retval < 0)
++		goto exit;
++
++	syna_tcm_buf_lock(&tcm_dev->resp_buf);
++
++	size = tcm_dev->resp_buf.data_length;
++	retval = syna_tcm_buf_alloc(&tcm_dev->touch_config,
++			size);
++	if (retval < 0) {
++		syna_tcm_buf_unlock(&tcm_dev->resp_buf);
++		goto exit;
++	}
++
++	syna_tcm_buf_lock(&tcm_dev->touch_config);
++
++	retval = syna_pal_mem_cpy(tcm_dev->touch_config.buf,
++			tcm_dev->touch_config.buf_size,
++			tcm_dev->resp_buf.buf,
++			tcm_dev->resp_buf.buf_size,
++			size);
++	if (retval < 0) {
++		syna_tcm_buf_unlock(&tcm_dev->touch_config);
++		syna_tcm_buf_unlock(&tcm_dev->resp_buf);
++		goto exit;
++	}
++
++	tcm_dev->touch_config.data_length = size;
++
++	syna_tcm_buf_unlock(&tcm_dev->touch_config);
++	syna_tcm_buf_unlock(&tcm_dev->resp_buf);
++
++exit:
++	return retval;
++}
++
++int syna_tcm_get_app_info(struct tcm_dev *tcm_dev,
++		struct tcm_application_info *app_info)
++{
++	int retval = 0;
++	unsigned char resp_code;
++	unsigned int app_status;
++	unsigned int resp_data_len = 0;
++	unsigned int copy_size;
++	struct tcm_application_info *info;
++
++	if (!tcm_dev)
++		return _EINVAL;
++
++	if (IS_NOT_APP_FW_MODE(tcm_dev->dev_mode))
++		return _EINVAL;
++
++	retval = tcm_dev->write_message(tcm_dev,
++			CMD_GET_APPLICATION_INFO,
++			NULL,
++			0,
++			&resp_code,
++			tcm_dev->msg_data.default_resp_reading);
++	if (retval < 0)
++		goto exit;
++
++	resp_data_len = tcm_dev->resp_buf.data_length;
++	copy_size = MIN(sizeof(tcm_dev->app_info), resp_data_len);
++
++	info = &tcm_dev->app_info;
++
++	retval = syna_pal_mem_cpy((unsigned char *)info,
++			sizeof(struct tcm_application_info),
++			tcm_dev->resp_buf.buf,
++			tcm_dev->resp_buf.buf_size,
++			copy_size);
++	if (retval < 0)
++		goto exit;
++
++	if (app_info == NULL)
++		goto show_info;
++
++	retval = syna_pal_mem_cpy((unsigned char *)app_info,
++			sizeof(struct tcm_application_info),
++			tcm_dev->resp_buf.buf,
++			tcm_dev->resp_buf.buf_size,
++			copy_size);
++	if (retval < 0)
++		goto exit;
++
++show_info:
++	app_status = syna_pal_le2_to_uint(tcm_dev->app_info.status);
++
++	if (app_status == APP_STATUS_BAD_APP_CONFIG) {
++		retval = _ENODEV;
++		goto exit;
++	} else if (app_status != APP_STATUS_OK) {
++		retval = _ENODEV;
++		goto exit;
++	}
++
++	tcm_dev->max_objects = syna_pal_le2_to_uint(info->max_objects);
++	tcm_dev->max_x = syna_pal_le2_to_uint(info->max_x);
++	tcm_dev->max_y = syna_pal_le2_to_uint(info->max_y);
++
++	tcm_dev->cols = syna_pal_le2_to_uint(info->num_of_image_cols);
++	tcm_dev->rows = syna_pal_le2_to_uint(info->num_of_image_rows);
++	syna_pal_mem_cpy((unsigned char *)tcm_dev->config_id,
++			MAX_SIZE_CONFIG_ID,
++			info->customer_config_id,
++			MAX_SIZE_CONFIG_ID,
++			MAX_SIZE_CONFIG_ID);
++
++exit:
++	return retval;
++}
++
++static int syna_dev_set_up_app_fw(struct syna_tcm *tcm)
++{
++	int retval = 0;
++	struct tcm_dev *tcm_dev = tcm->tcm_dev;
++
++	if (IS_NOT_APP_FW_MODE(tcm_dev->dev_mode))
++		return -EINVAL;
++	
++	retval = syna_tcm_get_app_info(tcm_dev, &tcm_dev->app_info);
++	if (retval < 0)
++			return -EIO;
++	if (tcm->dts_max_x && tcm->dts_max_y) {
++		tcm->firmware_max_x = tcm_dev->max_x;
++		tcm->firmware_max_y = tcm_dev->max_y;
++		tcm_dev->max_x = tcm->dts_max_x;
++		tcm_dev->max_y = tcm->dts_max_y;
++	}
++	retval = syna_tcm_preserve_touch_report_config(tcm_dev);
++	if (retval < 0)
++		return -EIO;
++
++	return retval;
++}
++
++int syna_tcm_sleep(struct tcm_dev *tcm_dev, bool en)
++{
++	int retval = 0;
++	unsigned char resp_code;
++	unsigned char command;
++
++	if (!tcm_dev)
++		return _EINVAL;
++
++	command = (en) ? CMD_ENTER_DEEP_SLEEP : CMD_EXIT_DEEP_SLEEP;
++
++	retval = tcm_dev->write_message(tcm_dev,
++			command,
++			NULL,
++			0,
++			&resp_code,
++			tcm_dev->msg_data.default_resp_reading);
++	if (retval < 0)
++		goto exit;
++
++	tcm_dev->is_sleep = en;
++	retval = 0;
++exit:
++	return retval;
++}
++
++static int syna_dev_enter_normal_sensing(struct syna_tcm *tcm)
++{
++	int retval = 0;
++
++	if (!tcm)
++		return -EINVAL;
++
++	retval = syna_tcm_sleep(tcm->tcm_dev, false);
++	if (retval < 0)
++		return retval;
++
++	return 0;
++}
++
++static int syna_dev_resume(struct device *dev)
++{
++	struct syna_tcm *tcm = dev_get_drvdata(dev);
++	queue_work(tcm->speedup_resume_wq, &tcm->speed_up_work);
++	return 0;
++}
++
++static void syna_speedup_resume(struct work_struct *work)
++{
++	struct syna_tcm *tcm = container_of(work, struct syna_tcm,
++				     speed_up_work);
++	int retval;
++	struct syna_hw_interface *hw_if = tcm->hw_if;
++	bool irq_enabled = true;
++
++	if (tcm->pwr_state == PWR_ON) {
++		tcm->sub_pwr_state = SUB_PWR_RESUME_DONE;
++		return;
++	}
++	mutex_lock(&tcm->mutex);
++
++	if (IS_REMOVE == tcm->driver_current_state) {
++		mutex_unlock(&tcm->mutex);
++		return;
++	};
++
++	tcm->sub_pwr_state = SUB_PWR_RESUMING;
++
++	irq_enabled = (!hw_if->bdata_attn.irq_enabled);
++
++	if (irq_enabled && (hw_if->ops_enable_irq))
++		hw_if->ops_enable_irq(hw_if, true);
++	
++	retval = syna_dev_enter_normal_sensing(tcm);
++	if (retval < 0)
++		goto exit;
++	
++	tcm->pwr_state = PWR_ON;
++
++	retval = syna_dev_set_up_app_fw(tcm);
++	if (retval < 0)
++		goto exit;
++
++	retval = 0;
++
++exit:
++	tcm->sub_pwr_state = SUB_PWR_RESUME_DONE;
++	tcm->slept_in_early_suspend = false;
++
++	mutex_unlock(&tcm->mutex);
++}
++
++static int syna_dev_suspend(struct device *dev)
++{
++	struct syna_tcm *tcm = dev_get_drvdata(dev);
++	struct syna_hw_interface *hw_if = tcm->hw_if;
++	struct touchpanel_event event_data;
++	bool irq_disabled = true;
++
++	if (tcm->pwr_state != PWR_ON)
++		return 0;
++	mutex_lock(&tcm->mutex);
++
++	if (IS_REMOVE == tcm->driver_current_state) {
++		mutex_unlock(&tcm->mutex);
++		return -EINVAL;
++	};
++
++	tcm->sub_pwr_state = SUB_PWR_SUSPENDING;
++	syna_dev_free_input_events(tcm);
++	tcm->pwr_state = PWR_OFF;
++	memset(&event_data, 0, sizeof(struct touchpanel_event));
++	irq_disabled = (!tcm->lpwg_enabled);
++
++	if (irq_disabled && (hw_if->ops_enable_irq))
++		hw_if->ops_enable_irq(hw_if, false);
++
++	tcm->sub_pwr_state = SUB_PWR_SUSPEND_DONE;
++	mutex_unlock(&tcm->mutex);
++
++	return 0;
++}
++
++static int syna_dev_disconnect(struct syna_tcm *tcm)
++{
++	struct syna_hw_interface *hw_if = tcm->hw_if;
++	int ret = 0;
++
++	if (tcm->is_connected == false)
++		return 0;
++
++	cancel_delayed_work_sync(&tcm->reflash_work);
++
++	if (hw_if->bdata_attn.irq_id)
++		syna_dev_release_irq(tcm);
++
++	if (hw_if->bdata_rst.reset_gpio >= 0) {
++		ret = gpio_direction_output(hw_if->bdata_rst.reset_gpio, 0);
++		if (ret)
++			return -EINVAL;
++	}
++
++	syna_dev_release_input_device(tcm);
++
++	tcm->input_dev_params.max_x = 0;
++	tcm->input_dev_params.max_y = 0;
++	tcm->input_dev_params.max_objects = 0;
++
++	if (hw_if->ops_power_on)
++		hw_if->ops_power_on(hw_if, false);
++
++	tcm->pwr_state = PWR_OFF;
++	tcm->is_connected = false;
++
++	return 0;
++}
++
++static int syna_tcm_v1_read(struct tcm_dev *tcm_dev, unsigned int rd_length,
++		unsigned char *buf, unsigned int buf_size, bool extra_crc)
++{
++	int retval;
++	unsigned int max_rd_size;
++	int retry;
++
++	if (!tcm_dev || IS_ERR_OR_NULL(buf) || rd_length > buf_size)
++		return _EINVAL;
++
++	if (rd_length == 0)
++		return 0;
++
++	max_rd_size = tcm_dev->max_rd_size;
++
++	if (max_rd_size != 0 && rd_length > max_rd_size) {
++		return _EINVAL;
++	}
++
++	for (retry = 0; retry < 10; retry++) {
++		retval = syna_tcm_read(tcm_dev,
++				buf,
++				rd_length);
++		if (retval < 0)
++			goto exit;
++
++		if (buf[0] == TCM_V1_MESSAGE_MARKER)
++			break;
++
++		retval = _EIO;
++		usleep_range(RD_RETRY_US_MIN, RD_RETRY_US_MAX);
++	}
++
++exit:
++	return retval;
++}
++
++static int syna_tcm_v1_continued_read(struct tcm_dev *tcm_dev,
++		unsigned int length)
++{
++	int retval = 0;
++	unsigned char code;
++	unsigned int idx;
++	unsigned int offset;
++	unsigned int chunks;
++	unsigned int chunk_space;
++	unsigned int xfer_length;
++	unsigned int total_length;
++	unsigned int remaining_length;
++	struct tcm_message_data_blob *tcm_msg = NULL;
++	bool last = false;
++
++	if (!tcm_dev)
++		return _EINVAL;
++
++	tcm_msg = &tcm_dev->msg_data;
++
++	if (length == 0 || tcm_msg->payload_length == 0)
++		return 0;
++
++	if ((length & 0xffff) == 0xffff)
++		return _EINVAL;
++
++	total_length = MESSAGE_HEADER_SIZE + tcm_msg->payload_length + 1;
++	remaining_length = length + 1;
++
++	if (tcm_msg->has_crc) {
++		total_length += TCM_MSG_CRC_LENGTH;
++		remaining_length += TCM_MSG_CRC_LENGTH;
++	}
++	if (tcm_msg->has_extra_rc) {
++		total_length += TCM_EXTRA_RC_LENGTH;
++		remaining_length += TCM_EXTRA_RC_LENGTH;
++	}
++	if (tcm_msg->has_crc || tcm_msg->has_extra_rc) {
++		total_length += 1;
++		remaining_length += 1;
++	}
++
++	syna_tcm_buf_lock(&tcm_msg->in);
++
++	retval = syna_tcm_buf_realloc(&tcm_msg->in, total_length + 1);
++	if (retval < 0) {
++		syna_tcm_buf_unlock(&tcm_msg->in);
++		return retval;
++	}
++
++	if (tcm_dev->max_rd_size == 0)
++		chunk_space = remaining_length;
++	else
++		chunk_space = tcm_dev->max_rd_size - 2;
++
++	chunks = syna_pal_ceil_div(remaining_length, chunk_space);
++	chunks = chunks == 0 ? 1 : chunks;
++
++	offset = MESSAGE_HEADER_SIZE + (tcm_msg->payload_length - length);
++
++	syna_tcm_buf_lock(&tcm_msg->temp);
++
++	for (idx = 0; idx < chunks; idx++) {
++		if (remaining_length > chunk_space)
++			xfer_length = chunk_space;
++		else
++			xfer_length = remaining_length;
++
++		last = ((idx + 1) == chunks);
++
++		if (xfer_length == 1) {
++			tcm_msg->in.buf[offset] = TCM_V1_MESSAGE_PADDING;
++			offset += xfer_length;
++			remaining_length -= xfer_length;
++			continue;
++		}
++
++		retval = syna_tcm_buf_alloc(&tcm_msg->temp, xfer_length + 2);
++		if (retval < 0)
++			goto exit;
++		
++		retval = syna_tcm_v1_read(tcm_dev,
++				xfer_length + 2,
++				tcm_msg->temp.buf,
++				tcm_msg->temp.buf_size,
++				(tcm_msg->has_crc) && last);
++		if (retval < 0)
++			goto exit;
++
++		tcm_msg->temp.data_length = xfer_length + 2;
++
++		code = tcm_msg->temp.buf[1];
++
++		if (code != STATUS_CONTINUED_READ) {
++			retval = _EIO;
++			goto exit;
++		}
++
++		retval = syna_pal_mem_cpy(&tcm_msg->in.buf[offset],
++				tcm_msg->in.buf_size - offset,
++				&tcm_msg->temp.buf[2],
++				tcm_msg->temp.buf_size - 2,
++				xfer_length);
++		if (retval < 0)
++			goto exit;
++
++		offset += xfer_length;
++		remaining_length -= xfer_length;
++	}
++
++exit:
++	syna_tcm_buf_unlock(&tcm_msg->temp);
++	syna_tcm_buf_unlock(&tcm_msg->in);
++
++	return retval;
++}
++
++static int syna_tcm_v1_parse_idinfo(struct tcm_dev *tcm_dev,
++		unsigned char *data, unsigned int size, unsigned int data_len)
++{
++	int retval;
++	unsigned int build_id = 0;
++	struct tcm_identification_info *id_info;
++
++	if (!tcm_dev || !data || data_len == 0)
++		return _EINVAL;
++
++	id_info = &tcm_dev->id_info;
++
++	retval = syna_pal_mem_cpy((unsigned char *)id_info,
++			sizeof(struct tcm_identification_info),
++			data,
++			size,
++			MIN(sizeof(*id_info), data_len));
++	if (retval < 0)
++		return retval;
++
++	build_id = syna_pal_le4_to_uint(id_info->build_id);
++
++	if (tcm_dev->packrat_number != build_id)
++		tcm_dev->packrat_number = build_id;
++
++	tcm_dev->dev_mode = id_info->mode;
++
++	return 0;
++}
++
++static void syna_tcm_v1_dispatch_response(struct tcm_dev *tcm_dev)
++{
++	int retval;
++	struct tcm_message_data_blob *tcm_msg = NULL;
++	struct completion *cmd_completion = NULL;
++
++	if (!tcm_dev)
++		return;
++
++	tcm_msg = &tcm_dev->msg_data;
++	cmd_completion = &tcm_msg->cmd_completion;
++
++	tcm_msg->response_code = tcm_msg->status_report_code;
++
++	if (ATOMIC_GET(tcm_msg->command_status) != CMD_STATE_BUSY)
++		return;
++
++	if (tcm_msg->payload_length == 0) {
++		tcm_dev->resp_buf.data_length = tcm_msg->payload_length;
++		ATOMIC_SET(tcm_msg->command_status, CMD_STATE_IDLE);
++		goto exit;
++	}
++
++	syna_tcm_buf_lock(&tcm_dev->resp_buf);
++
++	retval = syna_tcm_buf_alloc(&tcm_dev->resp_buf, tcm_msg->payload_length);
++	if (retval < 0) {
++		syna_tcm_buf_unlock(&tcm_dev->resp_buf);
++		goto exit;
++	}
++
++	syna_tcm_buf_lock(&tcm_msg->in);
++
++	retval = syna_pal_mem_cpy(tcm_dev->resp_buf.buf,
++			tcm_dev->resp_buf.buf_size,
++			&tcm_msg->in.buf[MESSAGE_HEADER_SIZE],
++			tcm_msg->in.buf_size - MESSAGE_HEADER_SIZE,
++			tcm_msg->payload_length);
++	if (retval < 0) {
++		syna_tcm_buf_unlock(&tcm_msg->in);
++		syna_tcm_buf_unlock(&tcm_dev->resp_buf);
++		goto exit;
++	}
++
++	tcm_dev->resp_buf.data_length = tcm_msg->payload_length;
++
++	syna_tcm_buf_unlock(&tcm_msg->in);
++	syna_tcm_buf_unlock(&tcm_dev->resp_buf);
++
++	ATOMIC_SET(tcm_msg->command_status, CMD_STATE_IDLE);
++
++exit:
++	syna_pal_completion_complete(cmd_completion);
++}
++
++static void syna_tcm_v1_dispatch_report(struct tcm_dev *tcm_dev)
++{
++	int retval;
++	struct tcm_message_data_blob *tcm_msg = NULL;
++	struct completion *cmd_completion = NULL;
++
++	if (!tcm_dev)
++		return;
++
++	tcm_msg = &tcm_dev->msg_data;
++	cmd_completion = &tcm_msg->cmd_completion;
++
++	tcm_msg->report_code = tcm_msg->status_report_code;
++
++	if (tcm_msg->payload_length == 0) {
++		tcm_dev->report_buf.data_length = 0;
++		goto exit;
++	}
++
++	syna_tcm_buf_lock(&tcm_dev->report_buf);
++
++	retval = syna_tcm_buf_alloc(&tcm_dev->report_buf,
++			tcm_msg->payload_length);
++	if (retval < 0) {
++		syna_tcm_buf_unlock(&tcm_dev->report_buf);
++		goto exit;
++	}
++
++	syna_tcm_buf_lock(&tcm_msg->in);
++
++	retval = syna_pal_mem_cpy(tcm_dev->report_buf.buf,
++			tcm_dev->report_buf.buf_size,
++			&tcm_msg->in.buf[MESSAGE_HEADER_SIZE],
++			tcm_msg->in.buf_size - MESSAGE_HEADER_SIZE,
++			tcm_msg->payload_length);
++	if (retval < 0) {
++		syna_tcm_buf_unlock(&tcm_msg->in);
++		syna_tcm_buf_unlock(&tcm_dev->report_buf);
++		goto exit;
++	}
++
++	tcm_dev->report_buf.data_length = tcm_msg->payload_length;
++
++	syna_tcm_buf_unlock(&tcm_msg->in);
++	syna_tcm_buf_unlock(&tcm_dev->report_buf);
++
++	if (tcm_msg->report_code == REPORT_IDENTIFY) {
++		tcm_dev->is_sleep = false; 
++		syna_tcm_buf_lock(&tcm_msg->in);
++
++		retval = syna_tcm_v1_parse_idinfo(tcm_dev,
++				&tcm_msg->in.buf[MESSAGE_HEADER_SIZE],
++				tcm_msg->in.buf_size - MESSAGE_HEADER_SIZE,
++				tcm_msg->payload_length);
++		if (retval < 0) {
++			syna_tcm_buf_unlock(&tcm_msg->in);
++			return;
++		}
++
++		syna_tcm_buf_unlock(&tcm_msg->in);
++
++		if (tcm_dev->dev_mode == 0x0b) {
++			tcm_dev->firmware_mode_count++;
++			if (!tcm_dev->upload_flag && tcm_dev->firmware_mode_count >= FIRMWARE_MODE_BL_MAX) {
++				tcm_dev->upload_flag = 1;
++			}
++		}
++		if (ATOMIC_GET(tcm_msg->command_status) == CMD_STATE_BUSY) {
++			switch (tcm_msg->command) {
++			case CMD_RESET:
++				tcm_msg->response_code = STATUS_OK;
++				ATOMIC_SET(tcm_msg->command_status, CMD_STATE_IDLE);
++				syna_pal_completion_complete(cmd_completion);
++				goto exit;
++			case CMD_REBOOT_TO_ROM_BOOTLOADER:
++			case CMD_RUN_BOOTLOADER_FIRMWARE:
++			case CMD_RUN_APPLICATION_FIRMWARE:
++			case CMD_ENTER_PRODUCTION_TEST_MODE:
++			case CMD_ROMBOOT_RUN_BOOTLOADER_FIRMWARE:
++				tcm_msg->response_code = STATUS_OK;
++				ATOMIC_SET(tcm_msg->command_status, CMD_STATE_IDLE);
++				syna_pal_completion_complete(cmd_completion);
++				goto exit;
++			default:
++				ATOMIC_SET(tcm_msg->command_status, CMD_STATE_ERROR);
++				syna_pal_completion_complete(cmd_completion);
++				goto exit;
++			}
++		}
++	}
++
++exit:
++	return;
++}
++
++static void syna_tcm_v1_update_crc(struct tcm_dev *tcm_dev)
++{
++	struct tcm_message_data_blob *tcm_msg = NULL;
++	int offset;
++
++	if (!tcm_dev)
++		return;
++
++	tcm_msg = &tcm_dev->msg_data;
++
++	if (!tcm_msg->has_crc || tcm_msg->payload_length == 0)
++		return;
++
++	syna_tcm_buf_lock(&tcm_msg->in);
++
++	offset = MESSAGE_HEADER_SIZE + tcm_msg->payload_length;
++	if (tcm_msg->in.buf_size <= offset + 1)
++		return;
++
++	if (tcm_msg->has_crc) {
++		tcm_msg->crc_bytes = (unsigned short)syna_pal_le2_to_uint(&tcm_msg->in.buf[offset + 1]);
++
++		if (tcm_msg->has_extra_rc) {
++			offset += TCM_MSG_CRC_LENGTH;
++			if (tcm_msg->in.buf_size >= offset + 1) {
++				tcm_msg->rc_byte = tcm_msg->in.buf[offset + 1];
++			}
++		}
++	}
++
++	syna_tcm_buf_unlock(&tcm_msg->in);
++}
++
++static int syna_tcm_v1_read_message(struct tcm_dev *tcm_dev,
++		unsigned char *status_report_code)
++{
++	int retval = 0;
++	struct tcm_v1_message_header *header;
++	struct tcm_message_data_blob *tcm_msg = NULL;
++	struct mutex *rw_mutex = NULL;
++	struct completion *cmd_completion = NULL;
++	unsigned int len = 0;
++	bool do_predict = false;
++	unsigned int tmp_len;
++
++	if (!tcm_dev)
++		return _EINVAL;
++
++	tcm_msg = &tcm_dev->msg_data;
++	rw_mutex = &tcm_msg->rw_mutex;
++	cmd_completion = &tcm_msg->cmd_completion;
++
++	do_predict = (ATOMIC_GET(tcm_msg->command_status) == CMD_STATE_IDLE);
++
++	if (status_report_code)
++		*status_report_code = STATUS_INVALID;
++
++	syna_pal_mutex_lock(rw_mutex);
++
++	syna_tcm_buf_lock(&tcm_msg->in);
++
++	len = MESSAGE_HEADER_SIZE;
++
++	if (tcm_msg->predict_reads && do_predict) {
++		if (tcm_msg->predict_length > 0) {
++			len += tcm_msg->predict_length;
++			if (tcm_msg->has_crc)
++				len += TCM_MSG_CRC_LENGTH;
++			if (tcm_msg->has_extra_rc)
++				len += TCM_EXTRA_RC_LENGTH;
++			len += 1;
++		}
++	}
++
++	if (len > tcm_msg->in.buf_size) {
++		retval = syna_tcm_buf_alloc(&tcm_msg->in, len);
++		if (retval < 0) {
++			syna_tcm_buf_unlock(&tcm_msg->in);
++
++			tcm_msg->status_report_code = STATUS_INVALID;
++			tcm_msg->payload_length = 0;
++			goto exit;
++		}
++	}
++
++	retval = syna_tcm_v1_read(tcm_dev,
++			len,
++			tcm_msg->in.buf,
++			tcm_msg->in.buf_size,
++			false);
++	if (retval < 0) {
++		syna_tcm_buf_unlock(&tcm_msg->in);
++
++		tcm_msg->status_report_code = STATUS_INVALID;
++		tcm_msg->payload_length = 0;
++		goto exit;
++	}
++
++	header = (struct tcm_v1_message_header *)tcm_msg->in.buf;
++
++	tcm_msg->status_report_code = header->code;
++
++	tcm_msg->payload_length = syna_pal_le2_to_uint(header->length);
++
++	syna_tcm_buf_unlock(&tcm_msg->in);
++
++	if (tcm_msg->payload_length == 0)
++		goto do_dispatch;
++
++	tmp_len = len - MESSAGE_HEADER_SIZE;
++	if (len > MESSAGE_HEADER_SIZE)
++		len = (tcm_msg->payload_length > tmp_len) ?
++			(tcm_msg->payload_length - tmp_len) : 0;
++	else
++		len = tcm_msg->payload_length;
++
++	retval = syna_tcm_v1_continued_read(tcm_dev, len);
++	if (retval < 0)
++		goto exit;
++
++do_dispatch:
++	syna_tcm_buf_lock(&tcm_msg->in);
++
++	tcm_msg->in.buf[0] = TCM_V1_MESSAGE_MARKER;
++	tcm_msg->in.buf[1] = tcm_msg->status_report_code;
++	tcm_msg->in.buf[2] = (unsigned char)tcm_msg->payload_length;
++	tcm_msg->in.buf[3] = (unsigned char)(tcm_msg->payload_length >> 8);
++
++	syna_tcm_buf_unlock(&tcm_msg->in);
++
++	syna_tcm_v1_update_crc(tcm_dev);
++
++	syna_tcm_buf_lock(&tcm_dev->external_buf);
++	if (tcm_msg->payload_length > 0) {
++		retval = syna_tcm_buf_alloc(&tcm_dev->external_buf,
++				tcm_msg->payload_length);
++		if (retval >= 0) {
++			retval = syna_pal_mem_cpy(&tcm_dev->external_buf.buf[0],
++				tcm_msg->payload_length,
++				&tcm_msg->in.buf[MESSAGE_HEADER_SIZE],
++				tcm_msg->in.buf_size - MESSAGE_HEADER_SIZE,
++				tcm_msg->payload_length);
++		}
++	}
++	tcm_dev->external_buf.data_length = tcm_msg->payload_length;
++	syna_tcm_buf_unlock(&tcm_dev->external_buf);
++
++	if (tcm_msg->status_report_code <= STATUS_ERROR ||
++		tcm_msg->status_report_code == STATUS_INVALID) {
++		switch (tcm_msg->status_report_code) {
++		case STATUS_CONTINUED_READ:
++			retval = _EIO;
++			goto exit;
++		case STATUS_IDLE:
++			retval = 0;
++			goto exit;
++		default:
++			break;
++		}
++	}
++
++	if (tcm_msg->status_report_code >= REPORT_IDENTIFY)
++		syna_tcm_v1_dispatch_report(tcm_dev);
++	else
++		syna_tcm_v1_dispatch_response(tcm_dev);
++
++	if (status_report_code)
++		*status_report_code = tcm_msg->status_report_code;
++
++	if (tcm_msg->predict_reads && do_predict) {
++		if (tcm_dev->max_rd_size < MESSAGE_HEADER_SIZE)
++			tcm_msg->predict_length = tcm_msg->payload_length;
++		else
++			tcm_msg->predict_length = MIN(tcm_msg->payload_length,
++				tcm_dev->max_rd_size - MESSAGE_HEADER_SIZE - 1);
++
++		if (tcm_msg->status_report_code < REPORT_IDENTIFY)
++			tcm_msg->predict_length = 0;
++	}
++
++	retval = 0;
++
++exit:
++	if (retval < 0) {
++		if (ATOMIC_GET(tcm_msg->command_status) == CMD_STATE_BUSY) {
++			ATOMIC_SET(tcm_msg->command_status, CMD_STATE_ERROR);
++			complete(cmd_completion);
++		}
++	}
++
++	syna_pal_mutex_unlock(rw_mutex);
++
++	return retval;
++}
++
++static int syna_tcm_v1_write(struct tcm_dev *tcm_dev, unsigned char command,
++		unsigned char *payload, unsigned int payload_len,
++		bool extra_crc, unsigned short crc)
++{
++	int retval = 0;
++	struct tcm_message_data_blob *tcm_msg = NULL;
++	int size, buf_size;
++	unsigned char crc16[TCM_MSG_CRC_LENGTH] = { 0 };
++
++	if (!tcm_dev)
++		return _EINVAL;
++
++	tcm_msg = &tcm_dev->msg_data;
++
++	syna_tcm_buf_lock(&tcm_msg->out);
++
++	buf_size = payload_len + 3;
++	if (extra_crc) {
++		crc16[0] = (unsigned char) crc & 0xff;
++		crc16[1] = (unsigned char) (crc >> 8);
++
++		buf_size += sizeof(crc16);
++	}
++
++	retval = syna_tcm_buf_alloc(&tcm_msg->out, buf_size);
++	if (retval < 0)
++		goto exit;
++
++	if (command != CMD_CONTINUE_WRITE) {
++		size = payload_len + 3;
++
++		tcm_msg->out.buf[0] = command;
++		tcm_msg->out.buf[1] = (unsigned char)payload_len;
++		tcm_msg->out.buf[2] = (unsigned char)(payload_len >> 8);
++
++		if (payload_len > 0) {
++			retval = syna_pal_mem_cpy(&tcm_msg->out.buf[3],
++					tcm_msg->out.buf_size - 3,
++					payload,
++					payload_len,
++					payload_len);
++			if (retval < 0)
++				goto exit;
++		}
++	} else {
++		size = payload_len + 1;
++
++		tcm_msg->out.buf[0] = CMD_CONTINUE_WRITE;
++
++		retval = syna_pal_mem_cpy(&tcm_msg->out.buf[1],
++				tcm_msg->out.buf_size - 1,
++				payload,
++				payload_len,
++				payload_len);
++		if (retval < 0)
++			goto exit;
++	}
++
++	if (extra_crc) {
++		retval = syna_pal_mem_cpy(&tcm_msg->out.buf[size],
++				tcm_msg->out.buf_size - size,
++				crc16,
++				sizeof(crc16),
++				sizeof(crc16)
++				);
++		if (retval < 0)
++			goto exit;
++
++		size += sizeof(crc16);
++	}
++
++	retval = syna_tcm_write(tcm_dev,
++			tcm_msg->out.buf,
++			size
++			);
++	if (retval < 0)
++		goto exit;
++
++exit:
++	syna_tcm_buf_unlock(&tcm_msg->out);
++
++	return retval;
++}
++
++static int syna_tcm_v1_write_message(struct tcm_dev *tcm_dev,
++	unsigned char command, unsigned char *payload,
++	unsigned int payload_len, unsigned char *resp_code,
++	unsigned int delay_ms_resp)
++{
++	int retval = 0;
++	unsigned int idx;
++	unsigned int chunks = 0;
++	unsigned int chunk_space;
++	unsigned int xfer_length;
++	unsigned int remaining_length;
++	int timeout = 0;
++	int polling_ms = 0;
++	struct tcm_message_data_blob *tcm_msg = NULL;
++	struct mutex *cmd_mutex = NULL;
++	struct mutex *rw_mutex = NULL;
++	struct completion *cmd_completion = NULL;
++	bool has_irq_ctrl = false;
++	bool in_polling = false;
++	bool last = false;
++	unsigned char tmp;
++	unsigned short crc16 = 0xFFFF;
++
++	if (!tcm_dev)
++		return _EINVAL;
++
++	tcm_msg = &tcm_dev->msg_data;
++	cmd_mutex = &tcm_msg->cmd_mutex;
++	rw_mutex = &tcm_msg->rw_mutex;
++	cmd_completion = &tcm_msg->cmd_completion;
++
++	if (resp_code)
++		*resp_code = STATUS_INVALID;
++
++	in_polling = (delay_ms_resp != RESP_IN_ATTN);
++
++	has_irq_ctrl = (bool)(tcm_dev->hw_if->ops_enable_irq != NULL);
++	has_irq_ctrl &= tcm_dev->hw_if->bdata_attn.irq_enabled;
++
++	if (has_irq_ctrl && in_polling && tcm_dev->hw_if->ops_enable_irq)
++		tcm_dev->hw_if->ops_enable_irq(tcm_dev->hw_if, false);
++
++	syna_pal_mutex_lock(cmd_mutex);
++
++	syna_pal_mutex_lock(rw_mutex);
++
++	ATOMIC_SET(tcm_msg->command_status, CMD_STATE_BUSY);
++
++	reinit_completion(cmd_completion);
++
++	tcm_msg->command = command;
++
++	remaining_length = payload_len;
++
++	if (tcm_msg->has_crc) {
++		crc16 = syna_tcm_crc16(&command, 1, crc16);
++		tmp = (unsigned char)payload_len & 0xff;
++		crc16 = syna_tcm_crc16(&tmp, 1, crc16);
++		tmp = (unsigned char)(payload_len >> 8) & 0xff;
++		crc16 = syna_tcm_crc16(&tmp, 1, crc16);
++		if (payload_len > 0)
++			crc16 = syna_tcm_crc16(payload, payload_len, crc16);
++	}
++
++	if (tcm_dev->max_wr_size == 0)
++		chunk_space = remaining_length;
++	else
++		chunk_space = tcm_dev->max_wr_size - 1;
++
++	if (chunk_space)
++		chunks = syna_pal_ceil_div(remaining_length, chunk_space);
++
++	chunks = chunks == 0 ? 1 : chunks;
++
++	for (idx = 0; idx < chunks; idx++) {
++		if (remaining_length > chunk_space)
++			xfer_length = chunk_space;
++		else
++			xfer_length = remaining_length;
++
++		last = ((idx + 1) == chunks);
++
++		if (idx == 0) {
++			retval = syna_tcm_v1_write(tcm_dev,
++					tcm_msg->command,
++					&payload[0],
++					xfer_length,
++					(tcm_msg->has_crc) && last,
++					crc16);
++		} else {
++			retval = syna_tcm_v1_write(tcm_dev,
++					CMD_CONTINUE_WRITE,
++					&payload[idx * chunk_space],
++					xfer_length,
++					(tcm_msg->has_crc) && last,
++					crc16);
++		}
++
++		if (retval < 0) {
++			syna_pal_mutex_unlock(rw_mutex);
++			goto exit;
++		}
++
++		remaining_length -= xfer_length;
++
++		if (chunks > 1)
++			usleep_range(WR_DELAY_US_MIN, WR_DELAY_US_MAX);
++	}
++
++	syna_pal_mutex_unlock(rw_mutex);
++
++	timeout = 0;
++	if (!in_polling)
++		polling_ms = CMD_RESPONSE_TIMEOUT_MS;
++	else
++		polling_ms = delay_ms_resp;
++
++	do {
++		retval = syna_pal_completion_wait_for(cmd_completion,
++				polling_ms);
++
++		if (ATOMIC_GET(tcm_msg->command_status) == CMD_STATE_IDLE)
++			goto check_response;
++		if (in_polling) {
++			ATOMIC_SET(tcm_msg->command_status, CMD_STATE_BUSY);
++
++			retval = syna_tcm_v1_read_message(tcm_dev, NULL);
++			if (retval < 0)
++				reinit_completion(cmd_completion);
++		}
++
++		timeout += polling_ms;
++
++	} while (timeout < CMD_RESPONSE_TIMEOUT_MS);
++
++check_response:
++	if (ATOMIC_GET(tcm_msg->command_status) != CMD_STATE_IDLE) {
++		if (timeout >= CMD_RESPONSE_TIMEOUT_MS) {
++			retval = _ETIMEDOUT;
++			goto exit;
++		} else {
++			retval = _EIO;
++			goto exit;
++		}
++	}
++
++	if (resp_code)
++		*resp_code = tcm_msg->status_report_code;
++
++	if (tcm_msg->response_code != STATUS_OK) {
++		retval = _EIO;
++	} else {
++		retval = 0;
++	}
++
++exit:
++	tcm_msg->command = CMD_NONE;
++
++	ATOMIC_SET(tcm_msg->command_status, CMD_STATE_IDLE);
++
++	syna_pal_mutex_unlock(cmd_mutex);
++
++	if (has_irq_ctrl && in_polling && tcm_dev->hw_if->ops_enable_irq) {
++		msleep(POLLING_ENABLE_IRQ_DELAY_MS);
++		tcm_dev->hw_if->ops_enable_irq(tcm_dev->hw_if, true);
++	}
++
++	return retval;
++}
++
++static void syna_tcm_v1_set_ops(struct tcm_dev *tcm_dev)
++{
++	if (!tcm_dev)
++		return;
++
++	tcm_dev->read_message = syna_tcm_v1_read_message;
++	tcm_dev->write_message = syna_tcm_v1_write_message;
++
++	tcm_dev->msg_data.predict_length = 0;
++
++	tcm_dev->protocol = TOUCHCOMM_V1;
++}
++
++static int syna_tcm_v1_set_max_rw_size(struct tcm_dev *tcm_dev)
++{
++	unsigned int wr_size = 0;
++	struct tcm_identification_info *id_info;
++
++	if (!tcm_dev) {
++		return _EINVAL;
++	}
++
++	id_info = &tcm_dev->id_info;
++
++	wr_size = syna_pal_le2_to_uint(id_info->max_write_size);
++
++	if (wr_size == 0) {
++		return 0;
++	}
++
++	if (wr_size != tcm_dev->max_wr_size) {
++		if (tcm_dev->max_wr_size == 0)
++			tcm_dev->max_wr_size = wr_size;
++		else
++			tcm_dev->max_wr_size = MIN(wr_size, tcm_dev->max_wr_size);
++	}
++
++	return 0;
++}
++
++static int syna_tcm_v1_detect(struct tcm_dev *tcm_dev, unsigned char *data,
++		unsigned int size)
++{
++	int retval;
++	struct tcm_v1_message_header *header;
++	struct tcm_message_data_blob *tcm_msg = NULL;
++	unsigned int payload_length = 0;
++	unsigned char resp_code = 0;
++	unsigned short default_crc = 0x5a5a;
++	unsigned short default_rc = 0x5a;
++
++	if (!tcm_dev || !data || size != MESSAGE_HEADER_SIZE)
++		return _EINVAL;
++	
++	tcm_msg = &tcm_dev->msg_data;
++
++	header = (struct tcm_v1_message_header *)data;
++
++	if (header->marker != TCM_V1_MESSAGE_MARKER)
++		return _ENODEV;
++
++	tcm_msg->has_crc = true;
++	tcm_dev->msg_data.crc_bytes = default_crc;
++	tcm_msg->has_extra_rc = true;
++	tcm_dev->msg_data.rc_byte = default_rc;
++
++	if (header->code == REPORT_IDENTIFY) {
++		payload_length = syna_pal_le2_to_uint(header->length);
++		tcm_msg->payload_length = payload_length;
++
++		retval = syna_tcm_v1_continued_read(tcm_dev,
++				payload_length);
++		if (retval < 0)
++			return retval;
++	} else {
++		retval = syna_tcm_v1_write_message(tcm_dev,
++				CMD_IDENTIFY,
++				NULL,
++				0,
++				&resp_code,
++				RESP_IN_POLLING);
++		if (retval < 0) {
++			retval = syna_tcm_v1_write_message(tcm_dev,
++					CMD_RESET,
++					NULL,
++					0,
++					&resp_code,
++					RESET_DELAY_MS);
++			if (retval < 0)
++				return retval;
++		}
++
++		payload_length = tcm_msg->payload_length;
++	}
++
++
++	if (tcm_dev->dev_mode == MODE_UNKNOWN) {
++		syna_tcm_buf_lock(&tcm_msg->in);
++
++		retval = syna_tcm_v1_parse_idinfo(tcm_dev,
++				&tcm_msg->in.buf[MESSAGE_HEADER_SIZE],
++				tcm_msg->in.buf_size - MESSAGE_HEADER_SIZE,
++				payload_length);
++		if (retval < 0) {
++			syna_tcm_buf_unlock(&tcm_msg->in);
++			return retval;
++		}
++
++		syna_tcm_buf_unlock(&tcm_msg->in);
++	}
++
++	retval = syna_tcm_v1_set_max_rw_size(tcm_dev);
++	if (retval < 0)
++		return retval;
++
++	syna_tcm_v1_update_crc(tcm_dev);
++	if (tcm_dev->msg_data.crc_bytes == default_crc)
++		tcm_msg->has_crc = false;
++	if (tcm_dev->msg_data.rc_byte == default_rc)
++		tcm_msg->has_extra_rc = false;
++
++	syna_tcm_v1_set_ops(tcm_dev);
++
++	return retval;
++}
++
++static int syna_tcm_detect_protocol(struct tcm_dev *tcm_dev,
++		unsigned char *data, unsigned int data_len)
++{
++	int retval;
++
++	if (!tcm_dev)
++		return _EINVAL;
++
++	retval = syna_tcm_v1_detect(tcm_dev, data, data_len);
++
++	return retval;
++}
++
++int syna_tcm_detect_device(struct tcm_dev *tcm_dev)
++{
++	int retval = 0;
++	unsigned char data[4] = { 0 };
++
++	if (!tcm_dev)
++		return _EINVAL;
++
++	tcm_dev->dev_mode = MODE_UNKNOWN;
++
++	data[0] = 0x07;
++	retval = syna_tcm_write(tcm_dev, &data[0], 1);
++	if (retval < 0)
++		return _EIO;
++
++	retval = syna_tcm_read(tcm_dev,
++			data, (unsigned int)sizeof(data));
++	if (retval < 0)
++		return _EIO;
++
++	retval = syna_tcm_detect_protocol(tcm_dev,
++			data, (unsigned int)sizeof(data));
++	if (retval < 0)
++		return retval;
++
++	if (!tcm_dev->write_message || !tcm_dev->read_message)
++		return _ENODEV;
++
++	retval = tcm_dev->dev_mode;
++	return retval;
++}
++
++static int syna_dev_connect(struct syna_tcm *tcm)
++{
++	int retval;
++	struct syna_hw_interface *hw_if = tcm->hw_if;
++	struct syna_hw_bus_data *bus = &hw_if->bdata_io;
++	struct tcm_dev *tcm_dev = tcm->tcm_dev;
++
++	if (!tcm_dev)
++		return -EINVAL;
++
++	if (tcm->is_connected)
++		return 0;
++
++	if (hw_if->ops_power_on) {
++		retval = hw_if->ops_power_on(hw_if, true);
++		if (retval < 0)
++			return -ENODEV;
++	}
++
++	if (hw_if->ops_hw_reset)
++		hw_if->ops_hw_reset(hw_if);
++
++	retval = syna_tcm_detect_device(tcm->tcm_dev);
++	if (retval < 0)
++		goto err_detect_dev;
++
++	switch (retval) {
++	case MODE_APPLICATION_FIRMWARE:
++		retval = syna_dev_set_up_app_fw(tcm);
++		if (retval >= 0) {
++			retval = syna_dev_set_up_input_device(tcm);
++			if (retval < 0) 
++				goto err_setup_input_dev;
++		}
++
++		break;
++	default:
++		break;
++	}
++
++	retval = syna_dev_request_irq(tcm);
++	if (retval < 0)
++		goto err_request_irq;
++
++	tcm->pwr_state = PWR_ON;
++	tcm->is_connected = true;
++	tcm->bus_ready = true;
++
++	if (tcm->tcm_dev->max_wr_size != bus->wr_chunk_size)
++		bus->wr_chunk_size = tcm->tcm_dev->max_wr_size;
++	if (tcm->tcm_dev->max_rd_size != bus->rd_chunk_size)
++		bus->rd_chunk_size = tcm->tcm_dev->max_rd_size;
++
++	return 0;
++
++err_request_irq:
++	syna_dev_release_input_device(tcm);
++
++err_setup_input_dev:
++err_detect_dev:
++	if (hw_if->ops_power_on)
++		hw_if->ops_power_on(hw_if, false);
++
++	return retval;
++}
++
++static int init_chip_dts(struct device *dev, void *chip_data)
++{
++	int rc = 0;
++	struct device_node *np;
++	struct syna_tcm *tcm = (struct syna_tcm *)chip_data;
++	int tx_rx_num[2], panel_coords[2];
++	np = dev->of_node;
++
++	rc = of_property_read_u32_array(np, "touchpanel,tx-rx-num", tx_rx_num, 2);
++
++	if (rc) {
++		tcm->tx_num = TX_NUM;
++		tcm->rx_num = RX_NUM;
++
++	} else {
++		tcm->tx_num = tx_rx_num[0];
++		tcm->rx_num = tx_rx_num[1];
++	}
++
++
++	rc = of_property_read_u32_array(np, "touchpanel,panel-coords", panel_coords, 2);
++
++	if (rc) {
++		tcm->dts_max_x = 0;
++		tcm->dts_max_y = 0;
++
++	} else {
++		tcm->dts_max_x = panel_coords[0];
++		tcm->dts_max_y = panel_coords[1];
++	}
++
++	return 0;
++}
++
++static int syna_tcm_init_message_wrap(struct tcm_message_data_blob *tcm_msg,
++		unsigned int resp_reading)
++{
++	syna_tcm_buf_init(&tcm_msg->in);
++	syna_tcm_buf_init(&tcm_msg->out);
++	syna_tcm_buf_init(&tcm_msg->temp);
++
++	init_completion(&tcm_msg->cmd_completion);
++	mutex_init(&tcm_msg->cmd_mutex);
++	mutex_init(&tcm_msg->rw_mutex);
++
++	ATOMIC_SET(tcm_msg->command_status, CMD_STATE_IDLE);
++	tcm_msg->command = CMD_NONE;
++	tcm_msg->status_report_code = STATUS_IDLE;
++	tcm_msg->payload_length = 0;
++	tcm_msg->response_code = 0;
++	tcm_msg->report_code = 0;
++	tcm_msg->seq_toggle = 0;
++
++	syna_tcm_buf_lock(&tcm_msg->in);
++
++	if (syna_tcm_buf_alloc(&tcm_msg->in, MESSAGE_HEADER_SIZE) < 0) {
++		tcm_msg->in.buf_size = 0;
++		tcm_msg->in.data_length = 0;
++		syna_tcm_buf_unlock(&tcm_msg->in);
++		return _EINVAL;
++	}
++	tcm_msg->in.buf_size = MESSAGE_HEADER_SIZE;
++
++	syna_tcm_buf_unlock(&tcm_msg->in);
++
++	tcm_msg->default_resp_reading = resp_reading;
++
++	tcm_msg->predict_reads = false;
++	tcm_msg->predict_length = 0;
++	tcm_msg->has_crc = false;
++	tcm_msg->crc_bytes = 0;
++	tcm_msg->has_extra_rc = false;
++	tcm_msg->rc_byte = 0;
++
++	return 0;
++}
++
++int syna_tcm_allocate_device(struct tcm_dev **ptcm_dev_ptr,
++		struct syna_hw_interface *hw_if, unsigned int resp_reading)
++{
++	int retval = 0;
++	struct tcm_dev *tcm_dev = NULL;
++
++	if (!hw_if || (!hw_if->ops_read_data || !hw_if->ops_write_data))
++		return _EINVAL;
++
++	*ptcm_dev_ptr = NULL;
++
++	tcm_dev = (struct tcm_dev *)syna_pal_mem_alloc(
++			1,
++			sizeof(struct tcm_dev));
++	if (!tcm_dev)
++		return _ENOMEM;
++
++	tcm_dev->hw_if = hw_if;
++
++	tcm_dev->max_rd_size = hw_if->bdata_io.rd_chunk_size;
++	tcm_dev->max_wr_size = hw_if->bdata_io.wr_chunk_size;
++
++	tcm_dev->write_message = NULL;
++	tcm_dev->read_message = NULL;
++
++	tcm_dev->dev_mode = MODE_UNKNOWN;
++
++	syna_tcm_buf_init(&tcm_dev->report_buf);
++	syna_tcm_buf_init(&tcm_dev->resp_buf);
++	syna_tcm_buf_init(&tcm_dev->external_buf);
++	syna_tcm_buf_init(&tcm_dev->touch_config);
++
++	retval = syna_tcm_init_message_wrap(&tcm_dev->msg_data, resp_reading);
++	if (retval < 0)
++		goto err_init_message_wrap;
++
++	*ptcm_dev_ptr = tcm_dev;
++
++	return 0;
++
++err_init_message_wrap:
++	syna_tcm_buf_release(&tcm_dev->touch_config);
++	syna_tcm_buf_release(&tcm_dev->external_buf);
++	syna_tcm_buf_release(&tcm_dev->report_buf);
++	syna_tcm_buf_release(&tcm_dev->resp_buf);
++
++	tcm_dev->hw_if = NULL;
++
++	kfree(tcm_dev);
++
++	return retval;
++}
++
++int syna_tcm_enable_predict_reading(struct tcm_dev *tcm_dev, bool en)
++{
++	if (!tcm_dev)
++		return _EINVAL;
++
++	tcm_dev->msg_data.predict_reads = en;
++	tcm_dev->msg_data.predict_length = 0;
++
++	return 0;
++}
++
++static int syna_dev_probe(struct platform_device *pdev)
++{
++	int retval;
++	struct syna_tcm *tcm = NULL;
++	struct tcm_dev *tcm_dev = NULL;
++	struct syna_hw_interface *hw_if = NULL;
++	struct device * syna_spi_pdev;
++
++	hw_if = pdev->dev.platform_data;
++	if (!hw_if)
++		return -EINVAL;
++
++	tcm = syna_pal_mem_alloc(1, sizeof(struct syna_tcm));
++	if (!tcm)
++		return -ENOMEM;
++	
++	retval = syna_tcm_allocate_device(&tcm_dev, hw_if, RESP_IN_POLLING);
++	if (retval < 0 || !tcm_dev)
++		goto err_allocate_cdev;
++
++	tcm->tcm_dev = tcm_dev;
++	tcm->pdev = pdev;
++	tcm->hw_if = hw_if;
++
++	syna_spi_pdev = syna_spi_device->dev.parent;
++
++	retval = init_chip_dts(syna_spi_pdev, tcm);
++
++	if (retval < 0)
++		goto err_manufacture_info;
++	
++	syna_tcm_buf_init(&tcm->event_data);
++
++	mutex_init(&tcm->tp_event_mutex);
++
++	mutex_init(&tcm->mutex);
++	init_completion(&tcm->fw_complete);
++
++	tcm->is_connected = false;
++	tcm->pwr_state = PWR_OFF;
++
++	tcm->dev_connect = syna_dev_connect;
++	tcm->dev_disconnect = syna_dev_disconnect;
++	tcm->dev_set_up_app_fw = syna_dev_set_up_app_fw;
++	tcm->dev_resume = syna_dev_resume;
++	tcm->dev_suspend = syna_dev_suspend;
++
++	tcm->wait_for_ioctl_operation = 0;
++	tcm->waiting_frame = 0;
++	tcm->use_short_frame_waiting = 0;
++	tcm->primary_timestamp_enabled = 1;
++
++	platform_set_drvdata(pdev, tcm);
++
++	device_init_wakeup(&pdev->dev, 1);
++	init_completion(&tcm->report_complete);
++	
++	retval = tcm->dev_connect(tcm);
++	if (retval < 0) {
++		mutex_destroy(&tcm->mutex);
++		goto err_connect;
++	}
++
++	tcm->speedup_resume_wq = create_singlethread_workqueue("sp_resume0");
++	INIT_WORK(&tcm->speed_up_work, syna_speedup_resume);
++
++	syna_tcm_enable_predict_reading(tcm->tcm_dev, true);
++
++	tcm->probe_done = 1;
++
++	return 0;
++	tcm->dev_disconnect(tcm);
++err_manufacture_info:
++err_connect:
++	syna_tcm_buf_release(&tcm->event_data);
++	mutex_destroy(&tcm->mutex);
++err_allocate_cdev:
++	kfree(tcm);
++
++	return retval;
++}
++
++static void syna_tcm_del_message_wrap(struct tcm_message_data_blob *tcm_msg)
++{
++	syna_tcm_buf_release(&tcm_msg->temp);
++	syna_tcm_buf_release(&tcm_msg->out);
++	syna_tcm_buf_release(&tcm_msg->in);
++}
++
++void syna_tcm_remove_device(struct tcm_dev *tcm_dev)
++{
++	if (!tcm_dev)
++		return;
++
++	syna_tcm_del_message_wrap(&tcm_dev->msg_data);
++
++	syna_tcm_buf_release(&tcm_dev->touch_config);
++	syna_tcm_buf_release(&tcm_dev->external_buf);
++	syna_tcm_buf_release(&tcm_dev->report_buf);
++	syna_tcm_buf_release(&tcm_dev->resp_buf);
++
++	tcm_dev->hw_if = NULL;
++
++	kfree(tcm_dev);
++}
++
++static void syna_dev_remove(struct platform_device *pdev)
++{
++	struct syna_tcm *tcm = platform_get_drvdata(pdev);
++	msleep(25);
++	tcm->driver_current_state = IS_REMOVE;
++	mutex_lock(&tcm->mutex);
++    tcm->dev_disconnect(tcm);
++	mutex_unlock(&tcm->mutex);
++	syna_tcm_buf_release(&tcm->event_data);
++	syna_tcm_remove_device(tcm->tcm_dev);
++	kfree(tcm);
++}
++
++static void syna_dev_shutdown(struct platform_device *pdev)
++{
++	syna_dev_remove(pdev);
++}
++
++static int syna_spi_suspend(struct device *dev) {
++	struct syna_tcm *tcm = dev_get_drvdata(dev);
++	struct syna_hw_attn_data *attn;
++	if (!tcm || !tcm->hw_if) {
++		return 0;
++	}
++	attn = &tcm->hw_if->bdata_attn;
++	if (attn->irq_id == 0)
++		return 0;
++	tcm->bus_ready = false;
++	if (tcm->hw_if->ops_enable_irq)
++		tcm->hw_if->ops_enable_irq(tcm->hw_if, false);
++	return 0;
++}
++
++static int syna_spi_resume(struct device *dev) {
++	struct syna_tcm *tcm = dev_get_drvdata(dev);
++	struct syna_hw_attn_data *attn;
++
++	if (!tcm || !tcm->hw_if) {
++		return 0;
++	}
++	attn = &tcm->hw_if->bdata_attn;
++	if (attn->irq_id == 0)
++		return 0;
++	if (tcm->hw_if->ops_enable_irq)
++		tcm->hw_if->ops_enable_irq(tcm->hw_if, true);
++	tcm->bus_ready = true;
++	return 0;
++}
++
++static const struct dev_pm_ops syna_dev_pm_ops = {
++	.suspend = syna_spi_suspend,
++	.resume = syna_spi_resume,
++};
++
++static struct platform_driver syna_dev_driver = {
++	.driver = {
++		.name = PLATFORM_DRIVER_NAME,
++		.owner = THIS_MODULE,
++		.pm = &syna_dev_pm_ops,
++	},
++	.probe = syna_dev_probe,
++	.remove = syna_dev_remove,
++	.shutdown = syna_dev_shutdown,
++};
++
++static int __init syna_dev_module_init(void) {
++	int retval;
++	retval = syna_hw_interface_init();
++	if (retval < 0)
++		return retval;
++	return platform_driver_register(&syna_dev_driver);
++}
++
++static void __exit syna_dev_module_exit(void) {
++	platform_driver_unregister(&syna_dev_driver);
++	syna_hw_interface_exit();
++}
++
++module_init(syna_dev_module_init);
++module_exit(syna_dev_module_exit);
++
++MODULE_AUTHOR("Synaptics, Inc.");
++MODULE_DESCRIPTION("Synaptics TCM Touch Driver");
++MODULE_LICENSE("GPL v2");
++
+diff --git a/drivers/input/touchscreen/syna_tcm2.h b/drivers/input/touchscreen/syna_tcm2.h
+new file mode 100644
+index 000000000..2294f1e64
+--- /dev/null
++++ b/drivers/input/touchscreen/syna_tcm2.h
+@@ -0,0 +1,1218 @@
++/* SPDX-License-Identifier: GPL-2.0
++ *
++ * Synaptics TouchCom touchscreen driver
++ *
++ * Copyright (C) 2017-2020 Synaptics Incorporated. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
++ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
++ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
++ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
++ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
++ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
++ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
++ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION DOES
++ * NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES, SYNAPTICS'
++ * TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT EXCEED ONE HUNDRED U.S.
++ * DOLLARS.
++ */
++
++#ifndef _SYNAPTICS_TCM2_DRIVER_H_
++#define _SYNAPTICS_TCM2_DRIVER_H_
++
++#define REMOVE_OPLUS_FUNCTION 1
++#include <linux/version.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/input.h>
++#include <linux/delay.h>
++#include <linux/gpio.h>
++#include <linux/of_gpio.h>
++#include <linux/interrupt.h>
++#include <linux/init.h>
++#include <linux/major.h>
++#include <linux/sched.h>
++#include <linux/kthread.h>
++#include <linux/regulator/consumer.h>
++#include <linux/platform_device.h>
++#include <linux/input/mt.h>
++#include <linux/cdev.h>
++#include <linux/device.h>
++#include <linux/uaccess.h>
++#include <linux/crc32.h>
++#include <linux/firmware.h>
++#include <linux/fs.h>
++#include <linux/moduleparam.h>
++
++#define _EIO        (-EIO)
++#define _ENOMEM     (-ENOMEM)
++#define _EINVAL     (-EINVAL)
++#define _ENODEV     (-ENODEV)
++#define _ETIMEDOUT  (-ETIMEDOUT)
++
++#define GET_BIT(var, pos) \
++	(((var) & (1 << (pos))) >> (pos))
++
++#define ATOMIC_SET(atomic, value) \
++	atomic_set(&atomic, value)
++
++#define ATOMIC_GET(atomic) \
++	atomic_read(&atomic)
++
++#define PLATFORM_DRIVER_NAME "synaptics_tcm_hbp"
++
++#define TOUCH_INPUT_NAME "touchpanel"
++#define TOUCH_INPUT_PHYS_PATH "synaptics_tcm/touch_input"
++
++#define CHAR_DEVICE_NAME "tcm_hbp"
++#define CHAR_DEVICE_MODE (0x0600)
++
++#define SIG_DISPLAY_ON  44
++#define SIG_DISPLAY_OFF 45
++#define SIG_FINGER_DOWN 46
++
++#undef MAX_DEVICE_VERSION_LENGTH
++#define MAX_DEVICE_VERSION_LENGTH 256
++
++#define SYNAPTICS_TCM_DRIVER_ID (1 << 0)
++#define SYNAPTICS_TCM_DRIVER_VERSION 1
++#define SYNAPTICS_TCM_DRIVER_SUBVER "4.0"
++
++#define ABS_TOUCH_COST_TIME_KERNEL  0x21
++#define ABS_TOUCH_COST_TIME_ALGO    0x22
++#define ABS_TOUCH_COST_TIME_DAEMON  0x23
++#define MAX_TOUCH_COST_TIME         1000 * 1000
++
++#define TX_NUM 17
++#define RX_NUM 38
++
++#define IRQ_COST_TIME_OVER_5MS 5000
++#define IRQ_COST_TIME_OVER_10MS 10000
++#define IRQ_COST_TIME_OVER_20MS 20000
++#define IRQ_COST_TIME_OVER_50MS 50000
++
++#define FW_UPDATE_COMPLETE_TIMEOUT  msecs_to_jiffies(40*1000)
++
++#define GESTURE_MODE_SWITCH_RETRY_TIMES     5
++#define MAX_HEALTH_REPORT_LEN 50
++
++#define HAS_SYSFS_INTERFACE
++#define HAS_REFLASH_FEATURE
++#define HAS_ROMBOOT_REFLASH_FEATURE
++#define HAS_TESTING_FEATURE
++
++#define TYPE_B_PROTOCOL
++
++#define RESET_ON_RESUME
++
++#define REPORT_TOUCH_WIDTH
++#define RESUME_EARLY_UNBLANK
++
++#define REPORT_TYPES (256)
++#define EFP_ENABLE	(1)
++#define EFP_DISABLE (0)
++
++#define TCM_CONNECT_IN_PROBE
++
++#define DTAP_DETECT     0x01
++#define SWIPE_DETECT    0x02
++#define TRIANGLE_DETECT 0x03
++#define CIRCLE_DETECT   0x04
++#define VEE_DETECT      0x05
++#define HEART_DETECT    0x07
++#define UNICODE_DETECT  0x08
++#define STAP_DETECT     0x10
++#define M_UNICODE       0x6d
++#define S_UNICODE       0x73
++#define W_UNICODE       0x77
++
++#define REPORT_TIMEOUT_MS       1000
++
++#define TOUCH_HOLD_DOWN 0x80
++#define TOUCH_HOLD_UP   0x81
++#define FINGERPRINT_ERR_REPORT   0x84
++
++#define TOUCH_BIT_CHECK           0x3FF
++
++#define TCM_V1_MESSAGE_MARKER 0xa5
++#define TCM_V1_MESSAGE_PADDING 0x5a
++
++#define IS_APP_FW_MODE(mode) \
++	(mode == MODE_APPLICATION_FIRMWARE)
++
++#define IS_NOT_APP_FW_MODE(mode) \
++	(!IS_APP_FW_MODE(mode))
++
++#define IS_BOOTLOADER_MODE(mode) \
++	((mode == MODE_BOOTLOADER) || \
++	(mode == MODE_TDDI_BOOTLOADER)  || \
++	(mode == MODE_TDDI_HDL_BOOTLOADER) || \
++	(mode == MODE_MULTICHIP_TDDI_BOOTLOADER))
++
++#define IS_ROM_BOOTLOADER_MODE(mode) \
++	(mode == MODE_ROMBOOTLOADER)
++	
++#define MAX_NUM_OBJECTS (10)
++
++#define MAX_SIZE_GESTURE_DATA (8)
++
++#define MAX_SIZE_CONFIG_ID (16)
++
++#define MAX_SIZE_GRIP_INFO (4)
++
++#define RD_RETRY_US_MIN (5000)
++#define RD_RETRY_US_MAX (10000)
++
++#define WR_DELAY_US_MIN (500)
++#define WR_DELAY_US_MAX (1000)
++
++#define TAT_DELAY_US_MIN (100)
++#define TAT_DELAY_US_MAX (200)
++
++#define TCM_MSG_CRC_LENGTH (2)
++#define TCM_EXTRA_RC_LENGTH (1)
++
++#define RECORD_POINTS_COUNT 5
++
++#define FIRMWARE_MODE_BL_MAX (2)
++#define FWUPDATE_BL_MAX (3)
++
++#define MESSAGE_HEADER_SIZE (4)
++
++#define CMD_RESPONSE_TIMEOUT_MS (3000)
++#define CMD_RESPONSE_POLLING_DELAY_MS (20)
++
++#define RESET_DELAY_MS (200)
++
++#define POLLING_ENABLE_IRQ_DELAY_MS   5
++
++#define RESP_IN_ATTN (0)
++#define RESP_IN_POLLING (CMD_RESPONSE_POLLING_DELAY_MS)
++
++#define RD_CHUNK_SIZE (0)
++#define WR_CHUNK_SIZE (1024)
++
++typedef enum tp_dev {
++	TP_OFILM,
++	TP_BIEL,
++	TP_TRULY,
++	TP_BOE,
++	TP_G2Y,
++	TP_TPK,
++	TP_JDI,
++	TP_TIANMA,
++	TP_SAMSUNG,
++	TP_DSJM,
++	TP_BOE_B8,
++	TP_INNOLUX,
++	TP_HIMAX_DPT,
++	TP_AUO,
++	TP_DEPUTE,
++	TP_HUAXING,
++	TP_HLT,
++	TP_DJN,
++	TP_VXN,
++	TP_UNKNOWN,
++} tp_dev;
++
++enum tcm_app_status {
++	APP_STATUS_OK = 0x00,
++	APP_STATUS_BOOTING = 0x01,
++	APP_STATUS_UPDATING = 0x02,
++	APP_STATUS_BAD_APP_CONFIG = 0xff,
++};
++
++enum tcm_firmware_protocol {
++	TOUCHCOMM_NONE = 0,
++	TOUCHCOMM_V1 = 1,
++	TOUCHCOMM_V2 = 2,
++};
++
++enum tcm_report_type {
++	REPORT_IDENTIFY = 0x10,
++	REPORT_TOUCH = 0x11,
++	REPORT_DELTA = 0x12,
++	REPORT_RAW = 0x13,
++	REPORT_DEBUG = 0x14,
++	REPORT_HBP_ACTIVE_FRAME = 0x23,
++	REPORT_LOG = 0x9f,
++	REPORT_POWER_STATE_INFO = 0xFE,
++};
++
++enum tcm_firmware_mode {
++	MODE_UNKNOWN = 0x00,
++	MODE_APPLICATION_FIRMWARE = 0x01,
++	MODE_HOSTDOWNLOAD_FIRMWARE = 0x02,
++	MODE_ROMBOOTLOADER = 0x04,
++	MODE_BOOTLOADER = 0x0b,
++	MODE_TDDI_BOOTLOADER = 0x0c,
++	MODE_TDDI_HDL_BOOTLOADER = 0x0d,
++	MODE_PRODUCTIONTEST_FIRMWARE = 0x0e,
++	MODE_MULTICHIP_TDDI_BOOTLOADER = 0xab,
++};
++
++enum tcm_status_code {
++	STATUS_IDLE = 0x00,
++	STATUS_OK = 0x01,
++	STATUS_CONTINUED_READ = 0x03,
++	STATUS_NO_REPORT_AVAILABLE = 0x04,
++	STATUS_ACK = 0x07,
++	STATUS_RETRY_REQUESTED = 0x08,
++	STATUS_CMD_FAILED = 0x09,
++	STATUS_RECEIVE_BUFFER_OVERFLOW = 0x0c,
++	STATUS_PREVIOUS_COMMAND_PENDING = 0x0d,
++	STATUS_NOT_IMPLEMENTED = 0x0e,
++	STATUS_ERROR = 0x0f,
++	STATUS_PACKET_CORRUPTED = 0xfe,
++	STATUS_INVALID = 0xff,
++};
++
++enum tcm_command {
++	CMD_NONE = 0x00,
++	CMD_CONTINUE_WRITE = 0x01,
++	CMD_IDENTIFY = 0x02,
++	CMD_RESET = 0x04,
++	CMD_ENABLE_REPORT = 0x05,
++	CMD_DISABLE_REPORT = 0x06,
++	CMD_TCM2_ACK = 0x07,
++	CMD_TCM2_RETRY = 0x08,
++	CMD_TCM2_SET_MAX_READ_LENGTH = 0x09,
++	CMD_TCM2_GET_REPORT = 0x0a,
++	CMD_GET_BOOT_INFO = 0x10,
++	CMD_ERASE_FLASH = 0x11,
++	CMD_WRITE_FLASH = 0x12,
++	CMD_READ_FLASH = 0x13,
++	CMD_RUN_APPLICATION_FIRMWARE = 0x14,
++	CMD_SPI_MASTER_WRITE_THEN_READ = 0x15,
++	CMD_REBOOT_TO_ROM_BOOTLOADER = 0x16,
++	CMD_RUN_BOOTLOADER_FIRMWARE = 0x1f,
++	CMD_GET_APPLICATION_INFO = 0x20,
++	CMD_GET_STATIC_CONFIG = 0x21,
++	CMD_SET_STATIC_CONFIG = 0x22,
++	CMD_GET_DYNAMIC_CONFIG = 0x23,
++	CMD_SET_DYNAMIC_CONFIG = 0x24,
++	CMD_GET_TOUCH_REPORT_CONFIG = 0x25,
++	CMD_SET_TOUCH_REPORT_CONFIG = 0x26,
++	CMD_REZERO = 0x27,
++	CMD_COMMIT_CONFIG = 0x28,
++	CMD_DESCRIBE_DYNAMIC_CONFIG = 0x29,
++	CMD_PRODUCTION_TEST = 0x2a,
++	CMD_SET_CONFIG_ID = 0x2b,
++	CMD_ENTER_DEEP_SLEEP = 0x2c,
++	CMD_EXIT_DEEP_SLEEP = 0x2d,
++	CMD_GET_TOUCH_INFO = 0x2e,
++	CMD_GET_DATA_LOCATION = 0x2f,
++	CMD_DOWNLOAD_CONFIG = 0x30,
++	CMD_ENTER_PRODUCTION_TEST_MODE = 0x31,
++	CMD_GET_FEATURES = 0x32,
++	CMD_GET_ROMBOOT_INFO = 0x40,
++	CMD_WRITE_PROGRAM_RAM = 0x41,
++	CMD_ROMBOOT_RUN_BOOTLOADER_FIRMWARE = 0x42,
++	CMD_SPI_MASTER_WRITE_THEN_READ_EXTENDED = 0x43,
++	CMD_ENTER_IO_BRIDGE_MODE = 0x44,
++	CMD_ROMBOOT_DOWNLOAD = 0x45,
++};
++
++enum dynamic_config_id {
++	DC_UNKNOWN_1 = 0x00,
++	DC_NO_DOZE,
++	DC_DISABLE_NOISE_MITIGATION_1,
++	DC_INHIBIT_FREQUENCY_SHIFT,
++	DC_REQUESTED_FREQUENCY,
++	DC_DISABLE_HSYNC_1,
++	DC_REZERO_ON_EXIT_DEEP_SLEEP_1,
++	DC_CHARGER_CONNECTED,
++	DC_NO_BASELINE_RELAXATION,
++	DC_IN_WAKEUP_GESTURE_MODE,
++	DC_STIMULUS_FINGERS,
++	DC_GRIP_SUPPRESSION_ENABLED,
++	DC_ENABLE_THICK_GLOVE_1,
++	DC_ENABLE_GLOVE_1,
++	DC_PS_STATUS = 0xC1,
++	DC_DISABLE_ESD = 0xC2,
++	DC_FREQUENCE_HOPPING = 0xD2,
++	DC_TOUCH_HOLD = 0xD4,
++	DC_ERROR_PRIORITY = 0xD5,
++	DC_NOISE_LENGTH = 0xD6,
++	DC_GRIP_CONDTION_ZONE = 0xD8,
++	DC_GRIP_SPECIAL_ZONE_X = 0xD9,
++	DC_GRIP_SPECIAL_ZONE_Y = 0xDA,
++	DC_GRIP_SPECIAL_ZONE_L = 0xDB,
++	DC_GRIP_ROATE_TO_HORIZONTAL_LEVEL = 0xDC,
++	DC_DARK_ZONE_ENABLE = 0xDD,
++	DC_GRIP_ENABLED = 0xDE,
++	DC_GRIP_DARK_ZONE_X = 0xDF,
++	DC_GRIP_DARK_ZONE_Y = 0xE0,
++	DC_GRIP_ABS_DARK_X = 0xE1,
++	DC_GRIP_ABS_DARK_Y = 0xE2,
++	DC_GRIP_ABS_DARK_U = 0xE3,
++	DC_GRIP_ABS_DARK_V = 0xE4,
++	DC_GRIP_ABS_DARK_SEL = 0xE5,
++	DC_SET_REPORT_FRE = 0xE6,
++	DC_GESTURE_MASK = 0xFE,
++	DC_LOW_TEMP_ENABLE = 0xFD,
++};
++
++enum bus_connection {
++	BUS_TYPE_NONE,
++	BUS_TYPE_I2C,
++	BUS_TYPE_SPI,
++	BUS_TYPE_I3C,
++};
++
++enum gesture_classification {
++	GESTURE_ID_NONE = 0,
++	GESTURE_ID_DOUBLE_TAP = 1,
++	GESTURE_ID_SWIPE = 2,
++	GESTURE_ID_ACTIVE_SINGLE_TAP = 0x10,
++	GESTURE_ID_ACTIVE_TAP_AND_HOLD = 0x80,
++};
++
++enum object_classification {
++	LIFT = 0,
++	FINGER = 1,
++	GLOVED_OBJECT = 2,
++	STYLUS = 3,
++	ERASER = 4,
++	SMALL_OBJECT = 5,
++	PALM = 6,
++	EDGE_TOUCHED = 8,
++	HOVER_OBJECT = 9,
++	NOP = -1,
++};
++
++enum touch_report_code {
++	TOUCH_REPORT_END = 0x00,
++	TOUCH_REPORT_FOREACH_ACTIVE_OBJECT = 0x01,
++	TOUCH_REPORT_FOREACH_OBJECT = 0x02,
++	TOUCH_REPORT_FOREACH_END = 0x03,
++	TOUCH_REPORT_PAD_TO_NEXT_BYTE = 0x04,
++	TOUCH_REPORT_TIMESTAMP = 0x05,
++	TOUCH_REPORT_OBJECT_N_INDEX = 0x06,
++	TOUCH_REPORT_OBJECT_N_CLASSIFICATION = 0x07,
++	TOUCH_REPORT_OBJECT_N_X_POSITION = 0x08,
++	TOUCH_REPORT_OBJECT_N_Y_POSITION = 0x09,
++	TOUCH_REPORT_OBJECT_N_Z = 0x0a,
++	TOUCH_REPORT_OBJECT_N_X_WIDTH = 0x0b,
++	TOUCH_REPORT_OBJECT_N_Y_WIDTH = 0x0c,
++	TOUCH_REPORT_OBJECT_N_TX_POSITION_TIXELS = 0x0d,
++	TOUCH_REPORT_OBJECT_N_RX_POSITION_TIXELS = 0x0e,
++	TOUCH_REPORT_0D_BUTTONS_STATE = 0x0f,
++	TOUCH_REPORT_GESTURE_ID = 0x10,
++	TOUCH_REPORT_FRAME_RATE = 0x11,
++	TOUCH_REPORT_POWER_IM = 0x12,
++	TOUCH_REPORT_CID_IM = 0x13,
++	TOUCH_REPORT_RAIL_IM = 0x14,
++	TOUCH_REPORT_CID_VARIANCE_IM = 0x15,
++	TOUCH_REPORT_NSM_FREQUENCY_INDEX = 0x16,
++	TOUCH_REPORT_NSM_STATE = 0x17,
++	TOUCH_REPORT_NUM_OF_ACTIVE_OBJECTS = 0x18,
++	TOUCH_REPORT_CPU_CYCLES_USED_SINCE_LAST_FRAME = 0x19,
++	TOUCH_REPORT_FACE_DETECT = 0x1a,
++	TOUCH_REPORT_GESTURE_DATA = 0x1b,
++	TOUCH_REPORT_FORCE_MEASUREMENT = 0x1c,
++	TOUCH_REPORT_FINGERPRINT_AREA_MEET = 0x1d,
++	TOUCH_REPORT_SENSING_MODE = 0x1e,
++	TOUCH_REPORT_KNOB_DATA = 0x24,
++	TOUCH_REPORT_CUSTOM_GESTURE_INFO = 0xC6,
++	TOUCH_REPORT_CUSTOM_GESTURE_COORDINATE = 0xC7,
++	TOUCH_REPORT_CUSTOM_GRIP_INFO = 0xCB,
++};
++
++enum power_state {
++	PWR_OFF = 0,
++	PWR_ON,
++	LOW_PWR,
++	PWR_UNKNOWN,
++};
++
++enum sub_power_state {
++	SUB_NONE = 0,
++	SUB_PWR_RESUMING,
++	SUB_PWR_RESUME_DONE,
++	SUB_PWR_EARLY_SUSPENDING,
++	SUB_PWR_SUSPENDING,
++	SUB_PWR_SUSPEND_DONE,
++};
++
++enum tcm_command_status {
++	CMD_STATE_IDLE = 0,
++	CMD_STATE_BUSY = 1,
++	CMD_STATE_ERROR = -1,
++};
++
++enum driver_state {
++	IS_PROBE = 0,
++	IS_SHUTDOWN,
++	IS_REMOVE,
++};
++
++enum power_supply {
++	PSU_REGULATOR = 0,
++	PSU_GPIO,
++};
++
++struct tcm_buffer {
++	unsigned char *buf;
++	unsigned int buf_size;
++	unsigned int data_length;
++	struct mutex buf_mutex;
++	unsigned char ref_cnt;
++};
++
++typedef enum {
++    TP_RATE_START,
++    TP_RATE_CALC,
++    TP_RATE_CLEAR,
++} tp_rate;
++
++struct Coordinate {
++	int x;
++	int y;
++};
++
++struct swipes_record {
++	int count;
++	struct Coordinate start_points[RECORD_POINTS_COUNT];
++	struct Coordinate end_points[RECORD_POINTS_COUNT];
++};
++
++struct points_record {
++	int count;
++	struct Coordinate points[RECORD_POINTS_COUNT];
++};
++
++static inline unsigned int le2_to_uint(const unsigned char *src)
++{
++	return (unsigned int)src[0] +
++	       (unsigned int)src[1] * 0x100;
++}
++
++static inline unsigned int le4_to_uint(const unsigned char *src)
++{
++	return (unsigned int)src[0] +
++	       (unsigned int)src[1] * 0x100 +
++	       (unsigned int)src[2] * 0x10000 +
++	       (unsigned int)src[3] * 0x1000000;
++}
++
++struct touchpanel_event {
++	int touchpanel_id;
++	int x;
++	int y;
++	int fid;
++	char type;
++	int touch_state;
++	int area_rate;
++};
++
++struct tcm_v1_message_header {
++	union {
++		struct {
++			unsigned char marker;
++			unsigned char code;
++			unsigned char length[2];
++		};
++		unsigned char data[MESSAGE_HEADER_SIZE];
++	};
++};
++
++struct tcm_application_info {
++	unsigned char version[2];
++	unsigned char status[2];
++	unsigned char static_config_size[2];
++	unsigned char dynamic_config_size[2];
++	unsigned char app_config_start_write_block[2];
++	unsigned char app_config_size[2];
++	unsigned char max_touch_report_config_size[2];
++	unsigned char max_touch_report_payload_size[2];
++	unsigned char customer_config_id[MAX_SIZE_CONFIG_ID];
++	unsigned char max_x[2];
++	unsigned char max_y[2];
++	unsigned char max_objects[2];
++	unsigned char num_of_buttons[2];
++	unsigned char num_of_image_rows[2];
++	unsigned char num_of_image_cols[2];
++	unsigned char has_hybrid_data[2];
++	unsigned char num_of_force_elecs[2];
++};
++
++struct tcm_identification_info {
++	unsigned char version;
++	unsigned char mode;
++	unsigned char part_number[16];
++	unsigned char build_id[4];
++	unsigned char max_write_size[2];
++	unsigned char max_read_size[2];
++	unsigned char reserved[6];
++};
++
++struct tcm_gesture_data_blob {
++	union {
++		struct {
++			unsigned char tap_x[2];
++			unsigned char tap_y[2];
++		};
++		struct {
++			unsigned char swipe_x[2];
++			unsigned char swipe_y[2];
++			unsigned char swipe_direction[2];
++		};
++		unsigned char data[MAX_SIZE_GESTURE_DATA];
++	};
++};
++
++struct tcm_grip_info_blob {
++	unsigned char data[MAX_SIZE_GRIP_INFO];
++};
++
++struct tcm_objects_data_blob {
++	unsigned char status;
++	unsigned int x_pos;
++	unsigned int y_pos;
++	unsigned int x_width;
++	unsigned int y_width;
++	unsigned int z;
++	unsigned int tx_pos;
++	unsigned int rx_pos;
++	unsigned int custom_data[5];
++	struct tcm_grip_info_blob grip_info;
++};
++
++struct tcm_touch_data_blob {
++	unsigned int obji;
++	unsigned int num_of_active_objects;
++	struct tcm_objects_data_blob object_data[MAX_NUM_OBJECTS];
++	unsigned int gesture_id;
++	struct tcm_gesture_data_blob gesture_data;
++	unsigned int timestamp;
++	unsigned int buttons_state;
++	unsigned int frame_rate;
++	unsigned int force_data;
++	unsigned int power_im;
++	unsigned int cid_im;
++	unsigned int rail_im;
++	unsigned int cid_variance_im;
++	unsigned int nsm_frequency;
++	unsigned int nsm_state;
++	unsigned int sensing_mode;
++};
++
++struct tcm_message_data_blob {
++	atomic_t command_status;
++	unsigned char command;
++	unsigned char status_report_code;
++	unsigned int payload_length;
++	unsigned char response_code;
++	unsigned char report_code;
++	unsigned char seq_toggle;
++	unsigned int default_resp_reading;
++	struct completion cmd_completion;
++	struct tcm_buffer in;
++	struct tcm_buffer out;
++	struct tcm_buffer temp;
++	struct mutex cmd_mutex;
++	struct mutex rw_mutex;
++	bool predict_reads;
++	unsigned int predict_length;
++	bool has_crc;
++	unsigned short crc_bytes;
++	bool has_extra_rc;
++	unsigned char rc_byte;
++};
++
++struct syna_hw_bus_data {
++	unsigned char type;
++	unsigned int rd_chunk_size;
++	unsigned int wr_chunk_size;
++	unsigned int frequency_hz;
++	unsigned int i2c_addr;
++	unsigned int spi_mode;
++	unsigned int spi_byte_delay_us;
++	unsigned int spi_block_delay_us;
++	struct mutex io_mutex;
++	int switch_gpio;
++	int switch_state;
++	struct pinctrl          *pinctrl;
++	struct pinctrl_state    *pin_spi_mode_active;
++	struct pinctrl_state    *pin_spi_mode_suspend;
++	struct pinctrl_state    *pin_cs_high;
++	struct pinctrl_state    *pin_cs_low;
++};
++
++struct syna_hw_attn_data {
++	int irq_gpio;
++	int irq_on_state;
++	unsigned long irq_flags;
++	int irq_id;
++	bool irq_enabled;
++	struct mutex irq_en_mutex;
++};
++
++struct syna_hw_rst_data {
++	int reset_gpio;
++	int reset_on_state;
++	unsigned int reset_delay_ms;
++	unsigned int reset_active_ms;
++	struct mutex reset_en_mutex;
++};
++
++struct syna_hw_pwr_data {
++	int psu;
++	int vdd_gpio;
++	int avdd_gpio;
++	int power_on_state;
++	unsigned int power_on_delay_ms;
++	unsigned int vdd;
++	unsigned int vled;
++	unsigned int vio;
++	unsigned int vddtx;
++	const char *vdd_reg_name;
++	void *vdd_reg_dev;
++	const char *avdd_reg_name;
++	void *avdd_reg_dev;
++};
++
++struct syna_hw_interface {
++	void *pdev;
++	struct syna_hw_bus_data bdata_io;
++	struct syna_hw_attn_data bdata_attn;
++	struct syna_hw_rst_data bdata_rst;
++	struct syna_hw_pwr_data bdata_pwr;
++	int (*ops_power_on)(struct syna_hw_interface *hw_if, bool en);
++	void (*ops_hw_reset)(struct syna_hw_interface *hw_if);
++	int (*ops_bus_setup)(struct syna_hw_interface *hw_if, struct syna_hw_bus_data *config);
++	int (*ops_read_data)(struct syna_hw_interface *hw_if, unsigned char *rd_data, unsigned int rd_len);
++	int (*ops_write_data)(struct syna_hw_interface *hw_if, unsigned char *wr_data, unsigned int wr_len);
++	int (*ops_enable_irq)(struct syna_hw_interface *hw_if, bool en);
++	int (*ops_wait_irq)(struct syna_hw_interface *hw_if, unsigned int timeout_ms);
++
++};
++
++int syna_hw_interface_init(void);
++void syna_hw_interface_exit(void);
++
++struct tcm_boot_info {
++	unsigned char version;
++	unsigned char status;
++	unsigned char asic_id[2];
++	unsigned char write_block_size_words;
++	unsigned char erase_page_size_words[2];
++	unsigned char max_write_payload_size[2];
++	unsigned char last_reset_reason;
++	unsigned char pc_at_time_of_last_reset[2];
++	unsigned char boot_config_start_block[2];
++	unsigned char boot_config_size_blocks[2];
++	unsigned char display_config_start_block[4];
++	unsigned char display_config_length_blocks[2];
++	unsigned char backup_display_config_start_block[4];
++	unsigned char backup_display_config_length_blocks[2];
++	unsigned char custom_otp_start_block[2];
++	unsigned char custom_otp_length_blocks[2];
++};
++
++struct tcm_dev {
++	unsigned char protocol;
++	unsigned char dev_mode;
++	unsigned int packrat_number;
++	unsigned int max_x;
++	unsigned int max_y;
++	unsigned int max_objects;
++	unsigned int rows;
++	unsigned int cols;
++	unsigned char config_id[MAX_SIZE_CONFIG_ID];
++	unsigned int max_wr_size;
++	unsigned int max_rd_size;
++	bool bypass_max_wr_rd_setup;
++	bool is_sleep;
++	struct syna_hw_interface *hw_if;
++	unsigned int firmware_mode_count;
++	unsigned int upload_flag;
++	unsigned int error_state_count;
++	struct tcm_identification_info id_info;
++	struct tcm_application_info app_info;
++	struct tcm_boot_info boot_info;
++	struct tcm_buffer report_buf;
++	struct tcm_buffer resp_buf;
++	struct tcm_buffer external_buf;
++	struct tcm_buffer touch_config;
++	struct tcm_message_data_blob msg_data;
++	atomic_t firmware_flashing;
++	int (*read_message)(struct tcm_dev *tcm_dev,
++			unsigned char *status_report_code);
++	int (*write_message)(struct tcm_dev *tcm_dev,
++			unsigned char command, unsigned char *payload,
++			unsigned int payload_length, unsigned char *resp_code,
++			unsigned int delay_ms_resp);
++};
++
++struct syna_tcm {
++
++	int tp_index;
++	struct tcm_dev *tcm_dev;
++	struct completion report_complete;
++	struct platform_device *pdev;
++	struct tcm_touch_data_blob tp_data;
++	struct mutex tp_event_mutex;
++	struct mutex extif_mutex;
++	struct mutex		mutex;
++	unsigned char prev_obj_status[MAX_NUM_OBJECTS];
++	struct tcm_buffer event_data;
++	struct syna_hw_interface *hw_if;
++	pid_t isr_pid;
++	bool irq_wake;
++	int irq_cost_time;
++	struct cdev char_dev;
++	dev_t char_dev_num;
++	int char_dev_ref_count;
++	struct class *device_class;
++	struct device *device;
++	struct kobject *sysfs_dir;
++	struct proc_dir_entry *prEntry_tp;
++	struct proc_dir_entry *prEntry_debug_tp;
++	struct input_dev *input_dev;
++	struct input_params {
++		unsigned int max_x;
++		unsigned int max_y;
++		unsigned int max_objects;
++	} input_dev_params;
++	int tx_num;
++	int rx_num;
++	int dts_max_x;
++	int dts_max_y;
++	unsigned int firmware_max_x;
++	unsigned int firmware_max_y;
++	char *fw_name_fae;
++	char algo_version[MAX_DEVICE_VERSION_LENGTH];
++	int firmware_update_type;
++	struct completion fw_complete;
++	struct delayed_work reflash_work;
++	struct workqueue_struct *reflash_workqueue;
++	pid_t proc_pid;
++	struct task_struct *proc_task;
++	int probe_done;
++	int pwr_state;
++	int sub_pwr_state;
++	bool slept_in_early_suspend;
++	bool lpwg_enabled;
++	bool is_attn_redirecting;
++	unsigned char fb_ready;
++	bool is_connected;
++	bool hbp_enabled;
++	int daemon_state;
++	int primary_timestamp_enabled;
++	int driver_current_state;
++	unsigned int waiting_frame;
++	unsigned int wait_for_ioctl_operation;
++	unsigned int use_short_frame_waiting;
++	bool snr_read_support;
++	bool freq_hop_simulate_support;
++	unsigned short gesture_type;
++	unsigned short touch_and_hold;
++	bool fp_active;
++	int aging_test;
++	int aging_mode;
++	void *chip_data;
++	bool in_test_process;
++	unsigned int fifo_remaining_frame;
++	struct list_head frame_fifo_queue;
++	wait_queue_head_t wait_frame;
++	unsigned char report_to_queue[REPORT_TYPES];
++	struct work_struct speed_up_work;
++	struct workqueue_struct *speedup_resume_wq;
++	bool bus_ready;
++	wait_queue_head_t wait;
++	int (*dev_connect)(struct syna_tcm *tcm);
++	int (*dev_disconnect)(struct syna_tcm *tcm);
++	int (*dev_set_up_app_fw)(struct syna_tcm *tcm);
++	int (*dev_resume)(struct device *dev);
++	int (*dev_suspend)(struct device *dev);
++};
++
++int syna_dev_disable_hbp_mode(struct syna_tcm *tcm);
++void syna_dev_update_lpwg_status(struct syna_tcm *tcm);
++void syna_send_signal(struct syna_tcm *tcm, int signal_num);
++int syna_dev_enable_lowpwr_gesture(struct syna_tcm *tcm, bool en);
++int syna_tcm_get_touch_data(const unsigned char *report,
++		unsigned int report_size, unsigned int offset,
++		unsigned int bits, unsigned int *data);
++int syna_tcm_preserve_touch_report_config(struct tcm_dev *tcm_dev);
++int syna_tcm_parse_touch_report(struct tcm_dev *tcm_dev,
++		unsigned char *report, unsigned int report_size,
++		struct tcm_touch_data_blob *touch_data);
++void syna_tcm_remove_device(struct tcm_dev *tcm_dev);
++int syna_tcm_enable_predict_reading(struct tcm_dev *tcm_dev, bool en);
++int syna_tcm_allocate_device(struct tcm_dev **ptcm_dev_ptr,
++		struct syna_hw_interface *hw_if, unsigned int resp_reading);
++int syna_tcm_switch_fw_mode(struct tcm_dev *tcm_dev,
++		unsigned char mode, unsigned int fw_switch_delay);
++int syna_tcm_set_dynamic_config(struct tcm_dev *tcm_dev,
++		unsigned char id, unsigned short value,
++		unsigned int delay_ms_resp);
++int syna_tcm_detect_device(struct tcm_dev *tcm_dev);
++int syna_tcm_reset(struct tcm_dev *tcm_dev);
++int syna_tcm_sleep(struct tcm_dev *tcm_dev, bool en);
++int syna_tcm_get_event_data(struct tcm_dev *tcm_dev,
++		unsigned char *code,
++		struct tcm_buffer *report);
++int syna_tcm_get_app_info(struct tcm_dev *tcm_dev,
++		struct tcm_application_info *app_info);
++
++int syna_cdev_create_sysfs(struct syna_tcm *ptcm,
++		struct platform_device *pdev);
++
++void syna_cdev_remove_sysfs(struct syna_tcm *ptcm);
++
++void syna_cdev_redirect_attn(struct syna_tcm *ptcm);
++
++static inline void syna_pal_mutex_lock(struct mutex *ptr) {
++	mutex_lock(ptr);
++}
++
++static inline void syna_pal_mutex_unlock(struct mutex *ptr) {
++	mutex_unlock(ptr);
++}
++
++static inline int syna_pal_mem_cpy(void *dest, unsigned int dest_size, const void *src, unsigned int src_size, unsigned int num) {
++	if (dest == NULL || src == NULL)
++		return -1;
++
++	if (num > dest_size || num > src_size)
++		return -1;
++
++	memcpy(dest, src, num);
++
++	return 0;
++}
++
++static inline void *syna_pal_mem_alloc(unsigned int num, unsigned int size) {
++	if ((int)(num * size) <= 0)
++		return NULL;
++
++	return kcalloc(num, size, GFP_KERNEL);
++}
++
++static inline int secure_memcpy(unsigned char *dest, unsigned int dest_size,
++                                const unsigned char *src, unsigned int src_size,
++                                unsigned int count)
++{
++    if (dest == NULL || src == NULL)
++        return -EINVAL;
++
++    if (count > dest_size || count > src_size) {
++        pr_err("%s: src_size = %d, dest_size = %d, count = %d\n",
++               __func__, src_size, dest_size, count);
++        return -EINVAL;
++    }
++
++    memcpy((void *)dest, (const void *)src, count);
++
++    return 0;
++}
++
++static inline unsigned short syna_tcm_crc16(unsigned char *p,
++	unsigned int len, unsigned short val)
++{
++	unsigned short r = val;
++	static unsigned short crc16_table[256] = {
++		0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
++		0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF,
++		0x1231, 0x0210, 0x3273, 0x2252, 0x52B5, 0x4294, 0x72F7, 0x62D6,
++		0x9339, 0x8318, 0xB37B, 0xA35A, 0xD3BD, 0xC39C, 0xF3FF, 0xE3DE,
++		0x2462, 0x3443, 0x0420, 0x1401, 0x64E6, 0x74C7, 0x44A4, 0x5485,
++		0xA56A, 0xB54B, 0x8528, 0x9509, 0xE5EE, 0xF5CF, 0xC5AC, 0xD58D,
++		0x3653, 0x2672, 0x1611, 0x0630, 0x76D7, 0x66F6, 0x5695, 0x46B4,
++		0xB75B, 0xA77A, 0x9719, 0x8738, 0xF7DF, 0xE7FE, 0xD79D, 0xC7BC,
++		0x48C4, 0x58E5, 0x6886, 0x78A7, 0x0840, 0x1861, 0x2802, 0x3823,
++		0xC9CC, 0xD9ED, 0xE98E, 0xF9AF, 0x8948, 0x9969, 0xA90A, 0xB92B,
++		0x5AF5, 0x4AD4, 0x7AB7, 0x6A96, 0x1A71, 0x0A50, 0x3A33, 0x2A12,
++		0xDBFD, 0xCBDC, 0xFBBF, 0xEB9E, 0x9B79, 0x8B58, 0xBB3B, 0xAB1A,
++		0x6CA6, 0x7C87, 0x4CE4, 0x5CC5, 0x2C22, 0x3C03, 0x0C60, 0x1C41,
++		0xEDAE, 0xFD8F, 0xCDEC, 0xDDCD, 0xAD2A, 0xBD0B, 0x8D68, 0x9D49,
++		0x7E97, 0x6EB6, 0x5ED5, 0x4EF4, 0x3E13, 0x2E32, 0x1E51, 0x0E70,
++		0xFF9F, 0xEFBE, 0xDFDD, 0xCFFC, 0xBF1B, 0xAF3A, 0x9F59, 0x8F78,
++		0x9188, 0x81A9, 0xB1CA, 0xA1EB, 0xD10C, 0xC12D, 0xF14E, 0xE16F,
++		0x1080, 0x00A1, 0x30C2, 0x20E3, 0x5004, 0x4025, 0x7046, 0x6067,
++		0x83B9, 0x9398, 0xA3FB, 0xB3DA, 0xC33D, 0xD31C, 0xE37F, 0xF35E,
++		0x02B1, 0x1290, 0x22F3, 0x32D2, 0x4235, 0x5214, 0x6277, 0x7256,
++		0xB5EA, 0xA5CB, 0x95A8, 0x8589, 0xF56E, 0xE54F, 0xD52C, 0xC50D,
++		0x34E2, 0x24C3, 0x14A0, 0x0481, 0x7466, 0x6447, 0x5424, 0x4405,
++		0xA7DB, 0xB7FA, 0x8799, 0x97B8, 0xE75F, 0xF77E, 0xC71D, 0xD73C,
++		0x26D3, 0x36F2, 0x0691, 0x16B0, 0x6657, 0x7676, 0x4615, 0x5634,
++		0xD94C, 0xC96D, 0xF90E, 0xE92F, 0x99C8, 0x89E9, 0xB98A, 0xA9AB,
++		0x5844, 0x4865, 0x7806, 0x6827, 0x18C0, 0x08E1, 0x3882, 0x28A3,
++		0xCB7D, 0xDB5C, 0xEB3F, 0xFB1E, 0x8BF9, 0x9BD8, 0xABBB, 0xBB9A,
++		0x4A75, 0x5A54, 0x6A37, 0x7A16, 0x0AF1, 0x1AD0, 0x2AB3, 0x3A92,
++		0xFD2E, 0xED0F, 0xDD6C, 0xCD4D, 0xBDAA, 0xAD8B, 0x9DE8, 0x8DC9,
++		0x7C26, 0x6C07, 0x5C64, 0x4C45, 0x3CA2, 0x2C83, 0x1CE0, 0x0CC1,
++		0xEF1F, 0xFF3E, 0xCF5D, 0xDF7C, 0xAF9B, 0xBFBA, 0x8FD9, 0x9FF8,
++		0x6E17, 0x7E36, 0x4E55, 0x5E74, 0x2E93, 0x3EB2, 0x0ED1, 0x1EF0
++	};
++
++	if (len == 0)
++		return r;
++
++	while (len--)
++		r = (r << 8) ^ crc16_table[(r >> 8) ^ *p++];
++
++	return r;
++}
++
++static inline int syna_tcm_buf_realloc(struct tcm_buffer *pbuf,
++		unsigned int size)
++{
++	int retval;
++	unsigned char *temp_src;
++	unsigned int temp_size = 0;
++
++	if (!pbuf) 
++		return -1;
++
++	if (size > pbuf->buf_size) {
++		temp_src = pbuf->buf;
++		temp_size = pbuf->buf_size;
++
++		pbuf->buf = syna_pal_mem_alloc(size, sizeof(unsigned char));
++		if (!(pbuf->buf)) {
++			kfree(temp_src);
++			pbuf->buf_size = 0;
++			return -1;
++		}
++
++		retval = syna_pal_mem_cpy(pbuf->buf,
++				size,
++				temp_src,
++				temp_size,
++				temp_size);
++		if (retval < 0) {
++			kfree(temp_src);
++			kfree(pbuf->buf);
++			pbuf->buf_size = 0;
++			return retval;
++		}
++
++		kfree(temp_src);
++		pbuf->buf_size = size;
++	}
++
++	return 0;
++}
++
++static inline int syna_tcm_buf_alloc(struct tcm_buffer *pbuf,
++		unsigned int size)
++{
++	if (!pbuf)
++		return -1;
++
++	if (size > pbuf->buf_size) {
++		if (pbuf->buf)
++			kfree(pbuf->buf);
++
++		pbuf->buf = syna_pal_mem_alloc(size, sizeof(unsigned char));
++		if (!(pbuf->buf)) {
++			pbuf->buf_size = 0;
++			pbuf->data_length = 0;
++			return -1;
++		}
++		pbuf->buf_size = size;
++	}
++
++	memset(pbuf->buf, 0x00, pbuf->buf_size);
++	pbuf->data_length = 0;
++
++	return 0;
++}
++
++static inline int syna_tcm_buf_copy(struct tcm_buffer *dest,
++		struct tcm_buffer *src)
++{
++	int retval = 0;
++
++	if (dest->buf_size < src->data_length) {
++		retval = syna_tcm_buf_alloc(dest, src->data_length + 1);
++		if (retval < 0)
++			return retval;
++	}
++
++	retval = syna_pal_mem_cpy(dest->buf,
++			dest->buf_size,
++			src->buf,
++			src->buf_size,
++			src->data_length);
++	if (retval < 0)
++		return retval;
++
++	dest->data_length = src->data_length;
++
++	return retval;
++}
++
++static inline void syna_tcm_buf_lock(struct tcm_buffer *pbuf)
++{
++	syna_pal_mutex_lock(&pbuf->buf_mutex);
++	pbuf->ref_cnt++;
++}
++
++static inline void syna_tcm_buf_unlock(struct tcm_buffer *pbuf)
++{
++	pbuf->ref_cnt--;
++	syna_pal_mutex_unlock(&pbuf->buf_mutex);
++}
++
++static inline unsigned int syna_pal_le2_to_uint(const unsigned char *src) {
++	return (unsigned int)src[0] + (unsigned int)src[1] * 0x100;
++}
++
++static inline int syna_pal_completion_wait_for(struct completion *ptr, unsigned int timeout_ms) {
++	int retval;
++
++	retval = wait_for_completion_timeout(ptr, msecs_to_jiffies(timeout_ms));
++	if (retval == 0)
++		return -1;
++
++	return 0;
++}
++
++static inline void syna_tcm_buf_release(struct tcm_buffer *pbuf)
++{
++	kfree(pbuf->buf);
++	pbuf->buf_size = 0;
++	pbuf->data_length = 0;
++	pbuf->ref_cnt = 0;
++}
++
++static inline void syna_tcm_buf_init(struct tcm_buffer *pbuf)
++{
++	pbuf->buf_size = 0;
++	pbuf->data_length = 0;
++	pbuf->ref_cnt = 0;
++	pbuf->buf = NULL;
++	mutex_init(&pbuf->buf_mutex);
++}
++
++static inline int syna_tcm_read(struct tcm_dev *tcm_dev,
++	unsigned char *rd_data, unsigned int rd_len)
++{
++	struct syna_hw_interface *hw_if;
++
++	if (!tcm_dev)
++		return _EINVAL;
++
++	hw_if = tcm_dev->hw_if;
++	if (!hw_if->ops_read_data)
++		return _ENODEV;
++
++	return hw_if->ops_read_data(hw_if, rd_data, rd_len);
++}
++
++static inline int syna_tcm_write(struct tcm_dev *tcm_dev,
++	unsigned char *wr_data, unsigned int wr_len)
++{
++	struct syna_hw_interface *hw_if;
++
++	if (!tcm_dev)
++		return _EINVAL;
++
++	hw_if = tcm_dev->hw_if;
++	if (!hw_if->ops_write_data)
++		return _ENODEV;
++
++	return hw_if->ops_write_data(hw_if, wr_data, wr_len);
++}
++
++static inline unsigned int syna_pal_ceil_div(unsigned int dividend, unsigned int divisor) {
++	return (dividend + divisor - 1) / divisor;
++}
++
++static inline void syna_pal_completion_complete(struct completion *ptr) {
++	complete(ptr);
++}
++
++static inline unsigned int syna_pal_le4_to_uint(const unsigned char *src) {
++	return (unsigned int)src[0] + (unsigned int)src[1] * 0x100 + (unsigned int)src[2] * 0x10000 + (unsigned int)src[3] * 0x1000000;
++}
++
++void syna_cdev_update_report_queue(struct syna_tcm *tcm,
++		unsigned char code, struct tcm_buffer *pevent_data);
++void syna_cdev_update_power_state_report_queue(struct syna_tcm *tcm, bool wakeup);
++
++
++
++
++#define INIT_BUFFER(buffer, is_clone) \
++	mutex_init(&buffer.buf_mutex); \
++
++#define LOCK_BUFFER(buffer) \
++	mutex_lock(&buffer.buf_mutex)
++
++#define UNLOCK_BUFFER(buffer) \
++	mutex_unlock(&buffer.buf_mutex)
++
++#define RELEASE_BUFFER(buffer) \
++	do { \
++        if (buffer.clone == false) { \
++			kfree(buffer.buf); \
++			buffer.buf_size = 0; \
++			buffer.data_length = 0; \
++        } \
++	} while (0)
++
++struct syna_tcm_report {
++	unsigned char id;
++	struct tcm_buffer buffer;
++};
++
++static inline int syna_tcm_alloc_mem(struct tcm_buffer *buffer,
++					 unsigned int size)
++{
++	if (size > buffer->buf_size) {
++		if (buffer->buf != NULL) {
++			kfree(buffer->buf);
++		}
++		buffer->buf = kzalloc(size, GFP_KERNEL);
++
++		if (!(buffer->buf)) {
++			buffer->buf_size = 0;
++			buffer->data_length = 0;
++			return -ENOMEM;
++		}
++		buffer->buf_size = size;
++	}
++
++	memset(buffer->buf, 0, buffer->buf_size);
++	buffer->data_length = 0;
++
++	return 0;
++}
++
++static inline int tp_memcpy(void *dest, unsigned int dest_size,
++			    void *src, unsigned int src_size,
++			    unsigned int count)
++{
++	if (dest == NULL || src == NULL) {
++		return -EINVAL;
++	}
++
++	if (count > dest_size || count > src_size) {
++		return -EINVAL;
++	}
++
++	memcpy(dest, src, count);
++
++	return 0;
++}
++
++#endif /* end of _SYNAPTICS_TCM2_DRIVER_H_ */
++
+diff --git a/drivers/input/touchscreen/syna_tcm2_spi.c b/drivers/input/touchscreen/syna_tcm2_spi.c
+new file mode 100644
+index 000000000..676f0bda4
+--- /dev/null
++++ b/drivers/input/touchscreen/syna_tcm2_spi.c
+@@ -0,0 +1,669 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Synaptics TouchCom touchscreen driver
++ *
++ * Copyright (C) 2017-2020 Synaptics Incorporated. All rights reserved.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * INFORMATION CONTAINED IN THIS DOCUMENT IS PROVIDED "AS-IS," AND SYNAPTICS
++ * EXPRESSLY DISCLAIMS ALL EXPRESS AND IMPLIED WARRANTIES, INCLUDING ANY
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
++ * AND ANY WARRANTIES OF NON-INFRINGEMENT OF ANY INTELLECTUAL PROPERTY RIGHTS.
++ * IN NO EVENT SHALL SYNAPTICS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
++ * SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN CONNECTION
++ * WITH THE USE OF THE INFORMATION CONTAINED IN THIS DOCUMENT, HOWEVER CAUSED
++ * AND BASED ON ANY THEORY OF LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
++ * NEGLIGENCE OR OTHER TORTIOUS ACTION, AND EVEN IF SYNAPTICS WAS ADVISED OF
++ * THE POSSIBILITY OF SUCH DAMAGE. IF A TRIBUNAL OF COMPETENT JURISDICTION DOES
++ * NOT PERMIT THE DISCLAIMER OF DIRECT DAMAGES OR ANY OTHER DAMAGES, SYNAPTICS'
++ * TOTAL CUMULATIVE LIABILITY TO ANY PARTY SHALL NOT EXCEED ONE HUNDRED U.S.
++ * DOLLARS.
++ */
++
++#include <linux/spi/spi.h>
++#include "syna_tcm2.h"
++#include <linux/pinctrl/consumer.h>
++
++#define SPI_MODULE_NAME "synaptics_tcm_spi"
++
++static unsigned char *rx_buf;
++static unsigned char *tx_buf;
++
++static unsigned int buf_size;
++
++static struct spi_transfer *xfer;
++
++struct platform_device *syna_spi_device;
++
++static struct device *syna_request_managed_device(void) {
++	if (!syna_spi_device)
++		return NULL;
++
++	return syna_spi_device->dev.parent;
++}
++
++static void syna_spi_hw_reset(struct syna_hw_interface *hw_if) {
++	struct syna_hw_rst_data *rst = &hw_if->bdata_rst;
++
++	if (rst->reset_gpio >= 0) {
++		syna_pal_mutex_lock(&rst->reset_en_mutex);
++		gpio_set_value(rst->reset_gpio, rst->reset_on_state);
++		msleep(rst->reset_active_ms);
++		gpio_set_value(rst->reset_gpio, !rst->reset_on_state);
++		msleep(rst->reset_delay_ms);
++		syna_pal_mutex_unlock(&rst->reset_en_mutex);
++	}
++}
++
++static int syna_spi_request_gpio(int gpio, bool config, int dir, int state, char *label) {
++	int retval;
++
++	struct device *dev = syna_request_managed_device();
++
++	if (!dev)
++		return -ENODEV;
++
++	if (gpio < 0)
++		return -EINVAL;
++
++	if (config) {
++		retval = snprintf(label, 16, "tcm_gpio_%d\n", gpio);
++		if (retval < 0)
++			return retval;
++		
++		retval = gpio_request(gpio, label);
++		if (retval < 0)
++			return retval;
++
++		if (dir == 0)
++			retval = gpio_direction_input(gpio);
++		else
++			retval = gpio_direction_output(gpio, state);
++
++		if (retval < 0)
++			return retval;
++	} else {
++		gpio_free(gpio);
++	}
++
++	return 0;
++}
++
++static void syna_spi_release_gpio(struct syna_hw_interface *hw_if)
++{
++	struct syna_hw_attn_data *attn = &hw_if->bdata_attn;
++	struct syna_hw_rst_data *rst = &hw_if->bdata_rst;
++
++	if (rst->reset_gpio >= 0)
++		syna_spi_request_gpio(rst->reset_gpio, false, 0, 0, NULL);
++	if (attn->irq_gpio >= 0)
++		syna_spi_request_gpio(attn->irq_gpio, false, 0, 0, NULL);
++}
++
++static int syna_spi_active_pinctrl(struct syna_hw_interface *hw_if)
++{
++	int retval = 0;
++	struct syna_hw_bus_data *bus = &hw_if->bdata_io;
++
++	if (bus->pin_spi_mode_active != NULL) {
++		retval = pinctrl_select_state(bus->pinctrl, bus->pin_spi_mode_active);
++		if (retval < 0)
++			goto err_active_pinctrl;
++	}
++
++err_active_pinctrl:
++	return retval;
++}
++
++static int syna_spi_config_gpio(struct syna_hw_interface *hw_if) {
++	int retval;
++	static char str_irq_gpio[32] = {0};
++	static char str_rst_gpio[32] = {0};
++	struct syna_hw_attn_data *attn = &hw_if->bdata_attn;
++	struct syna_hw_rst_data *rst = &hw_if->bdata_rst;
++
++	if (attn->irq_gpio >= 0) {
++		retval = syna_spi_request_gpio(attn->irq_gpio, true, 0, 0, str_irq_gpio);
++		if (retval < 0)
++			goto err_set_gpio_irq;
++	}
++
++	if (rst->reset_gpio >= 0) {
++		retval = syna_spi_request_gpio(rst->reset_gpio, true, 1, !rst->reset_on_state, str_rst_gpio);
++		if (retval < 0)
++			goto err_set_gpio_reset;
++	}
++
++	return 0;
++
++err_set_gpio_reset:
++	if (attn->irq_gpio >= 0)
++		syna_spi_request_gpio(attn->irq_gpio, false, 0, 0, NULL);
++err_set_gpio_irq:
++	return retval;
++}
++
++static int syna_spi_enable_pwr_gpio(struct syna_hw_interface *hw_if, bool en) {
++	struct syna_hw_pwr_data *pwr = &hw_if->bdata_pwr;
++	int state = (en) ? pwr->power_on_state : !pwr->power_on_state;
++	int ret = 0;
++
++	if (pwr->avdd_gpio >= 0) {
++		ret = gpio_direction_output(pwr->avdd_gpio, state);
++		if (ret)
++			return ret;
++	}
++
++	if (pwr->vdd_gpio >= 0) {
++		ret = gpio_direction_output(pwr->vdd_gpio, state);
++		if (ret)
++			return ret;
++	}
++
++	return ret;
++}
++
++static int syna_spi_enable_regulator(struct syna_hw_interface *hw_if, bool en) {
++	int retval;
++	struct syna_hw_pwr_data *pwr = &hw_if->bdata_pwr;
++	struct regulator *vdd_reg = pwr->vdd_reg_dev;
++
++	if (!en) {
++		retval = 0;
++		goto disable_pwr_reg;
++	}
++
++	if (vdd_reg) {
++		retval = regulator_enable(vdd_reg);
++		if (retval < 0)
++			goto exit;
++	}
++
++	return 0;
++
++disable_pwr_reg:
++	if (vdd_reg)
++		regulator_disable(vdd_reg);
++
++exit:
++	return retval;
++}
++
++static int syna_spi_power_on(struct syna_hw_interface *hw_if, bool en) {
++	int retval;
++	struct syna_hw_pwr_data *pwr = &hw_if->bdata_pwr;
++
++	retval = syna_spi_enable_pwr_gpio(hw_if, en);
++	if (retval < 0)
++		return retval;
++
++	retval = syna_spi_enable_regulator(hw_if, en);
++	if (retval < 0)
++		return retval;
++
++	msleep(pwr->power_on_delay_ms);
++
++	return 0;
++}
++
++static int syna_spi_get_regulator(struct syna_hw_interface *hw_if, bool get) {
++	int retval;
++	struct device *dev = syna_spi_device->dev.parent;
++	struct syna_hw_pwr_data *pwr = &hw_if->bdata_pwr;
++
++	if (!get) {
++		retval = 0;
++		goto regulator_put;
++	}
++
++	pwr->vdd_reg_dev = regulator_get(dev, "vdd");
++	if (IS_ERR((struct regulator *)pwr->vdd_reg_dev)) {
++		retval = PTR_ERR((struct regulator *)pwr->vdd_reg_dev);
++		goto exit;
++	} else {
++		if (regulator_count_voltages(pwr->vdd_reg_dev) > 0) {
++			retval = regulator_set_voltage(pwr->vdd_reg_dev, 1800000, 1800000);
++			if (retval)
++				goto exit;
++
++			retval = regulator_set_load(pwr->vdd_reg_dev, 200000);
++			if (retval < 0)
++				goto exit;
++		}
++	}
++
++	return 0;
++
++regulator_put:
++	if (pwr->vdd_reg_dev) {
++		regulator_put(pwr->vdd_reg_dev);
++		pwr->vdd_reg_dev = NULL;
++	}
++exit:
++	return retval;
++}
++
++static int syna_spi_config_psu(struct syna_hw_interface *hw_if)
++{
++	int retval;
++	static char str_avdd_gpio[32] = {0};
++	struct syna_hw_pwr_data *pwr = &hw_if->bdata_pwr;
++
++	if (pwr->psu == PSU_GPIO) {
++		if (pwr->avdd_gpio >= 0) {
++			retval = syna_spi_request_gpio(pwr->avdd_gpio, true, 1, !pwr->power_on_state, str_avdd_gpio);
++			if (retval < 0) {
++				syna_spi_request_gpio(pwr->vdd_gpio, false, 0, 0, NULL);
++				return retval;
++			}
++		}
++	} else {
++		retval = syna_spi_get_regulator(hw_if, true);
++		if (retval < 0)
++			return retval;
++	}
++
++	return 0;
++}
++
++static int syna_spi_release_psu(struct syna_hw_interface *hw_if)
++{
++	struct syna_hw_pwr_data *pwr = &hw_if->bdata_pwr;
++
++	if (pwr->psu == PSU_GPIO) {
++		syna_spi_request_gpio(pwr->avdd_gpio, false, 0, 0, NULL);
++	} else {
++		syna_spi_get_regulator(hw_if, false);
++	}
++
++	return 0;
++}
++
++static int syna_spi_enable_irq(struct syna_hw_interface *hw_if, bool en) {
++	int retval = 0;
++	struct syna_hw_attn_data *attn = &hw_if->bdata_attn;
++
++	if (attn->irq_id == 0)
++		return 0;
++
++	syna_pal_mutex_lock(&attn->irq_en_mutex);
++
++	if (en) {
++		if (attn->irq_enabled) {
++			retval = 0;
++			goto exit;
++		}
++
++		enable_irq(attn->irq_id);
++		attn->irq_enabled = true;
++	}
++	else {
++		if (!attn->irq_enabled) {
++			retval = 0;
++			goto exit;
++		}
++
++		disable_irq_nosync(attn->irq_id);
++		attn->irq_enabled = false;
++	}
++
++exit:
++	syna_pal_mutex_unlock(&attn->irq_en_mutex);
++
++	return retval;
++}
++
++static int syna_spi_parse_dt(struct syna_hw_interface *hw_if, struct device *dev) {
++	int retval;
++	struct property *prop;
++	struct device_node *np = dev->of_node;
++	struct syna_hw_attn_data *attn = &hw_if->bdata_attn;
++	struct syna_hw_pwr_data *pwr = &hw_if->bdata_pwr;
++	struct syna_hw_rst_data *rst = &hw_if->bdata_rst;
++	struct syna_hw_bus_data *bus = &hw_if->bdata_io;
++
++	prop = of_find_property(np, "synaptics,irq-gpio", NULL);
++	if (prop && prop->length) {
++		attn->irq_gpio = of_get_named_gpio(np, "synaptics,irq-gpio", 0);
++	} else {
++		attn->irq_gpio = -1;
++	}
++
++	attn->irq_on_state = 0;
++	pwr->psu = (int)PSU_REGULATOR;
++
++	prop = of_find_property(np, "synaptics,avdd-gpio", NULL);
++	if (prop && prop->length) {
++		pwr->avdd_gpio = of_get_named_gpio(np, "synaptics,avdd-gpio", 0);
++	} else {
++		pwr->avdd_gpio = -1;
++	}
++	
++	pwr->power_on_state = 1;
++	pwr->power_on_delay_ms = 200;
++
++	prop = of_find_property(np, "synaptics,reset-gpio", NULL);
++	if (prop && prop->length) {
++		rst->reset_gpio = of_get_named_gpio(np, "synaptics,reset-gpio", 0);
++	} else {
++		rst->reset_gpio = -1;
++	}
++
++	rst->reset_on_state = 0;
++	rst->reset_active_ms = 10;
++	rst->reset_delay_ms = 80;
++	
++	bus->spi_byte_delay_us = 0;
++	bus->spi_block_delay_us = 0;
++	bus->spi_mode = 0;
++	bus->switch_gpio = -1;
++	bus->switch_state = 1;
++
++	bus->pinctrl = devm_pinctrl_get(dev);
++
++	if (!IS_ERR_OR_NULL(bus->pinctrl)) {
++		bus->pin_spi_mode_active = pinctrl_lookup_state(bus->pinctrl, "ts_spi_active");
++		if (IS_ERR_OR_NULL(bus->pin_spi_mode_active)) {
++			retval = PTR_ERR(bus->pin_spi_mode_active);
++			bus->pin_spi_mode_active = NULL;
++		}
++
++		bus->pin_spi_mode_suspend = pinctrl_lookup_state(bus->pinctrl, "ts_spi_suspend");
++		if (IS_ERR_OR_NULL(bus->pin_spi_mode_suspend)) {
++			retval = PTR_ERR(bus->pin_spi_mode_suspend);
++			bus->pin_spi_mode_suspend = NULL;
++		}
++	}
++
++	return 0;
++}
++
++static int syna_spi_alloc_mem(unsigned int count, unsigned int size) {
++	static unsigned int xfer_count;
++
++	if (count > xfer_count) {
++		kfree(xfer);
++		xfer = syna_pal_mem_alloc(count, sizeof(*xfer));
++		if (!xfer) {
++			xfer_count = 0;
++			return -ENOMEM;
++		}
++		xfer_count = count;
++	} else {
++		memset(xfer, 0, count * sizeof(*xfer));
++	}
++
++	if (size > buf_size) {
++		if (rx_buf) {
++			kfree(rx_buf);
++			rx_buf = NULL;
++		}
++		if (tx_buf) {
++			kfree(tx_buf);
++			tx_buf = NULL;
++		}
++
++		rx_buf = syna_pal_mem_alloc(size, sizeof(unsigned char));
++		if (!rx_buf) {
++			buf_size = 0;
++			return -ENOMEM;
++		}
++		tx_buf = syna_pal_mem_alloc(size, sizeof(unsigned char));
++		if (!tx_buf) {
++			buf_size = 0;
++			return -ENOMEM;
++		}
++
++		buf_size = size;
++	}
++
++	return 0;
++}
++
++static int syna_spi_read(struct syna_hw_interface *hw_if, unsigned char *rd_data, unsigned int rd_len) {
++	int retval;
++	unsigned int idx;
++	struct spi_message msg;
++	struct spi_device *spi = hw_if->pdev;
++	struct syna_hw_bus_data *bus = &hw_if->bdata_io;
++
++	if (!spi)
++		return -ENXIO;
++
++	syna_pal_mutex_lock(&bus->io_mutex);
++
++	spi_message_init(&msg);
++
++	if (bus->spi_byte_delay_us == 0)
++		retval = syna_spi_alloc_mem(1, rd_len);
++	else
++		retval = syna_spi_alloc_mem(rd_len, rd_len);
++	if (retval < 0)
++		goto exit;
++
++	if (bus->spi_byte_delay_us == 0) {
++		memset(tx_buf, 0xff, rd_len);
++		xfer[0].len = rd_len;
++		xfer[0].tx_buf = tx_buf;
++		xfer[0].rx_buf = rx_buf;
++		spi_message_add_tail(&xfer[0], &msg);
++	} else {
++		tx_buf[0] = 0xff;
++		for (idx = 0; idx < rd_len; idx++) {
++			xfer[idx].len = 1;
++			xfer[idx].tx_buf = tx_buf;
++			xfer[idx].rx_buf = &rx_buf[idx];
++			spi_message_add_tail(&xfer[idx], &msg);
++		}
++	}
++
++	retval = spi_sync(spi, &msg);
++	if (retval != 0)
++		goto exit;
++	retval = syna_pal_mem_cpy(rd_data, rd_len, rx_buf, rd_len, rd_len);
++	if (retval < 0)
++		goto exit;
++
++	retval = rd_len;
++
++exit:
++	syna_pal_mutex_unlock(&bus->io_mutex);
++
++	return retval;
++}
++
++static int syna_spi_write(struct syna_hw_interface *hw_if, unsigned char *wr_data, unsigned int wr_len) {
++	int retval;
++	unsigned int idx;
++	struct spi_message msg;
++	struct spi_device *spi = hw_if->pdev;
++	struct syna_hw_bus_data *bus = &hw_if->bdata_io;
++
++	if (!spi)
++		return -ENXIO;
++
++	syna_pal_mutex_lock(&bus->io_mutex);
++
++	spi_message_init(&msg);
++
++	if (bus->spi_byte_delay_us == 0)
++		retval = syna_spi_alloc_mem(1, wr_len);
++	else
++		retval = syna_spi_alloc_mem(wr_len, wr_len);
++	if (retval < 0)
++		goto exit;
++
++	retval = syna_pal_mem_cpy(tx_buf, wr_len, wr_data, wr_len, wr_len);
++	if (retval < 0)
++		goto exit;
++
++	if (bus->spi_byte_delay_us == 0) {
++		xfer[0].len = wr_len;
++		xfer[0].tx_buf = tx_buf;
++		spi_message_add_tail(&xfer[0], &msg);
++	} else {
++		for (idx = 0; idx < wr_len; idx++) {
++			xfer[idx].len = 1;
++			xfer[idx].tx_buf = &tx_buf[idx];
++			spi_message_add_tail(&xfer[idx], &msg);
++		}
++	}
++
++	retval = spi_sync(spi, &msg);
++	if (retval != 0)
++		goto exit;
++
++	retval = wr_len;
++
++exit:
++	syna_pal_mutex_unlock(&bus->io_mutex);
++
++	return retval;
++}
++
++static struct syna_hw_interface syna_spi_hw_if = {
++	.bdata_io = {
++		.type = BUS_TYPE_SPI,
++		.rd_chunk_size = RD_CHUNK_SIZE,
++		.wr_chunk_size = WR_CHUNK_SIZE,
++	},
++	.bdata_attn = {
++		.irq_enabled = false,
++		.irq_on_state = 0,
++	},
++	.bdata_rst = {
++		.reset_on_state = 0,
++		.reset_delay_ms = 80,
++		.reset_active_ms = 10,
++	},
++	.bdata_pwr = {
++		.power_on_state = 1,
++		.power_on_delay_ms = 200,
++	},
++	.ops_power_on = syna_spi_power_on,
++	.ops_hw_reset = syna_spi_hw_reset,
++	.ops_read_data = syna_spi_read,
++	.ops_write_data = syna_spi_write,
++	.ops_enable_irq = syna_spi_enable_irq,
++};
++
++static int syna_spi_probe(struct spi_device *spi)
++{
++	int retval;
++	struct syna_hw_attn_data *attn = &syna_spi_hw_if.bdata_attn;
++	struct syna_hw_bus_data *bus = &syna_spi_hw_if.bdata_io;
++	struct syna_hw_rst_data *rst = &syna_spi_hw_if.bdata_rst;
++
++	syna_spi_device = platform_device_alloc(PLATFORM_DRIVER_NAME, 0);
++	if (!syna_spi_device)
++		return _ENODEV;
++
++	syna_spi_parse_dt(&syna_spi_hw_if, &spi->dev);
++
++	mutex_init((struct mutex *)&attn->irq_en_mutex);
++	mutex_init((struct mutex *)&bus->io_mutex);
++	mutex_init((struct mutex *)&rst->reset_en_mutex);
++
++	spi->mode = SPI_MODE_0;
++
++	syna_spi_hw_if.pdev = spi;
++
++	syna_spi_device->dev.parent = &spi->dev;
++	syna_spi_device->dev.platform_data = &syna_spi_hw_if;
++
++	spi->bits_per_word = 8;
++
++	retval = spi_setup(spi);
++	if (retval < 0)
++		return retval;
++
++	retval = syna_spi_config_psu(&syna_spi_hw_if);
++	if (retval < 0)
++		return retval;
++
++	retval = syna_spi_config_gpio(&syna_spi_hw_if);
++	if (retval < 0)
++		return retval;
++
++	retval = syna_spi_active_pinctrl(&syna_spi_hw_if);
++	if (retval < 0)
++		return retval;
++
++	retval = platform_device_add(syna_spi_device);
++	if (retval < 0)
++		return retval;
++
++	return 0;
++}
++
++static void syna_spi_remove(struct spi_device *spi)
++{
++	syna_spi_release_gpio(&syna_spi_hw_if);
++	syna_spi_release_psu(&syna_spi_hw_if);
++	syna_spi_device->dev.platform_data = NULL;
++	platform_device_unregister(syna_spi_device);
++}
++static const struct spi_device_id syna_spi_id_table[] = {
++	{SPI_MODULE_NAME, 0},
++	{},
++};
++MODULE_DEVICE_TABLE(spi, syna_spi_id_table);
++
++static const struct of_device_id syna_spi_of_match_table[] = {
++	{
++		.compatible = "synaptics,tcm-spi-hbp",
++	},
++	{},
++};
++MODULE_DEVICE_TABLE(of, syna_spi_of_match_table);
++
++
++static struct spi_driver syna_spi_driver = {
++	.driver = {
++		.name = SPI_MODULE_NAME,
++		.owner = THIS_MODULE,
++		.of_match_table = syna_spi_of_match_table,
++	},
++	.probe = syna_spi_probe,
++	.remove = syna_spi_remove,
++	.id_table = syna_spi_id_table,
++};
++
++int syna_hw_interface_init(void)
++{
++	return spi_register_driver(&syna_spi_driver);
++}
++
++void syna_hw_interface_exit(void)
++{
++	if (rx_buf) {
++		kfree(rx_buf);
++		rx_buf = NULL;
++	}
++
++	if (tx_buf) {
++		kfree(tx_buf);
++		tx_buf = NULL;
++	}
++
++	if (xfer) {
++		kfree(xfer);
++		xfer = NULL;
++	}
++
++	spi_unregister_driver(&syna_spi_driver);
++}
++
++MODULE_AUTHOR("Synaptics, Inc.");
++MODULE_DESCRIPTION("Synaptics TouchCom SPI Bus Module");
++MODULE_LICENSE("GPL v2");
++
+-- 
+2.55.0
+

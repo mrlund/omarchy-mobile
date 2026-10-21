@@ -4,6 +4,19 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-21: 7.3 stage 1, boot 2 (one-shot, 15:39 CEST): display up
+
+- The same chain image with only msm.ko changed (`2bf76c17c`, RGB888 command DST format with DSC). No DSI or kickoff errors. `card1-DSI-1` connected, and a Hyprland dpms off/on cycle (4/Off → 0/On) ran with 0 new DSI errors. USB was configured, the Gunyah watchdog was under systemd, and touchpanel was registered.
+- `systemd-backlight@…dsi.0` fails: restoring the saved brightness returns `EINVAL`. Minor, still open.
+- Martin's visual check of the picture and touch is pending. Boots used: 2 of 8.
+
+## 2026-10-21: 7.3 stage 1, boot 1 (one-shot, 15:27 CEST)
+
+- `7.3.0-rc6-dodge-s1` (trial branch, local only), as stage 2 via `dodge-chain` (`fastboot boot`, boot_a untouched).
+- **Worked:** kexec into 7.3, initramfs, switch_root, and USB gadget + SSH (`a600000.usb` configured; SSH answered after about 75 s). The Gunyah watchdog probed (`/dev/watchdog0`), the initramfs fed it, and systemd took it over (`'Gunyah Watchdog'`). `omamobile-kmod-overlay` bound the 7.3 trees and skipped 10 units (Wi-Fi, BT, audio, sensors, battery, modem). msm, the panel and syna_tcm2 loaded (with `drm_gpuvm`, `ubwc_config` and `cec` as new deps), `touchpanel` registered, Hyprland ran, Landlock was on, and no units failed except systemd-backlight.
+- **Broken:** display. The first DCS command timed out (`cmd dma tx failed ... -110`, panel init -110), then kickoff and frame-done timeouts. Cause candidate: 7.3 programs `CMD_DST_FORMAT_RGB101010` for the AA569 (DSC, widebus), while 6.16 had no such case and programmed RGB888. Workaround commit `2bf76c17c` (msm.ko only, Image unchanged), not tested yet.
+- **Came back:** by a manual `systemctl reboot` over SSH at about 15:34 to revert to 6.16. It was not a hang, and the watchdog did not fire. No battery reading on 7.3: battmgr is skipped there, so the return reboot had no gate.
+
 ## 2026-10-21: open bug, USB gadget stuck after a cable replug
 
 - After the loose cable was reseated (about 14:31), the laptop logged `usb3-port1: unable to enumerate USB device`. The phone's UDC stayed in `default` and usb0 stayed DOWN. Charging also stopped being reliable (current_now positive).

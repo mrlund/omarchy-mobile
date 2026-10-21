@@ -13,6 +13,18 @@ if [ ! -d "$H" ] || [ ! -d "$L" ]; then
 	echo "kmod-overlay: no $H or $L for $R; loaders will fail vermagic" >&2
 	exit 1
 fi
-mount --bind "$H" "/usr/lib/modules/$PINNED.held"
-mount --bind "$L" /usr/local/lib/omamobile
+mountpoint -q "/usr/lib/modules/$PINNED.held" || mount --bind "$H" "/usr/lib/modules/$PINNED.held"
+mountpoint -q /usr/local/lib/omamobile || mount --bind "$L" /usr/local/lib/omamobile
 echo "kmod-overlay: $R modules over $PINNED paths"
+# A kernel that is not ready for every loader lists the units to skip.
+# Each listed unit has the 50-omamobile-kernel-skip.conf drop-in, whose
+# condition reads /run/omamobile-skip/<unit>. /run is empty on the next
+# boot, so the pinned kernel never sees this.
+if [ -r "$L/skip-units" ]; then
+	mkdir -p /run/omamobile-skip
+	grep -v '^#' "$L/skip-units" | while read -r u; do
+		[ -n "$u" ] || continue
+		: > "/run/omamobile-skip/$u"
+		echo "kmod-overlay: skip $u on $R"
+	done
+fi
