@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 17 Oct 2026 16:31:41 +0200
+Subject: [PATCH] wifi: ath12k: claim PCI id 0x110e
+
+The OnePlus 13 radio enumerates as 17cb:110e. Claim it on the
+WCN7850 path so the SOC version can be read. On this phone that
+read reports major 0xf, and the probe returns before firmware.
+
+Co-Authored-By: Grok 4.7 <noreply@x.ai>
+---
+ drivers/net/wireless/ath/ath12k/pci.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/net/wireless/ath/ath12k/pci.c b/drivers/net/wireless/ath/ath12k/pci.c
+index 1f3cfd9b8..0f7853f1f 100644
+--- a/drivers/net/wireless/ath/ath12k/pci.c
++++ b/drivers/net/wireless/ath/ath12k/pci.c
+@@ -40,6 +40,10 @@
+ 
+ #define QCN9274_DEVICE_ID		0x1109
+ #define WCN7850_DEVICE_ID		0x1107
++/* OnePlus 13 (peach) enumerates as this id after the 7850 power
++ * sequence. The SOC version below decides whether the 7850 ops fit.
++ */
++#define WCN7850_PEACH_DEVICE_ID		0x110e
+ 
+ #define PCIE_LOCAL_REG_QRTR_NODE_ID	0x1E03164
+ #define DOMAIN_NUMBER_MASK		GENMASK(7, 4)
+@@ -48,6 +52,7 @@
+ static const struct pci_device_id ath12k_pci_id_table[] = {
+ 	{ PCI_VDEVICE(QCOM, QCN9274_DEVICE_ID) },
+ 	{ PCI_VDEVICE(QCOM, WCN7850_DEVICE_ID) },
++	{ PCI_VDEVICE(QCOM, WCN7850_PEACH_DEVICE_ID) },
+ 	{0}
+ };
+ 
+@@ -1611,6 +1616,7 @@ static int ath12k_pci_probe(struct pci_dev *pdev,
+ 		}
+ 		break;
+ 	case WCN7850_DEVICE_ID:
++	case WCN7850_PEACH_DEVICE_ID:
+ 		ab->id.bdf_search = ATH12K_BDF_SEARCH_BUS_AND_BOARD;
+ 		ab_pci->msi_config = &ath12k_msi_config[0];
+ 		ab->static_window_map = false;
+-- 
+2.55.0
+

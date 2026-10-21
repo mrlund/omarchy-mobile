@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 16 Oct 2026 12:16:18 +0200
+Subject: [PATCH] power: reset: nvmem-reboot-mode: write only the bytes a cell
+ holds
+
+nvmem_reboot_mode_write() passed sizeof(unsigned int) to
+nvmem_cell_write(). pmk8550's reboot-reason cell is one byte with a
+bitfield, so the write returns -EINVAL. The reboot still happens,
+and ABL sees no reason and starts the normal system.
+
+On the OnePlus 13, reboot-to bootloader then returned to OxygenOS.
+After writing the cell's own length, the same command landed in
+fastboot (product sun, slot a) with no adb device.
+
+Follows Jennifer Berringer's smaller-magic series, using
+nvmem_cell_read() for the length so this tree does not need
+nvmem_cell_size().
+---
+ drivers/power/reset/nvmem-reboot-mode.c | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/power/reset/nvmem-reboot-mode.c b/drivers/power/reset/nvmem-reboot-mode.c
+index 41530b70c..75c60c422 100644
+--- a/drivers/power/reset/nvmem-reboot-mode.c
++++ b/drivers/power/reset/nvmem-reboot-mode.c
+@@ -10,6 +10,7 @@
+ #include <linux/nvmem-consumer.h>
+ #include <linux/platform_device.h>
+ #include <linux/reboot-mode.h>
++#include <linux/slab.h>
+ 
+ struct nvmem_reboot_mode {
+ 	struct reboot_mode_driver reboot;
+@@ -19,12 +20,26 @@ struct nvmem_reboot_mode {
+ static int nvmem_reboot_mode_write(struct reboot_mode_driver *reboot,
+ 				    unsigned int magic)
+ {
+-	int ret;
+ 	struct nvmem_reboot_mode *nvmem_rbm;
++	size_t buf_len;
++	void *buf;
++	int ret;
+ 
+ 	nvmem_rbm = container_of(reboot, struct nvmem_reboot_mode, reboot);
+ 
+-	ret = nvmem_cell_write(nvmem_rbm->cell, &magic, sizeof(magic));
++	/*
++	 * pmk8550 stores the reason in a 1-byte SDAM cell. Writing
++	 * sizeof(magic) is rejected, and the reboot then happens with
++	 * no reason stored. Write only as many bytes as the cell holds.
++	 */
++	buf = nvmem_cell_read(nvmem_rbm->cell, &buf_len);
++	if (IS_ERR(buf))
++		return PTR_ERR(buf);
++	kfree(buf);
++	if (!buf_len || buf_len > sizeof(magic))
++		return -EINVAL;
++
++	ret = nvmem_cell_write(nvmem_rbm->cell, &magic, buf_len);
+ 	if (ret < 0)
+ 		dev_err(reboot->dev, "update reboot mode bits failed\n");
+ 
+-- 
+2.55.0
+

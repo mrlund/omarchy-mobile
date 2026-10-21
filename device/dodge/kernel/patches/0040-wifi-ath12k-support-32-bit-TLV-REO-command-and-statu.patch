@@ -1,0 +1,289 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 15:44:40 +0200
+Subject: [PATCH] wifi: ath12k: support 32-bit TLV REO command and status rings
+
+QCC2072-family chips frame REO commands and REO status entries with a
+32-bit TLV header instead of a 64-bit one. A status entry then carries
+32 bits of padding, so its descriptor starts at the same offset as
+before and only the tag decode differs; a command entry is one word
+shorter (11 words).
+
+Add hal_ops->reo_tlv32 and hal_qcc2072_ops, which uses the WCN7850 ring
+configuration with the shorter REO command entry. The command encoders
+write the header through one helper, the command ring init skips the
+right header size, and GET_QUEUE_STATS no longer clears past a 44-byte
+entry. Behaviour for chips without reo_tlv32 is unchanged.
+
+Based on the upstream QCC2072 support (reo_cmd_enc_tlv_hdr,
+reo_init_cmd_ring_tlv32, reo_status_dec_tlv_hdr_qcc2072).
+---
+ drivers/net/wireless/ath/ath12k/dp_rx.c    | 10 +++-
+ drivers/net/wireless/ath/ath12k/hal.c      | 30 ++++++++++
+ drivers/net/wireless/ath/ath12k/hal.h      |  3 +
+ drivers/net/wireless/ath/ath12k/hal_desc.h | 12 ++++
+ drivers/net/wireless/ath/ath12k/hal_rx.c   | 70 ++++++++++++++--------
+ 5 files changed, 100 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/dp_rx.c b/drivers/net/wireless/ath/ath12k/dp_rx.c
+index bd95dc88f..48838e339 100644
+--- a/drivers/net/wireless/ath/ath12k/dp_rx.c
++++ b/drivers/net/wireless/ath/ath12k/dp_rx.c
+@@ -4235,7 +4235,15 @@ void ath12k_dp_rx_process_reo_status(struct ath12k_base *ab)
+ 	ath12k_hal_srng_access_begin(ab, srng);
+ 
+ 	while ((hdr = ath12k_hal_srng_dst_get_next_entry(ab, srng))) {
+-		tag = le64_get_bits(hdr->tl, HAL_SRNG_TLV_HDR_TAG);
++		/* With 32-bit TLVs the status descriptor follows a 32-bit
++		 * header and 32 bits of padding, so it starts at the same
++		 * offset as after a 64-bit header; only the tag differs.
++		 */
++		if (ab->hw_params->hal_ops->reo_tlv32)
++			tag = le32_get_bits(((struct hal_tlv_hdr *)hdr)->tl,
++					    HAL_SRNG_TLV_HDR_TAG);
++		else
++			tag = le64_get_bits(hdr->tl, HAL_SRNG_TLV_HDR_TAG);
+ 
+ 		switch (tag) {
+ 		case HAL_REO_GET_QUEUE_STATS_STATUS:
+diff --git a/drivers/net/wireless/ath/ath12k/hal.c b/drivers/net/wireless/ath/ath12k/hal.c
+index 16a803a43..c93735e8f 100644
+--- a/drivers/net/wireless/ath/ath12k/hal.c
++++ b/drivers/net/wireless/ath/ath12k/hal.c
+@@ -1901,6 +1901,36 @@ const struct hal_ops hal_wcn7850_ops = {
+ 	.get_hal_rx_compact_ops = NULL,
+ };
+ 
++static int ath12k_hal_srng_create_config_qcc2072(struct ath12k_base *ab)
++{
++	struct ath12k_hal *hal = &ab->hal;
++	struct hal_srng_config *s;
++	int ret;
++
++	ret = ath12k_hal_srng_create_config_wcn7850(ab);
++	if (ret)
++		return ret;
++
++	s = &hal->srng_config[HAL_REO_CMD];
++	s->entry_size = (sizeof(struct hal_tlv_hdr) +
++			 sizeof(struct hal_reo_get_queue_stats_qcc2072)) >> 2;
++
++	s = &hal->srng_config[HAL_REO_STATUS];
++	s->entry_size = (sizeof(struct hal_tlv_hdr) +
++			 sizeof(struct hal_reo_get_queue_stats_status_qcc2072)) >> 2;
++
++	return 0;
++}
++
++const struct hal_ops hal_qcc2072_ops = {
++	.create_srng_config = ath12k_hal_srng_create_config_qcc2072,
++	.tcl_to_wbm_rbm_map = ath12k_hal_wcn7850_tcl_to_wbm_rbm_map,
++	.rxdma_ring_wmask_rx_mpdu_start = NULL,
++	.rxdma_ring_wmask_rx_msdu_end = NULL,
++	.get_hal_rx_compact_ops = NULL,
++	.reo_tlv32 = true,
++};
++
+ static int ath12k_hal_alloc_cont_rdp(struct ath12k_base *ab)
+ {
+ 	struct ath12k_hal *hal = &ab->hal;
+diff --git a/drivers/net/wireless/ath/ath12k/hal.h b/drivers/net/wireless/ath/ath12k/hal.h
+index a4c16f13e..4cf04929e 100644
+--- a/drivers/net/wireless/ath/ath12k/hal.h
++++ b/drivers/net/wireless/ath/ath12k/hal.h
+@@ -1107,10 +1107,13 @@ struct hal_ops {
+ 	u32 (*rxdma_ring_wmask_rx_msdu_end)(void);
+ 	const struct hal_rx_ops *(*get_hal_rx_compact_ops)(void);
+ 	const struct ath12k_hal_tcl_to_wbm_rbm_map *tcl_to_wbm_rbm_map;
++	/* REO command and status rings use 32-bit TLV headers */
++	bool reo_tlv32;
+ };
+ 
+ extern const struct hal_ops hal_qcn9274_ops;
+ extern const struct hal_ops hal_wcn7850_ops;
++extern const struct hal_ops hal_qcc2072_ops;
+ 
+ extern const struct hal_rx_ops hal_rx_qcn9274_ops;
+ extern const struct hal_rx_ops hal_rx_qcn9274_compact_ops;
+diff --git a/drivers/net/wireless/ath/ath12k/hal_desc.h b/drivers/net/wireless/ath/ath12k/hal_desc.h
+index 0173f731b..9453387cf 100644
+--- a/drivers/net/wireless/ath/ath12k/hal_desc.h
++++ b/drivers/net/wireless/ath/ath12k/hal_desc.h
+@@ -1176,6 +1176,13 @@ struct hal_reo_get_queue_stats {
+ 	__le32 tlv64_pad;
+ } __packed;
+ 
++struct hal_reo_get_queue_stats_qcc2072 {
++	struct hal_reo_cmd_hdr cmd;
++	__le32 queue_addr_lo;
++	__le32 info0;
++	__le32 rsvd0[6];
++} __packed;
++
+ /* hal_reo_get_queue_stats
+  *		Producer: SW
+  *		Consumer: REO
+@@ -2655,6 +2662,11 @@ struct hal_reo_get_queue_stats_status {
+ 	__le32 info5;
+ } __packed;
+ 
++struct hal_reo_get_queue_stats_status_qcc2072 {
++	__le32 tlv32_padding;
++	struct hal_reo_get_queue_stats_status status;
++} __packed;
++
+ /* hal_reo_get_queue_stats_status
+  *		Producer: REO
+  *		Consumer: SW
+diff --git a/drivers/net/wireless/ath/ath12k/hal_rx.c b/drivers/net/wireless/ath/ath12k/hal_rx.c
+index d984dabed..3850b1b65 100644
+--- a/drivers/net/wireless/ath/ath12k/hal_rx.c
++++ b/drivers/net/wireless/ath/ath12k/hal_rx.c
+@@ -21,16 +21,40 @@ static void ath12k_hal_reo_set_desc_hdr(struct hal_desc_header *hdr,
+ 	hdr->info0 |= le32_encode_bits(magic, HAL_DESC_HDR_INFO0_DBG_RESERVED);
+ }
+ 
+-static int ath12k_hal_reo_cmd_queue_stats(struct hal_tlv_64_hdr *tlv,
++/* QCC2072-family REO rings (WCN7860) use 32-bit TLV headers, the others
++ * 64-bit. Write the header and return where the descriptor starts.
++ */
++static void *ath12k_hal_reo_cmd_enc_tlv_hdr(struct ath12k_base *ab, void *tlv,
++					    u32 tag, u32 len)
++{
++	if (ab->hw_params->hal_ops->reo_tlv32) {
++		struct hal_tlv_hdr *tlv32 = tlv;
++
++		tlv32->tl = le32_encode_bits(tag, HAL_TLV_HDR_TAG) |
++			    le32_encode_bits(len, HAL_TLV_HDR_LEN);
++		return tlv32->value;
++	} else {
++		struct hal_tlv_64_hdr *tlv64 = tlv;
++
++		tlv64->tl = le64_encode_bits(tag, HAL_TLV_HDR_TAG) |
++			    le64_encode_bits(len, HAL_TLV_HDR_LEN);
++		return tlv64->value;
++	}
++}
++
++static int ath12k_hal_reo_cmd_queue_stats(struct ath12k_base *ab, void *tlv,
+ 					  struct ath12k_hal_reo_cmd *cmd)
+ {
+ 	struct hal_reo_get_queue_stats *desc;
++	size_t size = sizeof(*desc);
+ 
+-	tlv->tl = le64_encode_bits(HAL_REO_GET_QUEUE_STATS, HAL_TLV_HDR_TAG) |
+-		  le64_encode_bits(sizeof(*desc), HAL_TLV_HDR_LEN);
+-
+-	desc = (struct hal_reo_get_queue_stats *)tlv->value;
+-	memset_startat(desc, 0, queue_addr_lo);
++	desc = ath12k_hal_reo_cmd_enc_tlv_hdr(ab, tlv, HAL_REO_GET_QUEUE_STATS,
++					      sizeof(*desc));
++	/* the 32-bit TLV entry has no room for tlv64_pad */
++	if (ab->hw_params->hal_ops->reo_tlv32)
++		size = sizeof(struct hal_reo_get_queue_stats_qcc2072);
++	memset(&desc->queue_addr_lo, 0,
++	       size - offsetof(struct hal_reo_get_queue_stats, queue_addr_lo));
+ 
+ 	desc->cmd.info0 &= ~cpu_to_le32(HAL_REO_CMD_HDR_INFO0_STATUS_REQUIRED);
+ 	if (cmd->flag & HAL_REO_CMD_FLG_NEED_STATUS)
+@@ -45,10 +69,10 @@ static int ath12k_hal_reo_cmd_queue_stats(struct hal_tlv_64_hdr *tlv,
+ 	return le32_get_bits(desc->cmd.info0, HAL_REO_CMD_HDR_INFO0_CMD_NUMBER);
+ }
+ 
+-static int ath12k_hal_reo_cmd_flush_cache(struct ath12k_hal *hal,
+-					  struct hal_tlv_64_hdr *tlv,
++static int ath12k_hal_reo_cmd_flush_cache(struct ath12k_base *ab, void *tlv,
+ 					  struct ath12k_hal_reo_cmd *cmd)
+ {
++	struct ath12k_hal *hal = &ab->hal;
+ 	struct hal_reo_flush_cache *desc;
+ 	u8 avail_slot = ffz(hal->avail_blk_resource);
+ 
+@@ -59,10 +83,8 @@ static int ath12k_hal_reo_cmd_flush_cache(struct ath12k_hal *hal,
+ 		hal->current_blk_index = avail_slot;
+ 	}
+ 
+-	tlv->tl = le64_encode_bits(HAL_REO_FLUSH_CACHE, HAL_TLV_HDR_TAG) |
+-		  le64_encode_bits(sizeof(*desc), HAL_TLV_HDR_LEN);
+-
+-	desc = (struct hal_reo_flush_cache *)tlv->value;
++	desc = ath12k_hal_reo_cmd_enc_tlv_hdr(ab, tlv, HAL_REO_FLUSH_CACHE,
++					      sizeof(*desc));
+ 	memset_startat(desc, 0, cache_addr_lo);
+ 
+ 	desc->cmd.info0 &= ~cpu_to_le32(HAL_REO_CMD_HDR_INFO0_STATUS_REQUIRED);
+@@ -92,15 +114,13 @@ static int ath12k_hal_reo_cmd_flush_cache(struct ath12k_hal *hal,
+ 	return le32_get_bits(desc->cmd.info0, HAL_REO_CMD_HDR_INFO0_CMD_NUMBER);
+ }
+ 
+-static int ath12k_hal_reo_cmd_update_rx_queue(struct hal_tlv_64_hdr *tlv,
++static int ath12k_hal_reo_cmd_update_rx_queue(struct ath12k_base *ab, void *tlv,
+ 					      struct ath12k_hal_reo_cmd *cmd)
+ {
+ 	struct hal_reo_update_rx_queue *desc;
+ 
+-	tlv->tl = le64_encode_bits(HAL_REO_UPDATE_RX_REO_QUEUE, HAL_TLV_HDR_TAG) |
+-		  le64_encode_bits(sizeof(*desc), HAL_TLV_HDR_LEN);
+-
+-	desc = (struct hal_reo_update_rx_queue *)tlv->value;
++	desc = ath12k_hal_reo_cmd_enc_tlv_hdr(ab, tlv, HAL_REO_UPDATE_RX_REO_QUEUE,
++					      sizeof(*desc));
+ 	memset_startat(desc, 0, queue_addr_lo);
+ 
+ 	desc->cmd.info0 &= ~cpu_to_le32(HAL_REO_CMD_HDR_INFO0_STATUS_REQUIRED);
+@@ -221,7 +241,7 @@ int ath12k_hal_reo_cmd_send(struct ath12k_base *ab, struct hal_srng *srng,
+ 			    enum hal_reo_cmd_type type,
+ 			    struct ath12k_hal_reo_cmd *cmd)
+ {
+-	struct hal_tlv_64_hdr *reo_desc;
++	void *reo_desc;
+ 	int ret;
+ 
+ 	spin_lock_bh(&srng->lock);
+@@ -244,13 +264,13 @@ int ath12k_hal_reo_cmd_send(struct ath12k_base *ab, struct hal_srng *srng,
+ 
+ 	switch (type) {
+ 	case HAL_REO_CMD_GET_QUEUE_STATS:
+-		ret = ath12k_hal_reo_cmd_queue_stats(reo_desc, cmd);
++		ret = ath12k_hal_reo_cmd_queue_stats(ab, reo_desc, cmd);
+ 		break;
+ 	case HAL_REO_CMD_FLUSH_CACHE:
+-		ret = ath12k_hal_reo_cmd_flush_cache(&ab->hal, reo_desc, cmd);
++		ret = ath12k_hal_reo_cmd_flush_cache(ab, reo_desc, cmd);
+ 		break;
+ 	case HAL_REO_CMD_UPDATE_RX_QUEUE:
+-		ret = ath12k_hal_reo_cmd_update_rx_queue(reo_desc, cmd);
++		ret = ath12k_hal_reo_cmd_update_rx_queue(ab, reo_desc, cmd);
+ 		break;
+ 	case HAL_REO_CMD_FLUSH_QUEUE:
+ 	case HAL_REO_CMD_UNBLOCK_CACHE:
+@@ -884,11 +904,11 @@ void ath12k_hal_reo_init_cmd_ring(struct ath12k_base *ab,
+ 				  struct hal_srng *srng)
+ {
+ 	struct hal_srng_params params;
+-	struct hal_tlv_64_hdr *tlv;
+ 	struct hal_reo_get_queue_stats *desc;
+ 	int i, cmd_num = 1;
+ 	int entry_size;
+ 	u8 *entry;
++	size_t hdr_len;
+ 
+ 	memset(&params, 0, sizeof(params));
+ 
+@@ -896,9 +916,11 @@ void ath12k_hal_reo_init_cmd_ring(struct ath12k_base *ab,
+ 	ath12k_hal_srng_get_params(ab, srng, &params);
+ 	entry = (u8 *)params.ring_base_vaddr;
+ 
++	hdr_len = ab->hw_params->hal_ops->reo_tlv32 ?
++		  sizeof(struct hal_tlv_hdr) : sizeof(struct hal_tlv_64_hdr);
++
+ 	for (i = 0; i < params.num_entries; i++) {
+-		tlv = (struct hal_tlv_64_hdr *)entry;
+-		desc = (struct hal_reo_get_queue_stats *)tlv->value;
++		desc = (struct hal_reo_get_queue_stats *)(entry + hdr_len);
+ 		desc->cmd.info0 = le32_encode_bits(cmd_num++,
+ 						   HAL_REO_CMD_HDR_INFO0_CMD_NUMBER);
+ 		entry += entry_size;
+-- 
+2.55.0
+

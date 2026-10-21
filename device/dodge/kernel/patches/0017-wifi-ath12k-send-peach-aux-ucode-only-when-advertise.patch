@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Mon, 19 Oct 2026 17:04:14 +0200
+Subject: [PATCH] wifi: ath12k: send peach aux ucode only when advertised
+
+Target cap fw_caps is 0xf, which does not include the aux
+feature. Sending the image anyway was rejected. Log regdb
+and the capability so the order is visible.
+---
+ drivers/net/wireless/ath/ath12k/qmi.c | 15 +++++++++++++++
+ drivers/net/wireless/ath/ath12k/qmi.h |  2 ++
+ 2 files changed, 17 insertions(+)
+
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.c b/drivers/net/wireless/ath/ath12k/qmi.c
+index 012c9f7c4..f48fde210 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.c
++++ b/drivers/net/wireless/ath/ath12k/qmi.c
+@@ -3046,6 +3046,11 @@ int ath12k_qmi_request_target_cap(struct ath12k_base *ab)
+ 		    ab->qmi.target.chip_id, ab->qmi.target.chip_family,
+ 		    ab->qmi.target.board_id, ab->qmi.target.soc_id);
+ 
++	ab->qmi.fw_caps_valid = resp.fw_caps_valid;
++	ab->qmi.fw_caps = resp.fw_caps_valid ? resp.fw_caps : 0;
++	ath12k_info(ab, "qmi fw_caps valid %u value 0x%llx\n",
++		    ab->qmi.fw_caps_valid, ab->qmi.fw_caps);
++
+ 	ath12k_info(ab, "fw_version 0x%x fw_build_timestamp %s fw_build_id %s",
+ 		    ab->qmi.target.fw_version,
+ 		    ab->qmi.target.fw_build_timestamp,
+@@ -3192,6 +3197,7 @@ int ath12k_qmi_load_bdf_qmi(struct ath12k_base *ab,
+ 			ath12k_warn(ab, "qmi failed to load regdb bin:\n");
+ 			goto out;
+ 		}
++		ath12k_info(ab, "qmi regdb len %zu\n", bd.len);
+ 		break;
+ 	case ATH12K_QMI_BDF_TYPE_CALIBRATION:
+ 
+@@ -3440,6 +3446,15 @@ static int ath12k_qmi_aux_uc_info_send(struct ath12k_base *ab)
+ 	if (ab->id.device != 0x110e)
+ 		return 0;
+ 
++	/* Stock sends AUX only when target cap sets this feature.
++	 * Sending it otherwise is rejected with incompatible state.
++	 */
++	if (!ab->qmi.fw_caps_valid || !(ab->qmi.fw_caps & BIT(6))) {
++		ath12k_info(ab, "qmi aux skipped, fw_caps 0x%llx\n",
++			    ab->qmi.fw_caps);
++		return 0;
++	}
++
+ 	ret = ath12k_qmi_load_mem_file(ab, aux, "aux_ucode20.elf");
+ 	if (ret)
+ 		return ret;
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.h b/drivers/net/wireless/ath/ath12k/qmi.h
+index 1971f9794..9b049c6bf 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.h
++++ b/drivers/net/wireless/ath/ath12k/qmi.h
+@@ -157,6 +157,8 @@ struct ath12k_qmi {
+ 	struct target_info target;
+ 	struct m3_mem_region m3_mem;
+ 	struct m3_mem_region aux_mem;
++	u8 fw_caps_valid;
++	u64 fw_caps;
+ 	unsigned int service_ins_id;
+ 	struct dev_mem_info dev_mem[ATH12K_QMI_WLFW_MAX_DEV_MEM_NUM_V01];
+ };
+-- 
+2.55.0
+

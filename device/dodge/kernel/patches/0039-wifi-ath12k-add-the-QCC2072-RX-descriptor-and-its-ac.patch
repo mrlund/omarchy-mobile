@@ -1,0 +1,456 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 15:43:29 +0200
+Subject: [PATCH] wifi: ath12k: add the QCC2072 RX descriptor and its accessors
+
+QCC2072-family chips, which include WCN7860, use 32-bit TLV tags in
+the RX descriptor and a different mpdu_start layout (info2 and info4
+move, ast_index/sw_peer_id come before phy_ppdu_id, the multi-link
+addresses are gone). msdu_end is the same as WCN7850's.
+
+Add struct hal_rx_desc_qcc2072 and hal_rx_qcc2072_ops, taken from the
+upstream QCC2072 support and written in this tree's hal_rx_ops form.
+The bitfield macros are shared with WCN7850 and match upstream. Not
+used yet.
+---
+ drivers/net/wireless/ath/ath12k/hal.c     | 340 ++++++++++++++++++++++
+ drivers/net/wireless/ath/ath12k/hal.h     |   1 +
+ drivers/net/wireless/ath/ath12k/rx_desc.h |  52 ++++
+ 3 files changed, 393 insertions(+)
+
+diff --git a/drivers/net/wireless/ath/ath12k/hal.c b/drivers/net/wireless/ath/ath12k/hal.c
+index 4886c3c98..16a803a43 100644
+--- a/drivers/net/wireless/ath/ath12k/hal.c
++++ b/drivers/net/wireless/ath/ath12k/hal.c
+@@ -1553,6 +1553,346 @@ const struct hal_rx_ops hal_rx_wcn7850_ops = {
+ 	.rx_desc_get_msdu_src_link_id = ath12k_hw_wcn7850_rx_desc_get_msdu_src_link,
+ };
+ 
++#define QCC2072_DESC(d) ((struct hal_rx_desc_qcc2072 *)(d))
++
++static bool ath12k_hw_qcc2072_rx_desc_get_first_msdu(struct hal_rx_desc *desc)
++{
++	return !!le16_get_bits(QCC2072_DESC(desc)->msdu_end.info5,
++			       RX_MSDU_END_INFO5_FIRST_MSDU);
++}
++
++static bool ath12k_hw_qcc2072_rx_desc_get_last_msdu(struct hal_rx_desc *desc)
++{
++	return !!le16_get_bits(QCC2072_DESC(desc)->msdu_end.info5,
++			       RX_MSDU_END_INFO5_LAST_MSDU);
++}
++
++static u8 ath12k_hw_qcc2072_rx_desc_get_l3_pad_bytes(struct hal_rx_desc *desc)
++{
++	return le16_get_bits(QCC2072_DESC(desc)->msdu_end.info5,
++			    RX_MSDU_END_INFO5_L3_HDR_PADDING);
++}
++
++static bool ath12k_hw_qcc2072_rx_desc_encrypt_valid(struct hal_rx_desc *desc)
++{
++	return !!le32_get_bits(QCC2072_DESC(desc)->mpdu_start.info4,
++			       RX_MPDU_START_INFO4_ENCRYPT_INFO_VALID);
++}
++
++static u32 ath12k_hw_qcc2072_rx_desc_get_encrypt_type(struct hal_rx_desc *desc)
++{
++	return le32_get_bits(QCC2072_DESC(desc)->mpdu_start.info2,
++			     RX_MPDU_START_INFO2_ENC_TYPE);
++}
++
++static u8 ath12k_hw_qcc2072_rx_desc_get_decap_type(struct hal_rx_desc *desc)
++{
++	return le32_get_bits(QCC2072_DESC(desc)->msdu_end.info11,
++			     RX_MSDU_END_INFO11_DECAP_FORMAT);
++}
++
++static u8 ath12k_hw_qcc2072_rx_desc_get_mesh_ctl(struct hal_rx_desc *desc)
++{
++	return le32_get_bits(QCC2072_DESC(desc)->msdu_end.info11,
++			     RX_MSDU_END_INFO11_MESH_CTRL_PRESENT);
++}
++
++static bool ath12k_hw_qcc2072_rx_desc_get_mpdu_seq_ctl_vld(struct hal_rx_desc *desc)
++{
++	return !!le32_get_bits(QCC2072_DESC(desc)->mpdu_start.info4,
++			       RX_MPDU_START_INFO4_MPDU_SEQ_CTRL_VALID);
++}
++
++static bool ath12k_hw_qcc2072_rx_desc_get_mpdu_fc_valid(struct hal_rx_desc *desc)
++{
++	return !!le32_get_bits(QCC2072_DESC(desc)->mpdu_start.info4,
++			       RX_MPDU_START_INFO4_MPDU_FCTRL_VALID);
++}
++
++static u16 ath12k_hw_qcc2072_rx_desc_get_mpdu_start_seq_no(struct hal_rx_desc *desc)
++{
++	return le32_get_bits(QCC2072_DESC(desc)->mpdu_start.info4,
++			     RX_MPDU_START_INFO4_MPDU_SEQ_NUM);
++}
++
++static u16 ath12k_hw_qcc2072_rx_desc_get_msdu_len(struct hal_rx_desc *desc)
++{
++	return le32_get_bits(QCC2072_DESC(desc)->msdu_end.info10,
++			     RX_MSDU_END_INFO10_MSDU_LENGTH);
++}
++
++static u8 ath12k_hw_qcc2072_rx_desc_get_msdu_sgi(struct hal_rx_desc *desc)
++{
++	return le32_get_bits(QCC2072_DESC(desc)->msdu_end.info12,
++			     RX_MSDU_END_INFO12_SGI);
++}
++
++static u8 ath12k_hw_qcc2072_rx_desc_get_msdu_rate_mcs(struct hal_rx_desc *desc)
++{
++	return le32_get_bits(QCC2072_DESC(desc)->msdu_end.info12,
++			     RX_MSDU_END_INFO12_RATE_MCS);
++}
++
++static u8 ath12k_hw_qcc2072_rx_desc_get_msdu_rx_bw(struct hal_rx_desc *desc)
++{
++	return le32_get_bits(QCC2072_DESC(desc)->msdu_end.info12,
++			     RX_MSDU_END_INFO12_RECV_BW);
++}
++
++static u32 ath12k_hw_qcc2072_rx_desc_get_msdu_freq(struct hal_rx_desc *desc)
++{
++	return __le32_to_cpu(QCC2072_DESC(desc)->msdu_end.phy_meta_data);
++}
++
++static u8 ath12k_hw_qcc2072_rx_desc_get_msdu_pkt_type(struct hal_rx_desc *desc)
++{
++	return le32_get_bits(QCC2072_DESC(desc)->msdu_end.info12,
++			     RX_MSDU_END_INFO12_PKT_TYPE);
++}
++
++static u8 ath12k_hw_qcc2072_rx_desc_get_msdu_nss(struct hal_rx_desc *desc)
++{
++	return le32_get_bits(QCC2072_DESC(desc)->msdu_end.info12,
++			     RX_MSDU_END_INFO12_MIMO_SS_BITMAP);
++}
++
++static u8 ath12k_hw_qcc2072_rx_desc_get_mpdu_tid(struct hal_rx_desc *desc)
++{
++	return le32_get_bits(QCC2072_DESC(desc)->mpdu_start.info2,
++			     RX_MPDU_START_INFO2_TID);
++}
++
++static u16 ath12k_hw_qcc2072_rx_desc_get_mpdu_peer_id(struct hal_rx_desc *desc)
++{
++	return __le16_to_cpu(QCC2072_DESC(desc)->mpdu_start.sw_peer_id);
++}
++
++static void ath12k_hw_qcc2072_rx_desc_copy_end_tlv(struct hal_rx_desc *fdesc,
++						   struct hal_rx_desc *ldesc)
++{
++	memcpy(&QCC2072_DESC(fdesc)->msdu_end, &QCC2072_DESC(ldesc)->msdu_end,
++	       sizeof(struct rx_msdu_end_qcn9274));
++}
++
++static u32 ath12k_hw_qcc2072_rx_desc_get_mpdu_start_tag(struct hal_rx_desc *desc)
++{
++	return le32_get_bits(QCC2072_DESC(desc)->mpdu_start_tag,
++			    HAL_TLV_HDR_TAG);
++}
++
++static u32 ath12k_hw_qcc2072_rx_desc_get_mpdu_ppdu_id(struct hal_rx_desc *desc)
++{
++	return __le16_to_cpu(QCC2072_DESC(desc)->mpdu_start.phy_ppdu_id);
++}
++
++static void ath12k_hw_qcc2072_rx_desc_set_msdu_len(struct hal_rx_desc *desc, u16 len)
++{
++	u32 info = __le32_to_cpu(QCC2072_DESC(desc)->msdu_end.info10);
++
++	info &= ~RX_MSDU_END_INFO10_MSDU_LENGTH;
++	info |= u32_encode_bits(len, RX_MSDU_END_INFO10_MSDU_LENGTH);
++
++	QCC2072_DESC(desc)->msdu_end.info10 = __cpu_to_le32(info);
++}
++
++static u8 *ath12k_hw_qcc2072_rx_desc_get_msdu_payload(struct hal_rx_desc *desc)
++{
++	return &QCC2072_DESC(desc)->msdu_payload[0];
++}
++
++static u32 ath12k_hw_qcc2072_rx_desc_get_mpdu_start_offset(void)
++{
++	return offsetof(struct hal_rx_desc_qcc2072, mpdu_start_tag);
++}
++
++static u32 ath12k_hw_qcc2072_rx_desc_get_msdu_end_offset(void)
++{
++	return offsetof(struct hal_rx_desc_qcc2072, msdu_end_tag);
++}
++
++static bool ath12k_hw_qcc2072_rx_desc_mac_addr2_valid(struct hal_rx_desc *desc)
++{
++	return __le32_to_cpu(QCC2072_DESC(desc)->mpdu_start.info4) &
++	       RX_MPDU_START_INFO4_MAC_ADDR2_VALID;
++}
++
++static u8 *ath12k_hw_qcc2072_rx_desc_mpdu_start_addr2(struct hal_rx_desc *desc)
++{
++	return QCC2072_DESC(desc)->mpdu_start.addr2;
++}
++
++static bool ath12k_hw_qcc2072_rx_desc_is_da_mcbc(struct hal_rx_desc *desc)
++{
++	return __le32_to_cpu(QCC2072_DESC(desc)->msdu_end.info13) &
++	       RX_MSDU_END_INFO13_MCAST_BCAST;
++}
++
++static void ath12k_hw_qcc2072_rx_desc_get_dot11_hdr(struct hal_rx_desc *desc,
++						    struct ieee80211_hdr *hdr)
++{
++	hdr->frame_control = QCC2072_DESC(desc)->mpdu_start.frame_ctrl;
++	hdr->duration_id = QCC2072_DESC(desc)->mpdu_start.duration;
++	ether_addr_copy(hdr->addr1, QCC2072_DESC(desc)->mpdu_start.addr1);
++	ether_addr_copy(hdr->addr2, QCC2072_DESC(desc)->mpdu_start.addr2);
++	ether_addr_copy(hdr->addr3, QCC2072_DESC(desc)->mpdu_start.addr3);
++	if (__le32_to_cpu(QCC2072_DESC(desc)->mpdu_start.info4) &
++			RX_MPDU_START_INFO4_MAC_ADDR4_VALID) {
++		ether_addr_copy(hdr->addr4, QCC2072_DESC(desc)->mpdu_start.addr4);
++	}
++	hdr->seq_ctrl = QCC2072_DESC(desc)->mpdu_start.seq_ctrl;
++}
++
++static void ath12k_hw_qcc2072_rx_desc_get_crypto_hdr(struct hal_rx_desc *desc,
++						     u8 *crypto_hdr,
++						     enum hal_encrypt_type enctype)
++{
++	unsigned int key_id;
++
++	switch (enctype) {
++	case HAL_ENCRYPT_TYPE_OPEN:
++		return;
++	case HAL_ENCRYPT_TYPE_TKIP_NO_MIC:
++	case HAL_ENCRYPT_TYPE_TKIP_MIC:
++		crypto_hdr[0] =
++			HAL_RX_MPDU_INFO_PN_GET_BYTE2(QCC2072_DESC(desc)->mpdu_start.pn[0]);
++		crypto_hdr[1] = 0;
++		crypto_hdr[2] =
++			HAL_RX_MPDU_INFO_PN_GET_BYTE1(QCC2072_DESC(desc)->mpdu_start.pn[0]);
++		break;
++	case HAL_ENCRYPT_TYPE_CCMP_128:
++	case HAL_ENCRYPT_TYPE_CCMP_256:
++	case HAL_ENCRYPT_TYPE_GCMP_128:
++	case HAL_ENCRYPT_TYPE_AES_GCMP_256:
++		crypto_hdr[0] =
++			HAL_RX_MPDU_INFO_PN_GET_BYTE1(QCC2072_DESC(desc)->mpdu_start.pn[0]);
++		crypto_hdr[1] =
++			HAL_RX_MPDU_INFO_PN_GET_BYTE2(QCC2072_DESC(desc)->mpdu_start.pn[0]);
++		crypto_hdr[2] = 0;
++		break;
++	case HAL_ENCRYPT_TYPE_WEP_40:
++	case HAL_ENCRYPT_TYPE_WEP_104:
++	case HAL_ENCRYPT_TYPE_WEP_128:
++	case HAL_ENCRYPT_TYPE_WAPI_GCM_SM4:
++	case HAL_ENCRYPT_TYPE_WAPI:
++		return;
++	}
++	key_id = u32_get_bits(__le32_to_cpu(QCC2072_DESC(desc)->mpdu_start.info5),
++			      RX_MPDU_START_INFO5_KEY_ID);
++	crypto_hdr[3] = 0x20 | (key_id << 6);
++	crypto_hdr[4] = HAL_RX_MPDU_INFO_PN_GET_BYTE3(QCC2072_DESC(desc)->mpdu_start.pn[0]);
++	crypto_hdr[5] = HAL_RX_MPDU_INFO_PN_GET_BYTE4(QCC2072_DESC(desc)->mpdu_start.pn[0]);
++	crypto_hdr[6] = HAL_RX_MPDU_INFO_PN_GET_BYTE1(QCC2072_DESC(desc)->mpdu_start.pn[1]);
++	crypto_hdr[7] = HAL_RX_MPDU_INFO_PN_GET_BYTE2(QCC2072_DESC(desc)->mpdu_start.pn[1]);
++}
++
++static bool ath12k_hw_qcc2072_dp_rx_h_msdu_done(struct hal_rx_desc *desc)
++{
++	return !!le32_get_bits(QCC2072_DESC(desc)->msdu_end.info14,
++			       RX_MSDU_END_INFO14_MSDU_DONE);
++}
++
++static bool ath12k_hw_qcc2072_dp_rx_h_l4_cksum_fail(struct hal_rx_desc *desc)
++{
++	return !!le32_get_bits(QCC2072_DESC(desc)->msdu_end.info13,
++			       RX_MSDU_END_INFO13_TCP_UDP_CKSUM_FAIL);
++}
++
++static bool ath12k_hw_qcc2072_dp_rx_h_ip_cksum_fail(struct hal_rx_desc *desc)
++{
++	return !!le32_get_bits(QCC2072_DESC(desc)->msdu_end.info13,
++			      RX_MSDU_END_INFO13_IP_CKSUM_FAIL);
++}
++
++static bool ath12k_hw_qcc2072_dp_rx_h_is_decrypted(struct hal_rx_desc *desc)
++{
++	return (le32_get_bits(QCC2072_DESC(desc)->msdu_end.info14,
++			      RX_MSDU_END_INFO14_DECRYPT_STATUS_CODE) ==
++			      RX_DESC_DECRYPT_STATUS_CODE_OK);
++}
++
++static u32 ath12k_hw_qcc2072_dp_rx_h_mpdu_err(struct hal_rx_desc *desc)
++{
++	u32 info = __le32_to_cpu(QCC2072_DESC(desc)->msdu_end.info13);
++	u32 errmap = 0;
++
++	if (info & RX_MSDU_END_INFO13_FCS_ERR)
++		errmap |= HAL_RX_MPDU_ERR_FCS;
++
++	if (info & RX_MSDU_END_INFO13_DECRYPT_ERR)
++		errmap |= HAL_RX_MPDU_ERR_DECRYPT;
++
++	if (info & RX_MSDU_END_INFO13_TKIP_MIC_ERR)
++		errmap |= HAL_RX_MPDU_ERR_TKIP_MIC;
++
++	if (info & RX_MSDU_END_INFO13_A_MSDU_ERROR)
++		errmap |= HAL_RX_MPDU_ERR_AMSDU_ERR;
++
++	if (info & RX_MSDU_END_INFO13_OVERFLOW_ERR)
++		errmap |= HAL_RX_MPDU_ERR_OVERFLOW;
++
++	if (info & RX_MSDU_END_INFO13_MSDU_LEN_ERR)
++		errmap |= HAL_RX_MPDU_ERR_MSDU_LEN;
++
++	if (info & RX_MSDU_END_INFO13_MPDU_LEN_ERR)
++		errmap |= HAL_RX_MPDU_ERR_MPDU_LEN;
++
++	return errmap;
++}
++
++static u32 ath12k_hw_qcc2072_get_rx_desc_size(void)
++{
++	return sizeof(struct hal_rx_desc_qcc2072);
++}
++
++static u8 ath12k_hw_qcc2072_rx_desc_get_msdu_src_link(struct hal_rx_desc *desc)
++{
++	return 0;
++}
++
++/* WCN7860 uses the QCC2072 RX descriptor: same msdu_end, 32-bit TLV
++ * tags and its own mpdu_start layout.
++ */
++const struct hal_rx_ops hal_rx_qcc2072_ops = {
++	.rx_desc_get_first_msdu = ath12k_hw_qcc2072_rx_desc_get_first_msdu,
++	.rx_desc_get_last_msdu = ath12k_hw_qcc2072_rx_desc_get_last_msdu,
++	.rx_desc_get_l3_pad_bytes = ath12k_hw_qcc2072_rx_desc_get_l3_pad_bytes,
++	.rx_desc_encrypt_valid = ath12k_hw_qcc2072_rx_desc_encrypt_valid,
++	.rx_desc_get_encrypt_type = ath12k_hw_qcc2072_rx_desc_get_encrypt_type,
++	.rx_desc_get_decap_type = ath12k_hw_qcc2072_rx_desc_get_decap_type,
++	.rx_desc_get_mesh_ctl = ath12k_hw_qcc2072_rx_desc_get_mesh_ctl,
++	.rx_desc_get_mpdu_seq_ctl_vld = ath12k_hw_qcc2072_rx_desc_get_mpdu_seq_ctl_vld,
++	.rx_desc_get_mpdu_fc_valid = ath12k_hw_qcc2072_rx_desc_get_mpdu_fc_valid,
++	.rx_desc_get_mpdu_start_seq_no = ath12k_hw_qcc2072_rx_desc_get_mpdu_start_seq_no,
++	.rx_desc_get_msdu_len = ath12k_hw_qcc2072_rx_desc_get_msdu_len,
++	.rx_desc_get_msdu_sgi = ath12k_hw_qcc2072_rx_desc_get_msdu_sgi,
++	.rx_desc_get_msdu_rate_mcs = ath12k_hw_qcc2072_rx_desc_get_msdu_rate_mcs,
++	.rx_desc_get_msdu_rx_bw = ath12k_hw_qcc2072_rx_desc_get_msdu_rx_bw,
++	.rx_desc_get_msdu_freq = ath12k_hw_qcc2072_rx_desc_get_msdu_freq,
++	.rx_desc_get_msdu_pkt_type = ath12k_hw_qcc2072_rx_desc_get_msdu_pkt_type,
++	.rx_desc_get_msdu_nss = ath12k_hw_qcc2072_rx_desc_get_msdu_nss,
++	.rx_desc_get_mpdu_tid = ath12k_hw_qcc2072_rx_desc_get_mpdu_tid,
++	.rx_desc_get_mpdu_peer_id = ath12k_hw_qcc2072_rx_desc_get_mpdu_peer_id,
++	.rx_desc_copy_end_tlv = ath12k_hw_qcc2072_rx_desc_copy_end_tlv,
++	.rx_desc_get_mpdu_start_tag = ath12k_hw_qcc2072_rx_desc_get_mpdu_start_tag,
++	.rx_desc_get_mpdu_ppdu_id = ath12k_hw_qcc2072_rx_desc_get_mpdu_ppdu_id,
++	.rx_desc_set_msdu_len = ath12k_hw_qcc2072_rx_desc_set_msdu_len,
++	.rx_desc_get_msdu_payload = ath12k_hw_qcc2072_rx_desc_get_msdu_payload,
++	.rx_desc_get_mpdu_start_offset = ath12k_hw_qcc2072_rx_desc_get_mpdu_start_offset,
++	.rx_desc_get_msdu_end_offset = ath12k_hw_qcc2072_rx_desc_get_msdu_end_offset,
++	.rx_desc_mac_addr2_valid = ath12k_hw_qcc2072_rx_desc_mac_addr2_valid,
++	.rx_desc_mpdu_start_addr2 = ath12k_hw_qcc2072_rx_desc_mpdu_start_addr2,
++	.rx_desc_is_da_mcbc = ath12k_hw_qcc2072_rx_desc_is_da_mcbc,
++	.rx_desc_get_dot11_hdr = ath12k_hw_qcc2072_rx_desc_get_dot11_hdr,
++	.rx_desc_get_crypto_header = ath12k_hw_qcc2072_rx_desc_get_crypto_hdr,
++	.dp_rx_h_msdu_done = ath12k_hw_qcc2072_dp_rx_h_msdu_done,
++	.dp_rx_h_l4_cksum_fail = ath12k_hw_qcc2072_dp_rx_h_l4_cksum_fail,
++	.dp_rx_h_ip_cksum_fail = ath12k_hw_qcc2072_dp_rx_h_ip_cksum_fail,
++	.dp_rx_h_is_decrypted = ath12k_hw_qcc2072_dp_rx_h_is_decrypted,
++	.dp_rx_h_mpdu_err = ath12k_hw_qcc2072_dp_rx_h_mpdu_err,
++	.rx_desc_get_desc_size = ath12k_hw_qcc2072_get_rx_desc_size,
++	.rx_desc_get_msdu_src_link_id = ath12k_hw_qcc2072_rx_desc_get_msdu_src_link,
++};
++
+ const struct hal_ops hal_wcn7850_ops = {
+ 	.create_srng_config = ath12k_hal_srng_create_config_wcn7850,
+ 	.tcl_to_wbm_rbm_map = ath12k_hal_wcn7850_tcl_to_wbm_rbm_map,
+diff --git a/drivers/net/wireless/ath/ath12k/hal.h b/drivers/net/wireless/ath/ath12k/hal.h
+index b3d8a06a4..a4c16f13e 100644
+--- a/drivers/net/wireless/ath/ath12k/hal.h
++++ b/drivers/net/wireless/ath/ath12k/hal.h
+@@ -1115,6 +1115,7 @@ extern const struct hal_ops hal_wcn7850_ops;
+ extern const struct hal_rx_ops hal_rx_qcn9274_ops;
+ extern const struct hal_rx_ops hal_rx_qcn9274_compact_ops;
+ extern const struct hal_rx_ops hal_rx_wcn7850_ops;
++extern const struct hal_rx_ops hal_rx_qcc2072_ops;
+ 
+ u32 ath12k_hal_reo_qdesc_size(u32 ba_window_size, u8 tid);
+ void ath12k_hal_reo_qdesc_setup(struct hal_rx_reo_queue *qdesc,
+diff --git a/drivers/net/wireless/ath/ath12k/rx_desc.h b/drivers/net/wireless/ath/ath12k/rx_desc.h
+index 6c600473b..9588e10eb 100644
+--- a/drivers/net/wireless/ath/ath12k/rx_desc.h
++++ b/drivers/net/wireless/ath/ath12k/rx_desc.h
+@@ -147,6 +147,38 @@ struct rx_mpdu_start_qcn9274 {
+ 	__le32 res1;
+ } __packed;
+ 
++struct rx_mpdu_start_qcc2072 {
++	__le32 info0;
++	__le32 info2;
++	__le32 reo_queue_desc_lo;
++	__le32 info1;
++	__le32 pn[4];
++	__le32 info4;
++	__le32 peer_meta_data;
++	__le16 ast_index;
++	__le16 sw_peer_id;
++	__le16 info3;
++	__le16 phy_ppdu_id;
++	__le32 info5;
++	__le32 info6;
++	__le16 frame_ctrl;
++	__le16 duration;
++	u8 addr1[ETH_ALEN];
++	u8 addr2[ETH_ALEN];
++	u8 addr3[ETH_ALEN];
++	__le16 seq_ctrl;
++	u8 addr4[ETH_ALEN];
++	__le16 qos_ctrl;
++	__le32 ht_ctrl;
++	__le32 info7;
++	__le32 res0;
++	__le32 res1;
++	__le32 res2;
++	__le32 info8;
++	__le32 res3;
++	__le32 res4;
++} __packed;
++
+ #define QCN9274_MPDU_START_SELECT_MPDU_START_TAG			BIT(0)
+ #define QCN9274_MPDU_START_SELECT_INFO0_REO_QUEUE_DESC_LO		BIT(1)
+ #define QCN9274_MPDU_START_SELECT_INFO1_PN_31_0				BIT(2)
+@@ -1528,6 +1560,26 @@ struct hal_rx_desc_wcn7850 {
+ 	u8 msdu_payload[];
+ };
+ 
++struct rx_pkt_hdr_tlv_qcc2072 {
++	__le32 tag;
++	__le64 phy_ppdu_id;
++	u8 rx_pkt_hdr[HAL_RX_BE_PKT_HDR_TLV_LEN];
++};
++
++struct hal_rx_desc_qcc2072 {
++	__le32 msdu_end_tag;
++	struct rx_msdu_end_qcn9274 msdu_end;
++	u8 rx_padding0[RX_BE_PADDING0_BYTES];
++	__le32 mpdu_start_tag;
++	struct rx_mpdu_start_qcc2072 mpdu_start;
++	struct rx_pkt_hdr_tlv_qcc2072 pkt_hdr_tlv;
++	u8 msdu_payload[];
++};
++
++/* struct hal_rx_desc_qcc2072 is deliberately not a member of the union:
++ * it is larger than the other layouts and sizeof(struct hal_rx_desc) is
++ * still used by the monitor path. QCC2072 accessors cast instead.
++ */
+ struct hal_rx_desc {
+ 	union {
+ 		struct hal_rx_desc_qcn9274 qcn9274;
+-- 
+2.55.0
+

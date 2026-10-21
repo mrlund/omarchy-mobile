@@ -1,0 +1,193 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 15:47:44 +0200
+Subject: [PATCH] wifi: ath12k: add WCN7860 hw params using the QCC2072 HAL
+
+WCN7860 (PCI 17cb:110e, 'peach') reports SOC hw version 2 like
+WCN7850, but its UMAC uses the QCC2072 register map, RX descriptor
+layout and 32-bit TLV REO command/status rings. Add a separate
+ATH12K_HW_WCN7860_HW20 revision whose hw_params select
+wcn7860_regs, hal_qcc2072_ops, hal_rx_qcc2072_ops and the QCC2072
+rxdma ring selection config, and pick it for device 0x110e.
+WCN7850 (0x1107) keeps its existing parameters.
+
+Monitor mode is disabled for now since the monitor status path still
+parses 64-bit TLVs. Firmware is looked up in WCN7860/hw2.0.
+---
+ drivers/net/wireless/ath/ath12k/core.h |  1 +
+ drivers/net/wireless/ath/ath12k/hw.c   | 99 ++++++++++++++++++++++++++
+ drivers/net/wireless/ath/ath12k/pci.c  | 10 ++-
+ drivers/net/wireless/ath/ath12k/qmi.h  |  1 +
+ 4 files changed, 109 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/core.h b/drivers/net/wireless/ath/ath12k/core.h
+index 9dc319e13..a1009d992 100644
+--- a/drivers/net/wireless/ath/ath12k/core.h
++++ b/drivers/net/wireless/ath/ath12k/core.h
+@@ -150,6 +150,7 @@ enum ath12k_hw_rev {
+ 	ATH12K_HW_QCN9274_HW10,
+ 	ATH12K_HW_QCN9274_HW20,
+ 	ATH12K_HW_WCN7850_HW20,
++	ATH12K_HW_WCN7860_HW20,
+ 	ATH12K_HW_IPQ5332_HW10,
+ };
+ 
+diff --git a/drivers/net/wireless/ath/ath12k/hw.c b/drivers/net/wireless/ath/ath12k/hw.c
+index a1b370e2a..24af64617 100644
+--- a/drivers/net/wireless/ath/ath12k/hw.c
++++ b/drivers/net/wireless/ath/ath12k/hw.c
+@@ -92,6 +92,15 @@ static const struct ath12k_hw_ops wcn7850_ops = {
+ 	.dp_srng_is_tx_comp_ring = ath12k_dp_srng_is_comp_ring_wcn7850,
+ };
+ 
++static const struct ath12k_hw_ops wcn7860_ops = {
++	.get_hw_mac_from_pdev_id = ath12k_hw_qcn9274_mac_from_pdev_id,
++	.mac_id_to_pdev_id = ath12k_hw_mac_id_to_pdev_id_wcn7850,
++	.mac_id_to_srng_id = ath12k_hw_mac_id_to_srng_id_wcn7850,
++	.rxdma_ring_sel_config = ath12k_dp_rxdma_ring_sel_config_qcc2072,
++	.get_ring_selector = ath12k_hw_get_ring_selector_wcn7850,
++	.dp_srng_is_tx_comp_ring = ath12k_dp_srng_is_comp_ring_wcn7850,
++};
++
+ #define ATH12K_TX_RING_MASK_0 0x1
+ #define ATH12K_TX_RING_MASK_1 0x2
+ #define ATH12K_TX_RING_MASK_2 0x4
+@@ -1528,6 +1537,96 @@ static const struct ath12k_hw_params ath12k_hw_params[] = {
+ 
+ 		.dp_primary_link_only = false,
+ 	},
++	{
++		.name = "wcn7860 hw2.0",
++		.hw_rev = ATH12K_HW_WCN7860_HW20,
++
++		.fw = {
++			.dir = "WCN7860/hw2.0",
++			.board_size = 256 * 1024,
++			.cal_offset = 256 * 1024,
++			.m3_loader = ath12k_m3_fw_loader_driver,
++		},
++
++		.max_radios = 1,
++		.single_pdev_only = true,
++		.qmi_service_ins_id = ATH12K_QMI_WLFW_SERVICE_INS_ID_V01_WCN7850,
++		.internal_sleep_clock = true,
++
++		.hw_ops = &wcn7860_ops,
++		.ring_mask = &ath12k_hw_ring_mask_wcn7850,
++		.regs = &wcn7860_regs,
++
++		.host_ce_config = ath12k_host_ce_config_wcn7850,
++		.ce_count = 9,
++		.target_ce_config = ath12k_target_ce_config_wlan_wcn7850,
++		.target_ce_count = 9,
++		.svc_to_ce_map = ath12k_target_service_to_ce_map_wlan_wcn7850,
++		.svc_to_ce_map_len = 14,
++
++		.hal_params = &ath12k_hw_hal_params_wcn7850,
++
++		.rxdma1_enable = false,
++		.num_rxdma_per_pdev = 2,
++		.num_rxdma_dst_ring = 1,
++		.rx_mac_buf_ring = true,
++		.vdev_start_delay = true,
++
++		.interface_modes = BIT(NL80211_IFTYPE_STATION) |
++				   BIT(NL80211_IFTYPE_AP) |
++				   BIT(NL80211_IFTYPE_P2P_DEVICE) |
++				   BIT(NL80211_IFTYPE_P2P_CLIENT) |
++				   BIT(NL80211_IFTYPE_P2P_GO),
++		/* monitor TLVs are 32-bit too; not handled here */
++		.supports_monitor = false,
++
++		.idle_ps = true,
++		.download_calib = false,
++		.supports_suspend = true,
++		.tcl_ring_retry = false,
++		.reoq_lut_support = false,
++		.supports_shadow_regs = true,
++
++		.num_tcl_banks = 7,
++		.max_tx_ring = 3,
++
++		.mhi_config = &ath12k_mhi_config_wcn7850,
++
++		.wmi_init = ath12k_wmi_init_wcn7850,
++
++		.hal_ops = &hal_qcc2072_ops,
++
++		.qmi_cnss_feature_bitmap = BIT(CNSS_PCIE_PERST_NO_PULL_V01) |
++					   BIT(CNSS_AUX_UC_SUPPORT_V01),
++
++		.rfkill_pin = 0,
++		.rfkill_cfg = 0,
++		.rfkill_on_level = 0,
++
++		.rddm_size = 0x780000,
++
++		.def_num_link = 2,
++		.max_mlo_peer = 32,
++
++		.otp_board_id_register = 0,
++
++		.supports_sta_ps = true,
++
++		.acpi_guid = &wcn7850_uuid,
++		.supports_dynamic_smps_6ghz = false,
++
++		.iova_mask = ATH12K_PCIE_MAX_PAYLOAD_SIZE - 1,
++
++		.supports_aspm = true,
++
++		.ce_ie_addr = NULL,
++		.ce_remap = NULL,
++		.bdf_addr_offset = 0,
++
++		.current_cc_support = true,
++
++		.dp_primary_link_only = false,
++	},
+ 	{
+ 		.name = "qcn9274 hw2.0",
+ 		.hw_rev = ATH12K_HW_QCN9274_HW20,
+diff --git a/drivers/net/wireless/ath/ath12k/pci.c b/drivers/net/wireless/ath/ath12k/pci.c
+index b6830ddce..fd5c52bd6 100644
+--- a/drivers/net/wireless/ath/ath12k/pci.c
++++ b/drivers/net/wireless/ath/ath12k/pci.c
+@@ -1642,14 +1642,20 @@ static int ath12k_pci_probe(struct pci_dev *pdev,
+ 		ab->static_window_map = false;
+ 		ab_pci->pci_ops = &ath12k_pci_ops_wcn7850;
+ 		ab->hal_rx_ops = &hal_rx_wcn7850_ops;
+-		if (pci_dev->device == WCN7850_PEACH_DEVICE_ID)
++		if (pci_dev->device == WCN7850_PEACH_DEVICE_ID) {
++			/* WCN7860 has QCC2072's register and descriptor layout */
+ 			ab_pci->window_reg_addr = WINDOW_REG_ADDRESS_PEACH;
++			ab->hal_rx_ops = &hal_rx_qcc2072_ops;
++		}
+ 		soc_hw_version = ath12k_pci_read_hw_version(ab,
+ 							     &soc_hw_version_major,
+ 							     &soc_hw_version_minor);
+ 		switch (soc_hw_version_major) {
+ 		case ATH12K_PCI_SOC_HW_VERSION_2:
+-			ab->hw_rev = ATH12K_HW_WCN7850_HW20;
++			if (pci_dev->device == WCN7850_PEACH_DEVICE_ID)
++				ab->hw_rev = ATH12K_HW_WCN7860_HW20;
++			else
++				ab->hw_rev = ATH12K_HW_WCN7850_HW20;
+ 			break;
+ 		default:
+ 			dev_err(&pdev->dev,
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.h b/drivers/net/wireless/ath/ath12k/qmi.h
+index e63750be7..368528958 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.h
++++ b/drivers/net/wireless/ath/ath12k/qmi.h
+@@ -208,6 +208,7 @@ enum ath12k_qmi_cnss_feature {
+ 	CNSS_FEATURE_MIN_ENUM_VAL_V01 = INT_MIN,
+ 	CNSS_QDSS_CFG_MISS_V01 = 3,
+ 	CNSS_PCIE_PERST_NO_PULL_V01 = 4,
++	CNSS_AUX_UC_SUPPORT_V01 = 6,
+ 	CNSS_MAX_FEATURE_V01 = 64,
+ 	CNSS_FEATURE_MAX_ENUM_VAL_V01 = INT_MAX,
+ };
+-- 
+2.55.0
+

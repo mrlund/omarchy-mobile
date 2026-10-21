@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 08:31:25 +0200
+Subject: [PATCH] remoteproc: qcom: pas: let only_adsp skip the modem and CDSP
+
+The dodge board enables those PAS nodes. Probing the modem
+assigns its RAM to the modem VM, and the CDSP boots itself.
+only_adsp=1 returns -ENODEV for every node that is not the
+ADSP, before any of that runs.
+---
+ drivers/remoteproc/qcom_q6v5_pas.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/drivers/remoteproc/qcom_q6v5_pas.c b/drivers/remoteproc/qcom_q6v5_pas.c
+index b306f2231..2e085d041 100644
+--- a/drivers/remoteproc/qcom_q6v5_pas.c
++++ b/drivers/remoteproc/qcom_q6v5_pas.c
+@@ -675,6 +675,15 @@ static void adsp_unassign_memory_region(struct qcom_adsp *adsp)
+ 	}
+ }
+ 
++/*
++ * The dodge DTB marks the modem and CDSP PAS nodes okay. Probing the
++ * modem assigns its RAM to the modem VM, and the CDSP boots itself.
++ * insmod only_adsp=1 binds the ADSP and leaves those two alone.
++ */
++static bool only_adsp;
++module_param(only_adsp, bool, 0444);
++MODULE_PARM_DESC(only_adsp, "Probe the ADSP only");
++
+ static int adsp_probe(struct platform_device *pdev)
+ {
+ 	const struct adsp_data *desc;
+@@ -684,6 +693,11 @@ static int adsp_probe(struct platform_device *pdev)
+ 	const struct rproc_ops *ops = &adsp_ops;
+ 	int ret;
+ 
++	if (only_adsp &&
++	    !of_device_is_compatible(pdev->dev.of_node, "qcom,sm8750-adsp-pas") &&
++	    !of_device_is_compatible(pdev->dev.of_node, "qcom,sm8550-adsp-pas"))
++		return -ENODEV;
++
+ 	desc = of_device_get_match_data(&pdev->dev);
+ 	if (!desc)
+ 		return -EINVAL;
+-- 
+2.55.0
+

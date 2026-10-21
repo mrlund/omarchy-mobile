@@ -1,0 +1,148 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 17 Oct 2026 16:45:25 +0200
+Subject: [PATCH] wifi: ath12k: use window register 0x3278 for PCI id 0x110e
+
+The OnePlus 13 radio enumerates as 17cb:110e. The WCN7850 window
+register 0x310c reads the SOC version as all ones. Register 0x3278
+returns major 2, so the existing hw2.0 path applies.
+
+Co-Authored-By: Grok 4.7 <noreply@x.ai>
+---
+ drivers/net/wireless/ath/ath12k/pci.c | 38 ++++++++++++++++++---------
+ drivers/net/wireless/ath/ath12k/pci.h |  1 +
+ 2 files changed, 26 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/pci.c b/drivers/net/wireless/ath/ath12k/pci.c
+index 0f7853f1f..3d50d0b83 100644
+--- a/drivers/net/wireless/ath/ath12k/pci.c
++++ b/drivers/net/wireless/ath/ath12k/pci.c
+@@ -23,6 +23,10 @@
+ 
+ #define WINDOW_ENABLE_BIT		0x40000000
+ #define WINDOW_REG_ADDRESS		0x310c
++/* OnePlus 13 peach. 0x310c reads the version as all ones; 0x3278
++ * returns a WCN7850 hw2.0 value.
++ */
++#define WINDOW_REG_ADDRESS_PEACH	0x3278
+ #define WINDOW_VALUE_MASK		GENMASK(24, 19)
+ #define WINDOW_START			0x80000
+ #define WINDOW_RANGE_MASK		GENMASK(18, 0)
+@@ -180,8 +184,8 @@ static void ath12k_pci_select_window(struct ath12k_pci *ab_pci, u32 offset)
+ 
+ 	if (window != ab_pci->register_window) {
+ 		iowrite32(WINDOW_ENABLE_BIT | window,
+-			  ab->mem + WINDOW_REG_ADDRESS);
+-		ioread32(ab->mem + WINDOW_REG_ADDRESS);
++			  ab->mem + ab_pci->window_reg_addr);
++		ioread32(ab->mem + ab_pci->window_reg_addr);
+ 		ab_pci->register_window = window;
+ 	}
+ }
+@@ -198,7 +202,8 @@ static void ath12k_pci_select_static_window(struct ath12k_pci *ab_pci)
+ 	ab_pci->register_window = window;
+ 	spin_unlock_bh(&ab_pci->window_lock);
+ 
+-	iowrite32(WINDOW_ENABLE_BIT | window, ab_pci->ab->mem + WINDOW_REG_ADDRESS);
++	iowrite32(WINDOW_ENABLE_BIT | window,
++		  ab_pci->ab->mem + ab_pci->window_reg_addr);
+ }
+ 
+ static u32 ath12k_pci_get_window_start(struct ath12k_base *ab,
+@@ -1537,7 +1542,7 @@ static const struct ath12k_hif_ops ath12k_pci_hif_ops = {
+ };
+ 
+ static
+-void ath12k_pci_read_hw_version(struct ath12k_base *ab, u32 *major, u32 *minor)
++u32 ath12k_pci_read_hw_version(struct ath12k_base *ab, u32 *major, u32 *minor)
+ {
+ 	u32 soc_hw_version;
+ 
+@@ -1550,6 +1555,7 @@ void ath12k_pci_read_hw_version(struct ath12k_base *ab, u32 *major, u32 *minor)
+ 	ath12k_dbg(ab, ATH12K_DBG_PCI,
+ 		   "pci tcsr_soc_hw_version major %d minor %d\n",
+ 		    *major, *minor);
++	return soc_hw_version;
+ }
+ 
+ static int ath12k_pci_probe(struct pci_dev *pdev,
+@@ -1557,7 +1563,7 @@ static int ath12k_pci_probe(struct pci_dev *pdev,
+ {
+ 	struct ath12k_base *ab;
+ 	struct ath12k_pci *ab_pci;
+-	u32 soc_hw_version_major, soc_hw_version_minor;
++	u32 soc_hw_version, soc_hw_version_major, soc_hw_version_minor;
+ 	int ret;
+ 
+ 	ab = ath12k_core_alloc(&pdev->dev, sizeof(*ab_pci), ATH12K_BUS_PCI);
+@@ -1570,6 +1576,7 @@ static int ath12k_pci_probe(struct pci_dev *pdev,
+ 	pci_set_drvdata(pdev, ab);
+ 	ab_pci = ath12k_pci_priv(ab);
+ 	ab_pci->dev_id = pci_dev->device;
++	ab_pci->window_reg_addr = WINDOW_REG_ADDRESS;
+ 	ab_pci->ab = ab;
+ 	ab_pci->pdev = pdev;
+ 	ab->hif.ops = &ath12k_pci_hif_ops;
+@@ -1598,8 +1605,9 @@ static int ath12k_pci_probe(struct pci_dev *pdev,
+ 		ab->static_window_map = true;
+ 		ab_pci->pci_ops = &ath12k_pci_ops_qcn9274;
+ 		ab->hal_rx_ops = &hal_rx_qcn9274_ops;
+-		ath12k_pci_read_hw_version(ab, &soc_hw_version_major,
+-					   &soc_hw_version_minor);
++		soc_hw_version = ath12k_pci_read_hw_version(ab,
++							     &soc_hw_version_major,
++							     &soc_hw_version_minor);
+ 		switch (soc_hw_version_major) {
+ 		case ATH12K_PCI_SOC_HW_VERSION_2:
+ 			ab->hw_rev = ATH12K_HW_QCN9274_HW20;
+@@ -1609,8 +1617,8 @@ static int ath12k_pci_probe(struct pci_dev *pdev,
+ 			break;
+ 		default:
+ 			dev_err(&pdev->dev,
+-				"Unknown hardware version found for QCN9274: 0x%x\n",
+-				soc_hw_version_major);
++				"Unknown hardware version found for QCN9274: major 0x%x raw 0x%08x\n",
++				soc_hw_version_major, soc_hw_version);
+ 			ret = -EOPNOTSUPP;
+ 			goto err_pci_free_region;
+ 		}
+@@ -1622,16 +1630,20 @@ static int ath12k_pci_probe(struct pci_dev *pdev,
+ 		ab->static_window_map = false;
+ 		ab_pci->pci_ops = &ath12k_pci_ops_wcn7850;
+ 		ab->hal_rx_ops = &hal_rx_wcn7850_ops;
+-		ath12k_pci_read_hw_version(ab, &soc_hw_version_major,
+-					   &soc_hw_version_minor);
++		if (pci_dev->device == WCN7850_PEACH_DEVICE_ID)
++			ab_pci->window_reg_addr = WINDOW_REG_ADDRESS_PEACH;
++		soc_hw_version = ath12k_pci_read_hw_version(ab,
++							     &soc_hw_version_major,
++							     &soc_hw_version_minor);
+ 		switch (soc_hw_version_major) {
+ 		case ATH12K_PCI_SOC_HW_VERSION_2:
+ 			ab->hw_rev = ATH12K_HW_WCN7850_HW20;
+ 			break;
+ 		default:
+ 			dev_err(&pdev->dev,
+-				"Unknown hardware version found for WCN7850: 0x%x\n",
+-				soc_hw_version_major);
++				"Unknown hardware version found for WCN7850: major 0x%x minor 0x%x raw 0x%08x\n",
++				soc_hw_version_major, soc_hw_version_minor,
++				soc_hw_version);
+ 			ret = -EOPNOTSUPP;
+ 			goto err_pci_free_region;
+ 		}
+diff --git a/drivers/net/wireless/ath/ath12k/pci.h b/drivers/net/wireless/ath/ath12k/pci.h
+index d1ec8aad7..60b7ff8af 100644
+--- a/drivers/net/wireless/ath/ath12k/pci.h
++++ b/drivers/net/wireless/ath/ath12k/pci.h
+@@ -108,6 +108,7 @@ struct ath12k_pci {
+ 	unsigned long mhi_state;
+ 	enum mhi_callback mhi_pre_cb;
+ 	u32 register_window;
++	u32 window_reg_addr;
+ 
+ 	/* protects register_window above */
+ 	spinlock_t window_lock;
+-- 
+2.55.0
+

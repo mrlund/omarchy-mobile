@@ -1,0 +1,121 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 17 Oct 2026 19:46:13 +0200
+Subject: [PATCH] wifi: ath12k: send the peach host DMA window
+
+Stock CNSS puts the stage-1 aperture in the host-capability
+ddr_range before the TME-Lite download. The element had no
+ei_array, so the encoder could not emit it. Log the firmware
+memory segments for PCI 0x110e as well: type 11 is allocated
+when the firmware asks for it, and that log was debug-only.
+---
+ drivers/net/wireless/ath/ath12k/qmi.c | 58 +++++++++++++++++++++++++++
+ 1 file changed, 58 insertions(+)
+
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.c b/drivers/net/wireless/ath/ath12k/qmi.c
+index 7e417a31e..fe99b6a75 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.c
++++ b/drivers/net/wireless/ath/ath12k/qmi.c
+@@ -12,6 +12,7 @@
+ #include <linux/of.h>
+ #include <linux/firmware.h>
+ #include <linux/dma-mapping.h>
++#include <linux/iommu.h>
+ #include <linux/of_address.h>
+ #include <linux/ioport.h>
+ 
+@@ -64,6 +65,30 @@ static const struct qmi_elem_info wlfw_host_mlo_chip_info_s_v01_ei[] = {
+ 	},
+ };
+ 
++static const struct qmi_elem_info qmi_wlanfw_host_ddr_range_ei[] = {
++	{
++		.data_type	= QMI_UNSIGNED_8_BYTE,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u64),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0,
++		.offset		= offsetof(struct qmi_wlanfw_host_ddr_range, start),
++	},
++	{
++		.data_type	= QMI_UNSIGNED_8_BYTE,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u64),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0,
++		.offset		= offsetof(struct qmi_wlanfw_host_ddr_range, size),
++	},
++	{
++		.data_type	= QMI_EOTI,
++		.array_type	= NO_ARRAY,
++		.tlv_type	= QMI_COMMON_TLV_TYPE,
++	},
++};
++
+ static const struct qmi_elem_info qmi_wlanfw_host_cap_req_msg_v01_ei[] = {
+ 	{
+ 		.data_type	= QMI_OPT_FLAG,
+@@ -361,6 +386,7 @@ static const struct qmi_elem_info qmi_wlanfw_host_cap_req_msg_v01_ei[] = {
+ 		.tlv_type	= 0x1F,
+ 		.offset		= offsetof(struct qmi_wlanfw_host_cap_req_msg_v01,
+ 					   ddr_range),
++		.ei_array	= qmi_wlanfw_host_ddr_range_ei,
+ 	},
+ 	{
+ 		.data_type	= QMI_OPT_FLAG,
+@@ -2245,6 +2271,30 @@ int ath12k_qmi_host_cap_send(struct ath12k_base *ab)
+ 	req.cal_done_valid = 1;
+ 	req.cal_done = ab->qmi.cal_done;
+ 
++	/* Stock CNSS sends this aperture in host cap, before TME-Lite.
++	 * The ddr_range element above carries ei_array so the encoder
++	 * can emit the struct.
++	 */
++	if (ab->id.device == 0x110e) {
++		struct iommu_domain *domain = iommu_get_domain_for_dev(ab->dev);
++
++		if (domain &&
++		    domain->geometry.aperture_end >
++		    domain->geometry.aperture_start) {
++			u64 start = domain->geometry.aperture_start;
++			u64 end = domain->geometry.aperture_end;
++			u64 size = end - start;
++
++			if (size != U64_MAX)
++				size++;
++			req.ddr_range_valid = 1;
++			req.ddr_range[0].start = start;
++			req.ddr_range[0].size = size;
++			ath12k_info(ab, "qmi host cap ddr range 0x%llx size 0x%llx\n",
++				    start, size);
++		}
++	}
++
+ 	if (ab->hw_params->qmi_cnss_feature_bitmap) {
+ 		req.feature_list_valid = 1;
+ 		req.feature_list = ab->hw_params->qmi_cnss_feature_bitmap;
+@@ -2466,6 +2516,11 @@ int ath12k_qmi_respond_fw_mem_request(struct ath12k_base *ab)
+ 				   &ab->qmi.target_mem[i].paddr,
+ 				   ab->qmi.target_mem[i].size,
+ 				   ab->qmi.target_mem[i].type);
++			if (ab->id.device == 0x110e)
++				ath12k_info(ab, "qmi mem seg[%d] type %u size %u addr %pad\n",
++					    i, ab->qmi.target_mem[i].type,
++					    ab->qmi.target_mem[i].size,
++					    &ab->qmi.target_mem[i].paddr);
+ 		}
+ 	}
+ 
+@@ -3801,6 +3856,9 @@ static void ath12k_qmi_msg_mem_request_cb(struct qmi_handle *qmi_hdl,
+ 		ab->qmi.target_mem[i].size = msg->mem_seg[i].size;
+ 		ath12k_dbg(ab, ATH12K_DBG_QMI, "qmi mem seg type %d size %d\n",
+ 			   msg->mem_seg[i].type, msg->mem_seg[i].size);
++		if (ab->id.device == 0x110e)
++			ath12k_info(ab, "qmi mem req seg[%d] type %u size %u\n",
++				    i, msg->mem_seg[i].type, msg->mem_seg[i].size);
+ 	}
+ 
+ 	if (test_bit(ATH12K_FLAG_FIXED_MEM_REGION, &ab->dev_flags)) {
+-- 
+2.55.0
+
