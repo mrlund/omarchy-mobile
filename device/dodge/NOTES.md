@@ -4,6 +4,15 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-21: modem userspace, read-only EFS copies, rmtfs_mem DTB (not flashed)
+
+- **pacman keyring fixed:** `/etc/pacman.d/gnupg` had never been made. Ran `pacman-key --init` plus `--populate archlinux archlinuxarm omamobile omarchy`. pacman also needs `--disable-sandbox` (no Landlock in 6.16). The phone had no internet because `usb0`'s metric-0 default route beat Wi-Fi's. That route was changed for this session only.
+- **Installed:** `libqmi` 1.38.0 and `modemmanager` 1.24.2 (masked) from `extra`. `qrtr` (`qrtr-lookup`), `rmtfs` and `tqftpserv` built from linux-msm git; no units installed.
+- **rmtfs safety:** `rmtfs -r -o /var/lib/omamobile/modem-efs -v` is the only allowed invocation. `-r` reads each image `O_RDONLY` into RAM and keeps writes there. Never use `-P` (real partitions) or `-s`. Only start it when `/dev/qcom_rmtfs_mem1` exists, because otherwise it falls back to `/dev/mem`. A 10 s dry run left the sha256 of `sdf10`-`sdf13` unchanged.
+- **EFS copies:** `modemst1`, `modemst2`, `fsg` and `fsc` copied with `dd` (read-only) to `/var/lib/omamobile/modem-efs/` (600, phone only). The sha256 values are kept outside git. The OnePlus NV partitions were not opened.
+- **`rmtfs_mem` (`bd9587d65`, 4 MiB at `0xd7c00000`) booted twice with `fastboot boot`.** The region is reserved, and `qcom_rmtfs_mem` gives `/dev/qcom_rmtfs_mem1` at the right address. The first boot lost the display (DPU kickoff timeouts from 8.8 s); the second was clean, and so were two controls without the node. **Not flashed** until more boots settle it. Patch: `kernel/patches/not-applied/0002`.
+- **Modem not started:** `only_adsp` is read-only at runtime, so step 4 needs its own boot. The phone is on the flashed boot_a. Details: [dev-docs/2026-10-21-modem.md](dev-docs/2026-10-21-modem.md).
+
 ## 2026-10-21: modem assessment; kernel series exported
 
 - **Kernel series in git:** `kernel/patches/` has the local `omamobile-dodge` branch as 50 patches on sm8750-mainline `v6.16` `16cf517b`. Applied with `git am`, they give exactly the tree of `31453abbe`. The ath12k diagnostic and its revert are left out. `17f3dac8e` (ACTLR) is in `not-applied/` because it isn't a fix. The README lists the build with `KERNELRELEASE=6.16.0-gb3ee311dab85` and the workarounds. Both configs are in `kernel/` (running `/proc/config.gz`, and the build config plus four modules).
