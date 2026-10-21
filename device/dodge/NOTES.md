@@ -7,7 +7,7 @@ Attempts live in [dev-docs/](dev-docs/).
 ## 2026-10-21: kernel comparison, ours (6.16 + 50) vs Derek's omamobile (7.3-rc6)
 
 - Derek's `omamobile` = 7.3-rc6 + 152 Pixel commits, 0 Qualcomm. SM8750 support there = mainline: tsens, Iris and the Adreno 830 driver are new; IPA, battmgr and the board-level nodes are still missing.
-- `git am --3way` (after a prereq with the base dodge DTS, panel, syna_tcm2 and config): 17 apply, 3 already in, 30 conflict. After review about 20 patches drop (RSC v4, pd-mapper, DSI byte clock, fastrpc heap, I2S fmt, QCC2072 HAL), and about 30 carry. The Wi-Fi peach port onto `wifi7/` is the bulk.
+- `git am --3way` (after a prereq with the base dodge DTS, panel, syna_tcm2 and config): 17 apply, 3 already in, 30 conflict. After review 16 drop (5 present, 11 obsolete) and 34 carry (14 as-is, 20 to port), so about 20 patches drop (RSC v4, pd-mapper, DSI byte clock, fastrpc heap, I2S fmt, QCC2072 HAL) The Wi-Fi peach port onto `wifi7/` is the bulk.
 - The dodge DTB builds on 7.3 with 4 DTS fixes. Panel and touch have 1 compile error each. Estimate 5–8 days. Recommendation: a staged parallel port via the stage 2 kexec, and turn on Landlock and the other generic config now on 6.16. Details: [dev-docs/2026-10-21-kernel-ours-vs-omamobile.md](dev-docs/2026-10-21-kernel-ours-vs-omamobile.md).
 
 ## 2026-10-21: auto-rotate correct and autostarted
