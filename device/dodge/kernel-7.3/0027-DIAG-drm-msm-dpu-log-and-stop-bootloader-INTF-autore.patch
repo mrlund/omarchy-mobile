@@ -1,0 +1,87 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Wed, 21 Oct 2026 16:55:47 +0200
+Subject: [PATCH 27/27] DIAG drm/msm/dpu: log (and stop) bootloader INTF
+ autorefresh at DPU init (dodge)
+
+---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c | 25 +++++++++++++++++++++
+ drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h |  2 ++
+ drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c     |  7 ++++++
+ 3 files changed, 34 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c
+index ac82b69ae..3c928772b 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c
+@@ -11,6 +11,7 @@
+ #include "dpu_trace.h"
+ 
+ #include <linux/iopoll.h>
++#include <linux/delay.h>
+ 
+ #include <drm/drm_managed.h>
+ 
+@@ -587,6 +588,30 @@ static void dpu_hw_intf_disable_autorefresh(struct dpu_hw_intf *intf,
+ 
+ }
+ 
++/*
++ * dodge: ABL drives the command-mode panel with INTF autorefresh and leaves
++ * it running. Until the encoder is enabled, msm keeps those frames going
++ * while the panel driver sends its init commands, and the DSI command DMA
++ * then stalls (STATUS0 0x20003, -110). Stop it once at DPU init.
++ */
++void dpu_hw_intf_stop_boot_autorefresh(struct dpu_hw_intf *intf)
++{
++	u32 cfg = DPU_REG_READ(&intf->hw, INTF_TEAR_AUTOREFRESH_CONFIG);
++	struct dpu_hw_pp_vsync_info info = {};
++
++	pr_info("dodge: intf%d autorefresh cfg %08x at handover\n",
++		intf->idx - INTF_0, cfg);
++	if (!(cfg & BIT(31)))
++		return;
++	dpu_hw_intf_setup_autorefresh_config(intf, 0, false);
++	msleep(50);
++	dpu_hw_intf_get_vsync_info(intf, &info);
++	pr_info("dodge: intf%d autorefresh off, cfg %08x wr_ptr %u\n",
++		intf->idx - INTF_0,
++		DPU_REG_READ(&intf->hw, INTF_TEAR_AUTOREFRESH_CONFIG),
++		info.wr_ptr_line_count);
++}
++
+ static void dpu_hw_intf_program_intf_cmd_cfg(struct dpu_hw_intf *intf,
+ 					     struct dpu_hw_intf_cmd_mode_cfg *cmd_mode_cfg)
+ {
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h
+index badd26305..1202955d3 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h
+@@ -132,4 +132,6 @@ struct dpu_hw_intf *dpu_hw_intf_init(struct drm_device *dev,
+ 				     void __iomem *addr,
+ 				     const struct dpu_mdss_version *mdss_rev);
+ 
++void dpu_hw_intf_stop_boot_autorefresh(struct dpu_hw_intf *intf);
++
+ #endif /*_DPU_HW_INTF_H */
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+index da3556eb6..416bb40d5 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+@@ -1203,6 +1203,13 @@ static int dpu_kms_hw_init(struct msm_kms *kms)
+ 		goto err_pm_put;
+ 	}
+ 
++	for (int i = 0; i < ARRAY_SIZE(dpu_kms->rm.hw_intf); i++) {
++		struct dpu_hw_intf *intf = dpu_kms->rm.hw_intf[i];
++
++		if (intf && intf->ops.disable_autorefresh)
++			dpu_hw_intf_stop_boot_autorefresh(intf);
++	}
++
+ 	dpu_kms->hw_mdp = dpu_hw_mdptop_init(dev,
+ 					     dpu_kms->catalog->mdp,
+ 					     dpu_kms->mmio,
+-- 
+2.55.0
+

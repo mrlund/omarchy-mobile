@@ -4,6 +4,15 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-21: display drop investigation (7.3 boots 6-9, 16:20-16:56 CEST)
+
+- DIAG msm.ko plus 7.3-only log units ([dev-docs/2026-10-21-display-drop.md](dev-docs/2026-10-21-display-drop.md)). Display budget: 4 of 6 boots used. 7.3 total: 9 boots.
+- Good vs bad dumps: DSI/PHY registers, supplies (vdds 880 mV, vdda 1.2 V) and DSI clocks are identical. The failure is the DMA-fetch stall (`STATUS0 00020003`, `CLK_STATUS 008037c3`), the same signature as the 6.16 GDSC wedge. But the GDSC does not collapse before bind, and ABL's autorefresh is off.
+- msm's own IOMMU domain drops the splash identity map, so every bad boot faults at the end of the splash frame. Identity-mapping it (`ef1155422`) removed the faults but not the failure.
+- The ~28 s deaths happen only on bad-display boots. pstore is empty (no ramoops). Not captured yet.
+- **On 6.16, the previous kernel matters:** 4 of 5 6.16 boots after a 7.3 boot lost the display; 3 of 3 after a 6.16 boot were clean. Points at state carried over a warm reset, so the next step is a cold boot, which needs Martin.
+- Phone: 6.16 flashed boot, display clean (16:55), 0 failed units.
+
 ## 2026-10-21: 7.3 stage 2 paused, the display fails intermittently on both kernels (16:15 CEST)
 
 - **Boot 3 (15:47, battery unit on):** `qcom-battmgr-bat` and `bq27541-0` alive on 7.3, battery gate works there. Display lost again (5× `cmd dma tx -110`), seen only afterwards.

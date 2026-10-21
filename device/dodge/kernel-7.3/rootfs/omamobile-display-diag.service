@@ -1,0 +1,13 @@
+[Unit]
+Description=dodge display diag (7.3 test boots only)
+ConditionKernelVersion=7.3*
+DefaultDependencies=no
+After=local-fs.target sys-kernel-debug.mount
+Before=omamobile-display-msm.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/omamobile-display-diag
+
+[Install]
+WantedBy=sysinit.target

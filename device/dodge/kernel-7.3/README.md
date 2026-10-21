@@ -16,6 +16,13 @@ A backup of the local branch `trial/omamobile-dodge-port` in
 - `0022`-`0024` (stage 2): the aw882308 bring-up driver and its Receiver
   profile, and a fastrpc log line that `rootfs/audio-bringup.sh` waits for.
 
+- `0025`-`0027`: display-drop work. 0025 and 0027 are DIAG (not for
+  upstream); 0026 keeps the splash identity-mapped in msm's IOMMU domain.
+  See `dev-docs/2026-10-21-display-drop.md`.
+
+`rootfs/omamobile-display-diag` and `rootfs/omamobile-kmsg-sync` (plus
+`.service`) are 7.3-only diagnostics (`ConditionKernelVersion=7.3*`).
+
 `rootfs/audio-bringup.sh` is the 7.3 copy in `/usr/local/lib/omamobile.<R>/`:
 no `audio_heap_vmids` parameter (7.3 assigns the heap itself) and
 `snd-soc-wcd-common` added.

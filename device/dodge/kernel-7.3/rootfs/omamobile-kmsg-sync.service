@@ -1,0 +1,12 @@
+[Unit]
+Description=dodge kernel log sync (7.3 test boots only)
+ConditionKernelVersion=7.3*
+DefaultDependencies=no
+After=local-fs.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/omamobile-kmsg-sync
+
+[Install]
+WantedBy=sysinit.target
