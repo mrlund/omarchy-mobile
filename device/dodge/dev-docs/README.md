@@ -50,7 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
-| 2026-10-21 | [config bump](2026-10-21-config-bump.md) | Slice 1: generic omamobile.config options on 6.16 (Landlock, binder, nftables, PSI, dmabuf heaps, IPv6=y, socinfo, dm). New release `6.16.0-gbd9587d65`, per-release module overlay unit. Built and staged; one-shot boot waits on USB. |
+| 2026-10-21 | [config bump](2026-10-21-config-bump.md) | Slice 1: generic omamobile.config options on 6.16 (Landlock, binder, nftables, PSI, dmabuf heaps, IPv6=y, socinfo, dm). New release `6.16.0-gbd9587d65`, per-release module overlay unit. One-shot test clean; flashed to boot_a. |
 | 2026-10-21 | [sensors](2026-10-21-sensors.md) | Accel, proximity and compass work through the ADSP SSC: hexagonrpcd (sensorspd) serving read-only copies of the phone's registry and config, libssc, and iio-sensor-proxy with ssc-support. Light not found yet. Autorotate is opt-in. |
 | 2026-10-21 | [kernel ours vs omamobile](2026-10-21-kernel-ours-vs-omamobile.md) | Our 6.16+50 vs Derek's 7.3-rc6 omamobile (0 Qualcomm commits; SM8750 = mainline). git am trial: 17 apply, 3 present, 30 conflict; 16 drop, 34 carry (20 need porting), Wi-Fi peach is the bulk. Dodge DTB builds with 4 fixes. Recommend a staged parallel port. |
 | 2026-10-21 | [modem](2026-10-21-modem.md) | Modem assessment: MPSS DT/driver/firmware ready (firmware staged read-only from `modem_a`); missing `rmtfs_mem` DT node, rmtfs/tqftpserv/ModemManager userland, IPA for data. rmtfs must never write the real EFS/NV partitions. |

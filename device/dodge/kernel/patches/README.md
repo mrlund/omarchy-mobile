@@ -48,7 +48,9 @@ Left out of the series:
   (Landlock, binder/binderfs, nftables, PSI, dmabuf heaps, built-in IPv6,
   socinfo and device-mapper). The header lists what was left out and why.
 - `../config-6.16.0-gbd9587d65`: the `-modules` config plus that fragment.
-  **Built, not yet booted** (2026-10-21; waiting on a USB one-shot test).
+  **Flashed to boot_a on 2026-10-21** after a clean one-shot test
+  (`boot-chain-avb.img` sha256 `9940497e…`; fallback
+  `out-dodge-chain/images/boot-chain-avb.before-cfg1.img`, `5ab5829f…`).
 
 ## Build
 
@@ -85,6 +87,8 @@ paths. `omamobile.<R>` is a copy of `/usr/local/lib/omamobile` with each `.ko`
 replaced by the new build's module of the same name. The unused
 `dodge-wlan-*.ko` have no source and are left out, and `qcom_rmtfs_mem.ko` comes
 from `rmtfs_mem.ko`. With the pinned kernel the unit does nothing.
+`tools/dodge-kmod-overlay-tree` builds that copy, and `tools/dodge-battcheck` is
+the battery gate to run before a reboot or flash.
 
 The boot image is put together as in [../../dev-docs/](../../dev-docs/)
 (`2026-10-16-flash-boot-a.md`). Flash rules are in [../../AGENTS.md](../../AGENTS.md).
