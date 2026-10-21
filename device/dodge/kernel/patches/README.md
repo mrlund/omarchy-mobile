@@ -43,6 +43,12 @@ Left out of the series:
   the running config plus four options added later as modules
   (`ATH12K_COREDUMP`, `DRM_PANEL_ONEPLUS_DODGE`, `SND_SOC_AW882308`,
   `TOUCHSCREEN_SYNA_TCM2`). Use this one for a new build.
+- `../generic-2026-10-21.config`: slice 1 of the move toward Derek's
+  `omamobile.config`. It holds the generic options that exist on 6.16
+  (Landlock, binder/binderfs, nftables, PSI, dmabuf heaps, built-in IPv6,
+  socinfo and device-mapper). The header lists what was left out and why.
+- `../config-6.16.0-gbd9587d65`: the `-modules` config plus that fragment.
+  **Built, not yet booted** (2026-10-21; waiting on a USB one-shot test).
 
 ## Build
 
@@ -55,6 +61,30 @@ make O=out-dodge ARCH=arm64 LLVM=1 KERNELRELEASE=6.16.0-gb3ee311dab85 olddefconf
 make O=out-dodge ARCH=arm64 LLVM=1 KERNELRELEASE=6.16.0-gb3ee311dab85 \
      Image modules qcom/sm8750-oneplus-dodge.dtb
 ```
+
+Slice 1 (the fragment) uses a **new** release string, so its modules sit
+next to the old ones and the flashed kernel never sees them:
+
+```sh
+cp ../config-6.16.0-gb3ee311dab85-modules out-dodge-cfg1/.config
+scripts/kconfig/merge_config.sh -m -O out-dodge-cfg1 out-dodge-cfg1/.config \
+    ../generic-2026-10-21.config
+make O=out-dodge-cfg1 ARCH=arm64 LLVM=1 KERNELRELEASE=6.16.0-gbd9587d65 olddefconfig
+make O=out-dodge-cfg1 ARCH=arm64 LLVM=1 KERNELRELEASE=6.16.0-gbd9587d65 \
+     Image modules qcom/sm8750-oneplus-dodge.dtb
+make O=out-dodge-cfg1 ARCH=arm64 LLVM=1 KERNELRELEASE=6.16.0-gbd9587d65 \
+     INSTALL_MOD_PATH=stage INSTALL_MOD_STRIP=1 modules_install
+# on the phone: stage/lib/modules/6.16.0-gbd9587d65 -> /usr/lib/modules/6.16.0-gbd9587d65.held
+```
+
+The loaders still insmod from `/usr/lib/modules/6.16.0-gb3ee311dab85.held` and
+`/usr/local/lib/omamobile`. `../omamobile-kmod-overlay(.service)` runs before
+`sysinit.target`. With any other `uname -r` it bind-mounts
+`/usr/lib/modules/<R>.held` and `/usr/local/lib/omamobile.<R>` over those two
+paths. `omamobile.<R>` is a copy of `/usr/local/lib/omamobile` with each `.ko`
+replaced by the new build's module of the same name. The unused
+`dodge-wlan-*.ko` have no source and are left out, and `qcom_rmtfs_mem.ko` comes
+from `rmtfs_mem.ko`. With the pinned kernel the unit does nothing.
 
 The boot image is put together as in [../../dev-docs/](../../dev-docs/)
 (`2026-10-16-flash-boot-a.md`). Flash rules are in [../../AGENTS.md](../../AGENTS.md).

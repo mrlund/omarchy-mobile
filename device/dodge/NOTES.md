@@ -4,6 +4,12 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-21: 6.16 config bump built (slice 1), not booted yet
+
+- Fragment `kernel/generic-2026-10-21.config` (Landlock, binder, nftables/iptables, PSI, dmabuf heaps, IPv6 built in, socinfo, dm/verity, erofs, f2fs) → `kernel/config-6.16.0-gbd9587d65`. The new release string keeps the old modules untouched.
+- Modules staged on the phone, plus `omamobile-kmod-overlay.service`, which binds the new trees over the pinned loader paths only on a non-pinned kernel (a no-op now). The test chain image is built.
+- Blocked: USB down (loose cable), so no one-shot boot. Kexec over Wi-Fi is not safe (LPI/ITS). boot_a is unchanged. [dev-docs/2026-10-21-config-bump.md](dev-docs/2026-10-21-config-bump.md).
+
 ## 2026-10-21: kernel comparison, ours (6.16 + 50) vs Derek's omamobile (7.3-rc6)
 
 - Derek's `omamobile` = 7.3-rc6 + 152 Pixel commits, 0 Qualcomm. SM8750 support there = mainline: tsens, Iris and the Adreno 830 driver are new; IPA, battmgr and the board-level nodes are still missing.

@@ -1,0 +1,18 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# dodge's module loaders insmod from two fixed places, built for the pinned
+# release: /usr/lib/modules/$PINNED.held and /usr/local/lib/omamobile. When
+# another kernel runs (a test Image), bind its own copies over both, so
+# nothing loads modules built for a different kernel. With the pinned
+# kernel this does nothing, and the original directories are never changed.
+PINNED=6.16.0-gb3ee311dab85
+R=$(uname -r)
+[ "$R" = "$PINNED" ] && exit 0
+H=/usr/lib/modules/$R.held L=/usr/local/lib/omamobile.$R
+if [ ! -d "$H" ] || [ ! -d "$L" ]; then
+	echo "kmod-overlay: no $H or $L for $R; loaders will fail vermagic" >&2
+	exit 1
+fi
+mount --bind "$H" "/usr/lib/modules/$PINNED.held"
+mount --bind "$L" /usr/local/lib/omamobile
+echo "kmod-overlay: $R modules over $PINNED paths"
