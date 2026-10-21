@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Wed, 21 Oct 2026 14:51:58 +0200
-Subject: [PATCH 19/21] drm/msm/mdss: keep MDSS_GDSC on for SM8750; remoteproc:
- pas: only_adsp
+Subject: [PATCH] drm/msm/mdss: keep MDSS_GDSC on for SM8750; remoteproc: pas:
+ only_adsp
 
 Ports of dodge 0050 (SM8750 gets its own mdss data with keep_gdsc_on,
 since 7.3 shares data_57k) and 0022 (bring-up switch that skips the

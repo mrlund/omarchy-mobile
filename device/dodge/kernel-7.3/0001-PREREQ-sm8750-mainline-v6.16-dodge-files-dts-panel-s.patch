@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: t <t@t>
+From: Martin Lund <mrlund@hotmail.com>
 Date: Wed, 21 Oct 2026 12:21:26 +0200
-Subject: [PATCH 01/21] PREREQ: sm8750-mainline v6.16 dodge files (dts, panel,
+Subject: [PATCH] PREREQ: sm8750-mainline v6.16 dodge files (dts, panel,
  syna_tcm2, sm8750.config)
 
 ---

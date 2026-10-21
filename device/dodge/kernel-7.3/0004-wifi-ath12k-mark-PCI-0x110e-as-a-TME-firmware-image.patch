@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 17 Oct 2026 18:09:15 +0200
-Subject: [PATCH 04/21] wifi: ath12k: mark PCI 0x110e as a TME firmware image
+Subject: [PATCH] wifi: ath12k: mark PCI 0x110e as a TME firmware image
 
 Stock peach amss20.bin is two ELF files. Tell MHI, so BHIe sends
 only the second one. The same firmware asks for memory region

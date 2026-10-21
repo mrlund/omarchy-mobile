@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Wed, 21 Oct 2026 14:51:13 +0200
-Subject: [PATCH 17/21] Input: synaptics-tcm2: build the SPI touchscreen on 7.3
+Subject: [PATCH] Input: synaptics-tcm2: build the SPI touchscreen on 7.3
 
 Port of dodge 0004 (SPI dependency, module name synaptics_tcm2), and
 replace the removed <linux/of_gpio.h> with a gpiod lookup that hands

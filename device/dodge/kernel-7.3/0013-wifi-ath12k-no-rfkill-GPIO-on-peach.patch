@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 15:10:15 +0200
-Subject: [PATCH 13/21] wifi: ath12k: no rfkill GPIO on peach
+Subject: [PATCH] wifi: ath12k: no rfkill GPIO on peach
 
 Peach uses the WCN7850 parameters, whose rfkill pin 48 is not wired
 on this module, so the firmware reported the radio hard-blocked

@@ -1,8 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Thu, 15 Oct 2026 17:38:48 +0200
-Subject: [PATCH 02/21] arm64: dts: qcom: sm8750-oneplus-dodge: add ABL board
- ids
+Subject: [PATCH] arm64: dts: qcom: sm8750-oneplus-dodge: add ABL board ids
 
 ABL selects a DTB by qcom,msm-id and qcom,board-id. A header v2 image
 whose DTB had neither stayed in fastboot. The live OnePlus 13 FDT
