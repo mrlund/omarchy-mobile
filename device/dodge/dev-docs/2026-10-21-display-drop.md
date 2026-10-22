@@ -82,3 +82,27 @@ Budget for this investigation: 6 boots; used 4 (7.3 boots 6-9).
   (panel reset/power sequencing on shutdown, or ABL reinit).
 - Then: ramoops via `DTB_OPTS='ramoops splash fb'` for the death, and the
   shutdown path (what 7.3 leaves in the panel and DSI at reboot).
+
+## Round 3: cold vs warm (2026-10-22, CEST)
+
+Martin's cold-start controls on 6.16 (0 `tx failed` each): R1 09:33, a
+poweroff with USB attached (the phone powers itself back on, so it is
+effectively warm), clean. R2 09:35, USB unplugged, off 30 s, power key,
+a true cold start, clean.
+
+| # | time | from | display | notes |
+|---|---|---|---|---|
+| 7.3 boot 10 | 09:39 | cold-started 6.16 (R2), via fastboot | **bad** | tx1 ok, then -110 (same signature). Died at about 96 s, back to 6.16 by itself |
+| 6.16 | 09:40 | warm (watchdog) after bad 7.3 boot 10 | clean | so 6.16 after 7.3 is now 4 of 6 bad |
+| 7.3 boot 11 | 09:44 | that 6.16, via fastboot | good | `omamobile-unplug-poweroff` armed |
+
+So a cold start before 7.3 does not prevent the 7.3 drop. Limitation:
+7.3 can never be cold-started directly, because a one-shot always goes
+through fastboot (a warm path) from a running 6.16.
+
+`rootfs/omamobile-unplug-poweroff(.service)`: 7.3 only, and only with
+`/etc/omamobile/unplug-poweroff.enable`. Once the gadget has been
+configured, unplugging USB for 3 s runs `systemctl poweroff --force`. This
+is needed because a poweroff with USB attached powers the phone back on.
+Step 2 (Martin unplugs 7.3, waits 30 s, cold-starts into 6.16) is pending.
+Display budget: 6 of 6 boots used.
