@@ -1,0 +1,19 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# TEST (7.3 test boots only): for the cold-start test. With USB attached the
+# phone powers itself back on, so a poweroff over USB is not a cold start.
+# Once the gadget has been configured, unplugging USB for 3 s powers the
+# phone off; it then stays off until the power key is pressed.
+seen=0 gone=0
+while sleep 0.5; do
+	s=$(cat /sys/class/udc/*/state 2>/dev/null)
+	if [ "$s" = configured ]; then seen=1 gone=0; continue; fi
+	[ $seen = 1 ] || continue
+	gone=$((gone+1))
+	if [ $gone -ge 6 ]; then
+		echo "omamobile-unplug-poweroff: USB gone 3 s (udc $s), powering off" > /dev/kmsg
+		sync
+		systemctl poweroff --force
+		exit 0
+	fi
+done

@@ -1,0 +1,11 @@
+[Unit]
+Description=dodge cold-start test: power off on USB unplug (7.3 test boots only)
+ConditionKernelVersion=7.3*
+ConditionPathExists=/etc/omamobile/unplug-poweroff.enable
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/omamobile-unplug-poweroff
+
+[Install]
+WantedBy=multi-user.target

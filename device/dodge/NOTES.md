@@ -4,6 +4,12 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-22: cold vs warm, round 3 (CEST)
+
+- Cold starts of 6.16 by Martin (R1 09:33 with USB attached, R2 09:35 truly cold) were clean.
+- 7.3 boot 10 (09:39), started via fastboot from the truly cold 6.16: **display bad** (same stall). It died at about 96 s, and the warm 6.16 after it was clean. A cold start before 7.3 does not prevent the 7.3 drop. 7.3 cannot be cold-started directly (a one-shot always goes through fastboot).
+- 7.3 boot 11 (09:44): display good. 7.3-only `omamobile-unplug-poweroff` is armed (flag `/etc/omamobile/unplug-poweroff.enable`). Unplugging USB powers it off for Martin's cold start. Result pending. Display budget 6 of 6 used.
+
 ## 2026-10-21: display drop investigation (7.3 boots 6-9, 16:20-16:56 CEST)
 
 - DIAG msm.ko plus 7.3-only log units ([dev-docs/2026-10-21-display-drop.md](dev-docs/2026-10-21-display-drop.md)). Display budget: 4 of 6 boots used. 7.3 total: 9 boots.
