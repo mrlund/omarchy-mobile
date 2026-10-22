@@ -1,0 +1,399 @@
+From 12312b75a1ad681a76aa814184170a9219d38d35 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Thu, 22 Oct 2026 20:34:04 +0200
+Subject: [PATCH] DIAG drm/msm: dodge first-commit trace, splash stop before
+ the MDSS BCR, 1:1 splash map in the display domain
+
+dodge_trace.c snapshots VBIF/VIG0/CTL/INTF1/DSI (clock/GDSC guarded) at
+mdss reset, dpu hw init, the IOMMU attach, CTL start/flush and around DSI
+cmd DMA. dodge_stop_splash() turns off INTF1 autorefresh/TE, clears VIG0
+and CTL0 fetch and halts VBIF xin0/xin4 before msm_mdss_reset.
+msm_kms maps the ABL splash reserved region (0xfc800000+0x2b00000)
+read-only 1:1 in the display domain and keeps GEM iovas below it.
+
+Result: the CB9 fault goes away, the -110 on the first DSI cmd DMA does
+not. Not for upstream.
+---
+ drivers/gpu/drm/msm/Makefile                |   1 +
+ drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c  |   3 +
+ drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c |   2 +
+ drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c     |   2 +
+ drivers/gpu/drm/msm/dodge_trace.c           | 135 ++++++++++++++++++++
+ drivers/gpu/drm/msm/dodge_trace.h           |   8 ++
+ drivers/gpu/drm/msm/dsi/dsi_host.c          |   3 +
+ drivers/gpu/drm/msm/msm_iommu.c             |  12 ++
+ drivers/gpu/drm/msm/msm_kms.c               |  13 +-
+ drivers/gpu/drm/msm/msm_mdss.c              |   6 +
+ drivers/gpu/drm/msm/msm_mmu.h               |   1 +
+ 11 files changed, 185 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/gpu/drm/msm/dodge_trace.c
+ create mode 100644 drivers/gpu/drm/msm/dodge_trace.h
+
+diff --git a/drivers/gpu/drm/msm/Makefile b/drivers/gpu/drm/msm/Makefile
+index 7a2ada6e2..21e851c5f 100644
+--- a/drivers/gpu/drm/msm/Makefile
++++ b/drivers/gpu/drm/msm/Makefile
+@@ -123,6 +123,7 @@ msm-y += \
+ 	msm_io_utils.o \
+ 	msm_iommu.o \
+ 	msm_kms.o \
++	dodge_trace.o \
+ 	msm_perf.o \
+ 	msm_rd.o \
+ 	msm_ringbuffer.o \
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c
+index ac834db2e..c6997f665 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c
+@@ -3,6 +3,7 @@
+  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+  */
+ 
++#include "dodge_trace.h"
+ #include <linux/delay.h>
+ 
+ #include <drm/drm_managed.h>
+@@ -96,6 +97,7 @@ static inline void dpu_hw_ctl_trigger_start(struct dpu_hw_ctl *ctx)
+ 	trace_dpu_hw_ctl_trigger_start(ctx->pending_flush_mask,
+ 				       dpu_hw_ctl_get_flush_register(ctx));
+ 	DPU_REG_WRITE(&ctx->hw, CTL_START, 0x1);
++	dodge_trace("ctl-start", ctx->idx - CTL_0);
+ }
+ 
+ static inline bool dpu_hw_ctl_is_started(struct dpu_hw_ctl *ctx)
+@@ -177,6 +179,7 @@ static inline void dpu_hw_ctl_trigger_flush_v1(struct dpu_hw_ctl *ctx)
+ 			      ctx->pending_cdm_flush_mask);
+ 
+ 	DPU_REG_WRITE(&ctx->hw, CTL_FLUSH, ctx->pending_flush_mask);
++	dodge_trace("ctl-flush", ((ctx->idx - CTL_0) << 28) | ctx->pending_flush_mask);
+ }
+ 
+ static inline void dpu_hw_ctl_trigger_flush(struct dpu_hw_ctl *ctx)
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c
+index a80ac82a9..4ab61e380 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c
+@@ -4,6 +4,7 @@
+  * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+  */
+ 
++#include "dodge_trace.h"
+ #include "dpu_hwio.h"
+ #include "dpu_hw_catalog.h"
+ #include "dpu_hw_intf.h"
+@@ -393,6 +394,7 @@ static void dpu_hw_intf_setup_autorefresh_config(struct dpu_hw_intf *intf,
+ 		refresh_cfg &= ~BIT(31);
+ 
+ 	DPU_REG_WRITE(c, INTF_TEAR_AUTOREFRESH_CONFIG, refresh_cfg);
++	dodge_trace("intf-ar", refresh_cfg);
+ }
+ 
+ /*
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+index df9d6a509..31be6ba8a 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+@@ -9,6 +9,7 @@
+ 
+ #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
+ 
++#include "dodge_trace.h"
+ #include <linux/debugfs.h>
+ #include <linux/dma-buf.h>
+ #include <linux/of_irq.h>
+@@ -1171,6 +1172,7 @@ static int dpu_kms_hw_init(struct msm_kms *kms)
+ 	core_rev = readl_relaxed(dpu_kms->mmio + 0x0);
+ 
+ 	pr_info("dpu hardware revision:0x%x\n", core_rev);
++	dodge_trace("dpu-hwinit", core_rev);
+ 
+ 	dpu_kms->catalog = of_device_get_match_data(dev->dev);
+ 	if (!dpu_kms->catalog) {
+diff --git a/drivers/gpu/drm/msm/dodge_trace.c b/drivers/gpu/drm/msm/dodge_trace.c
+new file mode 100644
+index 000000000..ca8f92cae
+--- /dev/null
++++ b/drivers/gpu/drm/msm/dodge_trace.c
+@@ -0,0 +1,135 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * DIAG (dodge, SM8750): one-line read-only snapshot of the MDSS fetch path
++ * (VBIF RT, SSPP VIG0, CTL0/1, INTF1, DSI0) at points in msm's bring-up.
++ * Mappings are made once from process context, so dodge_trace() is safe
++ * from the IOMMU fault handler. Reads are skipped while MDSS_GDSC is off,
++ * MDP/VBIF reads while the MDSS AHB or MDP branch clock is off, and DSI
++ * reads while the byte0 or esc0 clock is off (an unclocked read hangs the
++ * bus: the first trace build without these guards boot-looped the phone).
++ */
++#include <linux/atomic.h>
++#include <linux/delay.h>
++#include <linux/io.h>
++#include <linux/printk.h>
++#include <linux/string.h>
++#include "dodge_trace.h"
++
++static void __iomem *dcc, *gdsc, *vbif, *vig0, *ctl0, *ctl1, *intf1, *dsi0;
++static atomic_t budget = ATOMIC_INIT(120);
++static atomic_t dsi_budget = ATOMIC_INIT(6);
++
++void dodge_trace_map(void)
++{
++	if (gdsc)
++		return;
++	dcc = ioremap(0x0af08000UL, 0x100);
++	gdsc = ioremap(0x0af09000UL, 4);
++	vbif = ioremap(0x0aeb0000UL, 0x300);
++	vig0 = ioremap(0x0ae05000UL, 0x100);
++	ctl0 = ioremap(0x0ae16000UL, 0x200);
++	ctl1 = ioremap(0x0ae17000UL, 0x200);
++	intf1 = ioremap(0x0ae36000UL, 0x300);
++	dsi0 = ioremap(0x0ae94000UL, 0x100);
++}
++
++/* dispcc CBCR bit 31 is CLK_OFF */
++#define DCC_ON(off) (!(readl(dcc + (off)) & BIT(31)))
++
++void dodge_trace(const char *tag, u32 arg)
++{
++	bool mdp, dsi;
++	u32 g;
++
++	if (!dcc || !gdsc || !vbif || !vig0 || !ctl0 || !ctl1 || !intf1 || !dsi0)
++		return;
++	/* the panel init sends ~30 DSI commands: trace only the first few */
++	if (!strncmp(tag, "dsi-dma", 7) && atomic_dec_return(&dsi_budget) < 0)
++		return;
++	if (atomic_dec_return(&budget) < 0)
++		return;
++	g = readl(gdsc);
++	if (!(g & BIT(31))) {
++		pr_info("dodge-trace: %s %x gdsc off\n", tag, arg);
++		return;
++	}
++	mdp = DCC_ON(0xb0) && DCC_ON(0x10);
++	dsi = DCC_ON(0xb0) && DCC_ON(0x34) && DCC_ON(0x44);
++	if (!mdp) {
++		pr_info("dodge-trace: %s %x mdp clk off (ahb %08x mdp %08x)\n", tag, arg,
++			readl(dcc + 0xb0), readl(dcc + 0x10));
++		return;
++	}
++	pr_info("dodge-trace: %s %x | vbif xh1 %08x axi1 %08x pnd %x src %x | vig0 addr %08x op %08x fetch %08x | ctl0 l0 %08x fl %08x st %x fpa %08x | ctl1 l0 %08x fl %08x st %x fpa %08x | intf1 tg %x ar %08x ln %x\n",
++		tag, arg,
++		readl(vbif + 0x204), readl(vbif + 0x20c), readl(vbif + 0x190), readl(vbif + 0x194),
++		readl(vig0 + 0x14), readl(vig0 + 0x38), readl(vig0 + 0x48),
++		readl(ctl0), readl(ctl0 + 0x18), readl(ctl0 + 0x1c), readl(ctl0 + 0xfc),
++		readl(ctl1), readl(ctl1 + 0x18), readl(ctl1 + 0x1c), readl(ctl1 + 0xfc),
++		readl(intf1), readl(intf1 + 0x2b4), readl(intf1 + 0x2b0));
++	if (dsi)
++		pr_info("dodge-trace: %s dsi st0 %08x ctrl %08x dma %08x\n", tag,
++			readl(dsi0 + 0x08), readl(dsi0 + 0x04), readl(dsi0 + 0x48));
++	else
++		pr_info("dodge-trace: %s dsi clk off\n", tag);
++}
++
++/*
++ * DIAG fix (dodge): stop ABL's continuous-splash scanout cleanly before
++ * msm_mdss_reset() pulses the MDSS core BCR, so no splash fetch is in
++ * flight in the VBIF/NoC when the reset (and later msm's CB9 domain)
++ * lands. Mirrors dpu_hw_intf_disable_autorefresh(): TE off, autorefresh
++ * off, wait for the write pointer to leave the frame; then unstage VIG0
++ * (SRC0_ADDR 0, CTL0 fetch-pipe-active 0, CTL0 flush VIG0|CTL), clear the
++ * VBIF xin error latches and halt xin0/xin4 until acked, then release.
++ * Only runs while the MDSS GDSC and AHB/MDP branch clocks are on.
++ */
++#define VDISPLAY 3168
++void dodge_stop_splash(void)
++{
++	u32 ar, te, wr = 0, h0, ack = 0;
++	int i, t_wr = -1, t_ack = -1;
++
++	if (!dcc || !gdsc || !vbif || !vig0 || !ctl0 || !intf1)
++		return;
++	if (!(readl(gdsc) & BIT(31)) || !DCC_ON(0xb0) || !DCC_ON(0x10)) {
++		pr_info("dodge-stop: skipped, mdss off\n");
++		return;
++	}
++	ar = readl(intf1 + 0x2b4);
++	te = readl(intf1 + 0x288);
++	/* 1. TE off, autorefresh off */
++	writel(te & ~BIT(20), intf1 + 0x288);
++	writel(0, intf1 + 0x2b4);
++	/* 2. wait for the frame in progress to finish (<= 50 ms) */
++	for (i = 0; i < 1000; i++) {
++		wr = readl(intf1 + 0x2b0) & 0xffff;
++		if (wr == 0 || wr >= VDISPLAY) {
++			t_wr = i;
++			break;
++		}
++		udelay(50);
++	}
++	/* let the last burst of the frame drain */
++	udelay(500);
++	/* 3. unstage the splash pipe */
++	writel(0, vig0 + 0x14);
++	writel(0, ctl0 + 0xfc);
++	writel(0, ctl0 + 0x0);
++	writel(BIT(0) | BIT(17), ctl0 + 0x18);
++	/* 4. VBIF: clear error latches, halt xin0/xin4, wait for ack, release */
++	writel(BIT(0) | BIT(4), vbif + 0x19c);
++	h0 = readl(vbif + 0x200);
++	writel(h0 | BIT(0) | BIT(4), vbif + 0x200);
++	for (i = 0; i < 200; i++) {
++		ack = readl(vbif + 0x204);
++		if ((ack & (BIT(16) | BIT(20))) == (BIT(16) | BIT(20))) {
++			t_ack = i;
++			break;
++		}
++		udelay(50);
++	}
++	writel(h0, vbif + 0x200);
++	pr_info("dodge-stop: ar %08x te %08x -> wr %x after %d, vbif ack %08x after %d, pnd %x src %x\n",
++		ar, te, wr, t_wr, ack, t_ack, readl(vbif + 0x190), readl(vbif + 0x194));
++}
+diff --git a/drivers/gpu/drm/msm/dodge_trace.h b/drivers/gpu/drm/msm/dodge_trace.h
+new file mode 100644
+index 000000000..ac0d8caec
+--- /dev/null
++++ b/drivers/gpu/drm/msm/dodge_trace.h
+@@ -0,0 +1,8 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef __DODGE_TRACE_H__
++#define __DODGE_TRACE_H__
++#include <linux/types.h>
++void dodge_trace_map(void);
++void dodge_trace(const char *tag, u32 arg);
++void dodge_stop_splash(void);
++#endif
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index c604cf9b2..27e182ff0 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -3,6 +3,7 @@
+  * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+  */
+ 
++#include "dodge_trace.h"
+ #include <linux/clk.h>
+ #include <linux/delay.h>
+ #include <linux/dma-mapping.h>
+@@ -1432,11 +1433,13 @@ static int dsi_cmd_dma_tx(struct msm_dsi_host *msm_host, int len)
+ 
+ 	dsi_wait4video_eng_busy(msm_host);
+ 
++	dodge_trace("dsi-dma-pre", (u32)dma_base);
+ 	triggered = msm_dsi_manager_cmd_xfer_trigger(
+ 						msm_host->id, dma_base, len);
+ 	if (triggered) {
+ 		ret = wait_for_completion_timeout(&msm_host->dma_comp,
+ 					msecs_to_jiffies(200));
++		dodge_trace("dsi-dma-post", ret);
+ 		DBG("ret=%d", ret);
+ 		if (ret == 0)
+ 			ret = -ETIMEDOUT;
+diff --git a/drivers/gpu/drm/msm/msm_iommu.c b/drivers/gpu/drm/msm/msm_iommu.c
+index 739ce2c28..567b3428c 100644
+--- a/drivers/gpu/drm/msm/msm_iommu.c
++++ b/drivers/gpu/drm/msm/msm_iommu.c
+@@ -500,3 +500,15 @@ struct msm_mmu *msm_iommu_gpu_new(struct device *dev, struct msm_gpu *gpu, unsig
+ 
+ 	return mmu;
+ }
++
++/*
++ * DIAG (dodge): map ABL's splash 1:1 read-only in msm's display domain,
++ * so a stale splash fetch that surfaces after the domain switch reads
++ * valid memory instead of faulting in CB9.
++ */
++int dodge_iommu_identity(struct msm_mmu *mmu, u64 base, size_t len)
++{
++	struct msm_iommu *iommu = to_msm_iommu(mmu);
++
++	return iommu_map(iommu->domain, base, base, len, IOMMU_READ, GFP_KERNEL);
++}
+diff --git a/drivers/gpu/drm/msm/msm_kms.c b/drivers/gpu/drm/msm/msm_kms.c
+index 35d5397e7..b611cdf9e 100644
+--- a/drivers/gpu/drm/msm/msm_kms.c
++++ b/drivers/gpu/drm/msm/msm_kms.c
+@@ -5,6 +5,7 @@
+  * Author: Rob Clark <robdclark@gmail.com>
+  */
+ 
++#include "dodge_trace.h"
+ #include <linux/aperture.h>
+ #include <linux/kthread.h>
+ #include <linux/sched/mm.h>
+@@ -168,6 +169,7 @@ static int msm_kms_fault_handler(void *arg, unsigned long iova, int flags, void
+ {
+ 	struct msm_kms *kms = arg;
+ 
++	dodge_trace("iommu-fault", (u32)iova);
+ 	if (atomic_read(&kms->fault_snapshot_capture) == 0) {
+ 		msm_disp_snapshot_state(kms->dev);
+ 		atomic_inc(&kms->fault_snapshot_capture);
+@@ -195,7 +197,9 @@ struct msm_gem_address_space *msm_kms_init_aspace(struct drm_device *dev)
+ 	else
+ 		iommu_dev = mdss_dev;
+ 
++	dodge_trace("attach-pre", 0);
+ 	mmu = msm_iommu_disp_new(iommu_dev, 0);
++	dodge_trace("attach-post", IS_ERR(mmu));
+ 	if (IS_ERR(mmu))
+ 		return ERR_CAST(mmu);
+ 
+@@ -204,8 +208,15 @@ struct msm_gem_address_space *msm_kms_init_aspace(struct drm_device *dev)
+ 		return NULL;
+ 	}
+ 
++	{
++		/* DIAG (dodge): whole ABL splash reserved region (frame 1440x3168x4 + margin) */
++		int r = dodge_iommu_identity(mmu, 0xfc800000ULL, 0x2b00000);
++
++		pr_info("dodge-idmap: fc800000+2b00000 -> %d\n", r);
++	}
++	/* DIAG (dodge): keep GEM iovas below the identity-mapped splash */
+ 	aspace = msm_gem_address_space_create(mmu, "mdp_kms",
+-		0x1000, 0x100000000 - 0x1000);
++		0x1000, 0xfc800000 - 0x1000);
+ 	if (IS_ERR(aspace)) {
+ 		dev_err(mdp_dev, "aspace create, error %pe\n", aspace);
+ 		mmu->funcs->destroy(mmu);
+diff --git a/drivers/gpu/drm/msm/msm_mdss.c b/drivers/gpu/drm/msm/msm_mdss.c
+index 8642ea8dc..0db34a839 100644
+--- a/drivers/gpu/drm/msm/msm_mdss.c
++++ b/drivers/gpu/drm/msm/msm_mdss.c
+@@ -3,6 +3,7 @@
+  * Copyright (c) 2018, The Linux Foundation
+  */
+ 
++#include "dodge_trace.h"
+ #include <linux/bitfield.h>
+ #include <linux/clk.h>
+ #include <linux/delay.h>
+@@ -464,7 +465,12 @@ static struct msm_mdss *msm_mdss_init(struct platform_device *pdev, bool is_mdp5
+ 	int ret;
+ 	int irq;
+ 
++	dodge_trace_map();
++	dodge_trace("mdss-prereset", 0);
++	dodge_stop_splash();
++	dodge_trace("mdss-stopped", 0);
+ 	ret = msm_mdss_reset(&pdev->dev);
++	dodge_trace("mdss-postreset", ret);
+ 	if (ret)
+ 		return ERR_PTR(ret);
+ 
+diff --git a/drivers/gpu/drm/msm/msm_mmu.h b/drivers/gpu/drm/msm/msm_mmu.h
+index 0c6949071..fe350df6e 100644
+--- a/drivers/gpu/drm/msm/msm_mmu.h
++++ b/drivers/gpu/drm/msm/msm_mmu.h
+@@ -43,6 +43,7 @@ static inline void msm_mmu_init(struct msm_mmu *mmu, struct device *dev,
+ struct msm_mmu *msm_iommu_new(struct device *dev, unsigned long quirks);
+ struct msm_mmu *msm_iommu_gpu_new(struct device *dev, struct msm_gpu *gpu, unsigned long quirks);
+ struct msm_mmu *msm_iommu_disp_new(struct device *dev, unsigned long quirks);
++int dodge_iommu_identity(struct msm_mmu *mmu, u64 base, size_t len); /* DIAG dodge */
+ 
+ static inline void msm_mmu_set_fault_handler(struct msm_mmu *mmu, void *arg,
+ 		int (*handler)(void *arg, unsigned long iova, int flags, void *data))
+-- 
+2.56.0
+

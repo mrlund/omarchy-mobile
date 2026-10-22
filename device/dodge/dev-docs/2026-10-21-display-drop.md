@@ -617,3 +617,47 @@ first DPU commit or kickoff, not before.
 
 Logs: `s1-D1.txt`, `s1-Q1.txt`, `s1-Q2*.txt`, `s1-W1..W3*.txt`,
 `claude-consult-stage1-quiesce.txt`.
+
+## Round 13: msm first-commit trace, splash stop, 1:1 splash map (19:16-20:40 CEST, 2026-10-22)
+
+All tests used msm.ko swaps on 6.16 (`6.16.0-gbd9587d65`) with gated warm reboots. Nothing was flashed. The tools are in `kernel/diag/msm-trace/`. The local kernel commits are `27f1383b0` (dodge_vbif) and `12312b75a` (trace, stop, map), both in `wt-dodge` and not pushed.
+
+| Boot | Time (CEST) | msm.ko | Prereset INTF1 line | CB9 fault | tx failed | Result |
+|---|---|---|---|---|---|---|
+| M1 | 19:19 | wrong older build | - | 0 | 0 | clean, no data |
+| M2 | 19:22 | trace (unguarded) | - | - | - | **boot loop** (MMIO with MDP clocks off after the BCR). Rescued 19:35 from the stage-2 initramfs |
+| R1 | 19:36 | fallback 2c86 | - | 0 | 0 | clean |
+| M3 | 19:38 | trace2 (guarded) | 0 | 0 | 0 | good |
+| M4 | 19:41 | trace3 | c60 | 1 (0xfd965800) | 21 | bad |
+| F1 | 19:46 | stop1 (attempt 1) | c60 | 1 (0xfd965800) | 2 | bad. Left running, it **froze** (~19:53-20:07, SSH banner timeouts, ping 65 % loss, USB stayed up) and rebooted by itself at about 20:07 |
+| -  | 20:07 | fallback 2c86 | - | 0 | 0 | clean, the self-recovered boot |
+| F2 | 20:10 | stop2id (attempt 2) | be4 | 0 | 0 | good. Screen off/on 3/3 and idle-off wake OK |
+| F3 | 20:17 | stop2id | c60 | 1 (**0xfd966400**, PLVL3) | 23 | bad |
+| R2 | 20:20 | fallback 2c86 | - | 1 | 6 | bad (recovery boot) |
+| G1 | 20:25 | stop3id (attempt 3) | 5d8 | 0 | 0 | good. Screen off/on 3/3 and idle-off wake OK |
+| G2 | 20:31 | stop3id | c60 | **0** | 2 | bad: -110 **without** any fault |
+| R3 | 20:33 | fallback 2c86 | - | 0 | 0 | clean. The phone was left here |
+
+F1, R2 and R3 had gate BATT_FAIL at 100 % (mean +85/+124/+133 mA, charging) and passed under the full-battery rule. Every other gate was BATT_OK.
+
+Findings:
+
+1. **The BCR resets the splash.** At prereset the splash is live (VIG0 0xfc800000, CTL0 fetch 0x30000, INTF1 autorefresh 0x80000001). By `dpu-hwinit`, VIG0, autorefresh and fetch are all 0. The domain attach (`attach-pre`/`post`) is clean, with no fault.
+2. **The fault fires on the first DSI cmd DMA trigger.** That is before any CTL flush (VIG0 then holds msm's 0x2000). DMA #1 and #2 complete and #3 times out (-110, STATUS0 0x20003, VBIF xh1 ffff0000 -> ff7f0000, LANE_STATUS 1f1f, DLN0_PHY_ERR 0x88888).
+3. **Attempt 1 failed (F1).** Before the BCR it turned off autorefresh and TE, waited for wr_ptr, cleared VIG0 src and CTL0 fetch/layer, flushed, and halted VBIF xin0/xin4. Every ack was immediate, and the fault and -110 stayed.
+4. **Attempt 2 failed (F3).** It added a 1:1 read-only map of the frame (0xfc800000+0x1166000) after `msm_iommu_disp_new`, with GEM iovas kept below 0xfc800000. The fault moved to just past the mapped end (0xfd966400, PLVL3). So the reader is sequential and its reads are newly translated in msm's domain.
+5. **Claude consult** (`logs/claude-consult-r13.txt`): the reader is a line fetch running less than one line past the frame end, and the terminate-mode error wedges the shared MDSS AXI port. It recommended mapping the whole 0x2b00000 reserved region. It also suggested DT `iommu-addresses` plus mapping the resv regions in msm, an AXI-port halt, and waiting until the line count is off c60.
+6. **Attempt 3 partly worked (G2).** It mapped the whole region (0xfc800000+0x2b00000). The **CB9 fault is gone, but the -110 still happens.** The fault is a symptom, not the trigger.
+7. **The trigger predictor is the ABL scanout phase at the moment msm takes over.**
+   - Prereset INTF1 tear line count 0xc60 (= 3168, the frame finished, DSI STATUS0 0, VBIF xin acks ffff0000 with err latch 0x11 on most) was bad 5/5: M4, F1, F3, G2, plus R2 untraced.
+   - Mid-frame or 0 (DSI STATUS0 5, xh1 ffee0000) was good 4/4: M3 0, F2 be4, G1 5d8.
+   - Stopping the pipe at that point does not help. The bad state looks like it is already latched in the DSI/PHY/panel link at the end of ABL's last frame: the PHY contention errors 0x88888 point to the panel holding the lanes. It is not an MDP fetch problem.
+8. `DSI PLL(0) lock failed` plus a "dsiclk already disabled" WARN shows up 4x on **every** boot, good and bad, so it does not predict anything.
+
+Fix status: **no fix.** Nothing was installed, and the phone's persistent msm.ko is still the fallback 2c86. Keep the splash map (it removes the fault). Next leads:
+
+- After autorefresh off, wait until DSI is idle across a full TE period.
+- Reset the panel and DSI (panel reset GPIO plus DSI soft reset and PHY reset) before the first DCS command when the prereset line count is c60.
+- Read DSI ERR_INT/ACK_ERR and the PHY error registers at prereset.
+
+Never leave a bad boot running: F1 froze after about 6 minutes.

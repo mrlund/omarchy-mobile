@@ -4,6 +4,17 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-22: msm first-commit trace, splash map removes the fault but not the -110 (19:16-20:40 CEST)
+
+- msm.ko one-shot swaps on 6.16 (drop-in `91-dodge-oneshot.conf`), tools in `kernel/diag/msm-trace/`. Boot table: dev-doc Round 13.
+- The BCR clears the splash, and the attach is clean. The CB9 fault fires at the first DSI cmd DMA trigger, before any flush. DMA #3 then fails with -110.
+- Attempt 1 failed: stopping the splash pipe before the BCR (autorefresh/TE off, VIG0/CTL cleared, VBIF halt-ack).
+- Attempt 2 failed: a 1:1 map of the frame moved the fault to just past the frame end.
+- Attempt 3: mapping the whole 0x2b00000 splash region removes the fault, but -110 still happens (G2).
+- Predictor 9/9: INTF1 line count at 0xc60 (ABL frame just finished, DSI idle) at msm takeover means bad; mid-frame means good. Next: DSI/panel link reset, not the MDP fetch.
+- An unguarded MMIO trace (MDP clocks off after the BCR) boot-looped the phone. I rescued it through the stage-2 initramfs window. A bad boot left running froze about 6 minutes later and rebooted itself (~20:07).
+- The phone is on the fallback msm.ko 2c86 (R3 clean). Kernel commits `27f1383b0` and `12312b75a` are local only.
+
 ## 2026-10-22: stage-1 snapshots and quiesce, wedge is not causal (18:40-19:15 CEST)
 
 - New `dodge_vbif` early_initcall snapshots (stage-1 early, before kexec, stage-2 early) plus a pre-msm DSI/SMMU peek. These were one-shot `fastboot boot` images, not flashed.
