@@ -17,6 +17,7 @@
 
 static void __iomem *dcc, *gdsc, *vbif, *vig0, *ctl0, *ctl1, *intf1, *dsi0;
 static atomic_t budget = ATOMIC_INIT(120);
+bool dodge_c60;
 static atomic_t dsi_budget = ATOMIC_INIT(6);
 
 void dodge_trace_map(void)
@@ -96,8 +97,8 @@ void dodge_trace(const char *tag, u32 arg)
 void dodge_stop_splash(void)
 {
 	u32 ar, te, wr = 0, h0, ack = 0;
-	u32 w0, cs0 = 0, cs1 = 0;
-	int i, t_wr = -1, t_ack = -1, t_nf = -1;
+	u32 w0, cs0;
+	int i, t_wr = -1, t_ack = -1;
 
 	if (!dcc || !gdsc || !vbif || !vig0 || !ctl0 || !intf1)
 		return;
@@ -110,20 +111,9 @@ void dodge_stop_splash(void)
 	 * the stop lands right after an active transfer, like the good boots */
 	wr = readl(intf1 + 0x2b0) & 0xffff;
 	w0 = wr;
-	if (wr == 0 || wr >= VDISPLAY) {
-		cs0 = (dsi0 && DCC_ON(0x34) && DCC_ON(0x44)) ? readl(dsi0 + 0x120) : 0xdead;
-		for (i = 0; i < 1000; i++) {
-			wr = readl(intf1 + 0x2b0) & 0xffff;
-			if (wr > 0 && wr < VDISPLAY) {
-				t_nf = i;
-				break;
-			}
-			udelay(50);
-		}
-		cs1 = (dsi0 && DCC_ON(0x34) && DCC_ON(0x44)) ? readl(dsi0 + 0x120) : 0xdead;
-		pr_info("dodge-wait: entry wr %x clk_st %08x -> wr %x after %d (x50us) clk_st %08x\n",
-			w0, cs0, wr, t_nf, cs1);
-	}
+	dodge_c60 = (wr == 0 || wr >= VDISPLAY);
+	cs0 = (dsi0 && DCC_ON(0x34) && DCC_ON(0x44)) ? readl(dsi0 + 0x120) : 0xdead;
+	pr_info("dodge-c: entry wr %x clk_st %08x idle %d\n", w0, cs0, dodge_c60);
 	ar = readl(intf1 + 0x2b4);
 	te = readl(intf1 + 0x288);
 	/* 1. TE off, autorefresh off */
