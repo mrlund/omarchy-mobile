@@ -1,0 +1,53 @@
+From bdc26a91b7aac3b6d1f337c7fb6f1417028575ac Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Thu, 22 Oct 2026 21:30:03 +0200
+Subject: [PATCH 2/2] DIAG drm/msm: dodge_stop_splash waits up to 50ms for the
+ next frame when idle at c60 (variant B)
+
+---
+ drivers/gpu/drm/msm/dodge_trace.c | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/dodge_trace.c b/drivers/gpu/drm/msm/dodge_trace.c
+index 8158365a7..46b5a683d 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.c
++++ b/drivers/gpu/drm/msm/dodge_trace.c
+@@ -96,7 +96,8 @@ void dodge_trace(const char *tag, u32 arg)
+ void dodge_stop_splash(void)
+ {
+ 	u32 ar, te, wr = 0, h0, ack = 0;
+-	int i, t_wr = -1, t_ack = -1;
++	u32 w0, cs0 = 0, cs1 = 0;
++	int i, t_wr = -1, t_ack = -1, t_nf = -1;
+ 
+ 	if (!dcc || !gdsc || !vbif || !vig0 || !ctl0 || !intf1)
+ 		return;
+@@ -104,6 +105,25 @@ void dodge_stop_splash(void)
+ 		pr_info("dodge-stop: skipped, mdss off\n");
+ 		return;
+ 	}
++	/* 0. variant B: if the splash frame already finished (idle gap, the
++	 * bad-boot predictor), wait for the next autorefresh frame to start so
++	 * the stop lands right after an active transfer, like the good boots */
++	wr = readl(intf1 + 0x2b0) & 0xffff;
++	w0 = wr;
++	if (wr == 0 || wr >= VDISPLAY) {
++		cs0 = (dsi0 && DCC_ON(0x34) && DCC_ON(0x44)) ? readl(dsi0 + 0x120) : 0xdead;
++		for (i = 0; i < 1000; i++) {
++			wr = readl(intf1 + 0x2b0) & 0xffff;
++			if (wr > 0 && wr < VDISPLAY) {
++				t_nf = i;
++				break;
++			}
++			udelay(50);
++		}
++		cs1 = (dsi0 && DCC_ON(0x34) && DCC_ON(0x44)) ? readl(dsi0 + 0x120) : 0xdead;
++		pr_info("dodge-wait: entry wr %x clk_st %08x -> wr %x after %d (x50us) clk_st %08x\n",
++			w0, cs0, wr, t_nf, cs1);
++	}
+ 	ar = readl(intf1 + 0x2b4);
+ 	te = readl(intf1 + 0x288);
+ 	/* 1. TE off, autorefresh off */
+-- 
+2.56.0
+

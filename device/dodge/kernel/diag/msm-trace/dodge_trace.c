@@ -30,7 +30,7 @@ void dodge_trace_map(void)
 	ctl0 = ioremap(0x0ae16000UL, 0x200);
 	ctl1 = ioremap(0x0ae17000UL, 0x200);
 	intf1 = ioremap(0x0ae36000UL, 0x300);
-	dsi0 = ioremap(0x0ae94000UL, 0x100);
+	dsi0 = ioremap(0x0ae94000UL, 0x200);
 }
 
 /* dispcc CBCR bit 31 is CLK_OFF */
@@ -67,9 +67,17 @@ void dodge_trace(const char *tag, u32 arg)
 		readl(ctl0), readl(ctl0 + 0x18), readl(ctl0 + 0x1c), readl(ctl0 + 0xfc),
 		readl(ctl1), readl(ctl1 + 0x18), readl(ctl1 + 0x1c), readl(ctl1 + 0xfc),
 		readl(intf1), readl(intf1 + 0x2b4), readl(intf1 + 0x2b0));
-	if (dsi)
+	if (dsi) {
 		pr_info("dodge-trace: %s dsi st0 %08x ctrl %08x dma %08x\n", tag,
 			readl(dsi0 + 0x08), readl(dsi0 + 0x04), readl(dsi0 + 0x48));
+		/* 6G: xml offset + 4 (DSI_6G_REG_SHIFT) */
+		if (!strncmp(tag, "mdss-", 5))
+			pr_info("dodge-trace: %s dsierr ack %08x timeout %08x dln0 %08x lane_st %08x lane_ctrl %08x clk_st %08x clk_ctrl %08x errmask %08x intr %08x trig %08x\n",
+				tag, readl(dsi0 + 0x68), readl(dsi0 + 0xc0), readl(dsi0 + 0xb4),
+				readl(dsi0 + 0xa8), readl(dsi0 + 0xac), readl(dsi0 + 0x120),
+				readl(dsi0 + 0x11c), readl(dsi0 + 0x10c), readl(dsi0 + 0x110),
+				readl(dsi0 + 0x84));
+	}
 	else
 		pr_info("dodge-trace: %s dsi clk off\n", tag);
 }
@@ -88,13 +96,33 @@ void dodge_trace(const char *tag, u32 arg)
 void dodge_stop_splash(void)
 {
 	u32 ar, te, wr = 0, h0, ack = 0;
-	int i, t_wr = -1, t_ack = -1;
+	u32 w0, cs0 = 0, cs1 = 0;
+	int i, t_wr = -1, t_ack = -1, t_nf = -1;
 
 	if (!dcc || !gdsc || !vbif || !vig0 || !ctl0 || !intf1)
 		return;
 	if (!(readl(gdsc) & BIT(31)) || !DCC_ON(0xb0) || !DCC_ON(0x10)) {
 		pr_info("dodge-stop: skipped, mdss off\n");
 		return;
+	}
+	/* 0. variant B: if the splash frame already finished (idle gap, the
+	 * bad-boot predictor), wait for the next autorefresh frame to start so
+	 * the stop lands right after an active transfer, like the good boots */
+	wr = readl(intf1 + 0x2b0) & 0xffff;
+	w0 = wr;
+	if (wr == 0 || wr >= VDISPLAY) {
+		cs0 = (dsi0 && DCC_ON(0x34) && DCC_ON(0x44)) ? readl(dsi0 + 0x120) : 0xdead;
+		for (i = 0; i < 1000; i++) {
+			wr = readl(intf1 + 0x2b0) & 0xffff;
+			if (wr > 0 && wr < VDISPLAY) {
+				t_nf = i;
+				break;
+			}
+			udelay(50);
+		}
+		cs1 = (dsi0 && DCC_ON(0x34) && DCC_ON(0x44)) ? readl(dsi0 + 0x120) : 0xdead;
+		pr_info("dodge-wait: entry wr %x clk_st %08x -> wr %x after %d (x50us) clk_st %08x\n",
+			w0, cs0, wr, t_nf, cs1);
 	}
 	ar = readl(intf1 + 0x2b4);
 	te = readl(intf1 + 0x288);
