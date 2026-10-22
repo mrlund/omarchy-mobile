@@ -19,6 +19,14 @@
 B=/omamobile/busybox
 $B mount -t proc proc /proc
 CMDLINE=$($B cat /omamobile/cmdline)
+# dodge_vbif (built into the dodge kernel, DIAG for the warm-boot display
+# drop): hand stage 1's VBIF snapshots (early_initcall and just before
+# kexec) to stage 2 on its command line. Skipped when the kernel lacks it.
+if $B mount -t sysfs sysfs /sys 2>/dev/null && [ -d /sys/module/dodge_vbif ]; then
+  V=/sys/module/dodge_vbif/parameters
+  echo 1 > $V/snap
+  CMDLINE="$CMDLINE dodge_vbif.s1e=$($B cat $V/early) dodge_vbif.s1k=$($B cat $V/last)"
+fi
 KEXEC="/omamobile/lib/ld-musl-aarch64.so.1 --library-path /omamobile/lib /omamobile/kexec"
 if $KEXEC -c -l /omamobile/Image --dtb=/omamobile/dodge.dtb \
     --initrd=/omamobile/initrd --command-line="$CMDLINE"; then

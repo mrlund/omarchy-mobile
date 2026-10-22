@@ -269,6 +269,9 @@ static void premsm_snapshot(void)
 		pr_info("dodge-peek: premsm intf1 tg_en %08x tear_en %08x line_count %08x autorefresh %08x\n",
 			readl(in), readl(in + 0x284), readl(in + 0x2b0), readl(in + 0x2b4));
 	}
+	/* read-only: DSI0 cmd-DMA regs (DMA_BASE/LEN, CMD_DMA_CTRL, TRIG) and SMMU SID 0x800 state */
+	peek_block("premsm-dsi0", DSI0_BASE, 0xc0);
+	peek_smmu();
 	if (in) iounmap(in);
 	if (c1) iounmap(c1);
 	if (c0) iounmap(c0);

@@ -541,3 +541,79 @@ in msm would be too late.
 
 Logs: `xinid-616-good-T3.txt`, `drain-616-bad-T4.txt`,
 `rebind-616-bad-T4.txt`, `claude-consult-vbif-wedge.txt`, `pre-T5..T9.txt`.
+
+## Round 12: where does the wedge form? (18:40-19:15 CEST, 2026-10-22)
+
+**Tooling.**
+- `dodge_vbif` is a built-in stage-1/stage-2 `early_initcall` (source in
+  `kernel/diag/dodge_vbif/`). It is local to the 6.16 kernel and not in the
+  flashed image.
+- Snapshot format: `gdscr,xin_halt1,axi_halt1,pnd,src,autoref,line,vig0addr`.
+  The `snap` param takes another snapshot.
+- The chain init now writes `snap` right before kexec. It passes the stage-1
+  early and pre-kexec values to stage 2 as `dodge_vbif.s1e=`/`s1k=`.
+- `quiesce=1` does three things: clears INTF1 autorefresh bit31, waits 2x20 ms,
+  then halts xin0|xin4 with ack and releases them.
+- All of this was tested as one-shot `fastboot boot` images on slot a
+  (`boot-chain-diag.img`, `boot-chain-q1.img`). Nothing was flashed.
+- After that, the `act 9` pre-msm peek also dumps DSI0 `+0x00..0xbf` and the
+  SMMU SID 0x800 SMR/S2CR/CB state. It is read-only.
+
+| Boot | Time | Path | Stage-1 early | Stage-1 pre-kexec | Stage-2 early / pre-msm | Result |
+|---|---|---|---|---|---|---|
+| D1 | 18:48 | fastboot, diag | idle (ffff0000/30), ar on | busy ffee0000/0 | busy ffee0000/0 | **bad** (CB9 fault, -110) |
+| Q1 | 18:53 | fastboot, quiesce | n/a | n/a | idle, ar off | **bad** (CB9 fault, -110) |
+| Q2 | 18:55 | fastboot, quiesce | busy ffee0000/0 | idle after halt ack, ar off, line frozen c60 | idle | **bad** (CB9 fault, err=24) |
+| W1 | 19:06 | warm, flashed boot_a | n/a | n/a | idle, ar on, DSI DMA_BASE d35f6000 | **bad** (CB9 fault, -110) |
+| W2 | 19:09 | warm | n/a | n/a | idle (pnd/src_err 0x11, CB5 faults) | **bad** (CB9 fault, err=26) |
+| W3 | 19:13 | warm | n/a | n/a | idle, same DSI values as W1 | clean (err=0, no faults) |
+
+**Findings.**
+- **The wedge does not form at one point.** In D1 xin0/xin4 went busy during
+  stage 1. In Q2 they were already busy at the stage-1 `early_initcall`, so
+  either ABL hands over busy or it happens in the very early kernel.
+- **The VBIF busy bits are a symptom, not the cause.**
+  - Q2 drained them before kexec (halt acked, AXI idle, no fetch running). It
+    still went bad.
+  - W1 and W2 were idle with autorefresh on before msm, and both went bad.
+  - So Round 11's pre-msm predictor (5/5) is broken: it is now 5/7.
+  - The pre-msm VBIF, INTF, SSPP, CTL and DSI values for the good W3 and the bad
+    W1 are the same.
+- **The decision happens at msm init.** Every bad boot has the same single
+  CB9 fault at `0xfd965800` about 120 ms after `Initialized msm`, then DSI
+  DMA -110. `0xfd965800` is the last 2 KiB burst of the 1440x3168x4 splash
+  frame (`fc800000 + 0x1165800`, the frame ends at `0xfd966000`).
+- **Fastboot hypothesis (Round 5: 3/3 clean) is not supported.** This round's
+  fastboot one-shots were 3/3 bad. That gives 3/6 overall, so one-shots do
+  reproduce the drop. They are a fine test path for stage-1/chain changes.
+- `DSI PLL(0) lock failed` in `mdss_probe` happens on good boots too (W3: 4).
+  It is noise.
+
+**Fix status:** the stage-1 prevention (autorefresh off, wait a frame, halt
+xin0/xin4 with ack) failed 2/2 (Q1, Q2). That makes two failed attempts
+with the Round 11 drain. Nothing was flashed: boot_a is unchanged and the
+fallback `boot_a-dump-1022.img` is ready.
+
+**Claude consult 3** (`logs/claude-consult-stage1-quiesce.txt`). We checked its
+suggestions against the data:
+- **Theory: stale ABL DSI cmd DMA reads `0xfd965800`.** Not supported. Pre-msm
+  `DMA_BASE` is ABL's `d35fxxxx` buffer (it changes per boot), and msm's
+  `DMA_CMD_OFFSET` is `0x1000`.
+- **Theory: CB9 stalls on the fault.** Refuted. CB9 `SCTLR` is `0x67`
+  (CFCFG=0, so terminate), and FSR is `0x402` -> `0x400`, with SS clear.
+- **Fix 2 (map the splash 1:1 in msm's domain).** Already tried in 7.3
+  (`ef1155422`, Round 3). The fault went away but the failure did not.
+
+**Next lead.** The stray final-burst read and the -110 both start at msm's
+first DPU commit or kickoff, not before.
+1. Trace inside msm with the DIAG msm.ko. Snapshot VBIF xin and STATUS0
+   right after `dpu_kms_hw_init`, after the first CTL flush, and before the
+   first DSI DMA. That finds the exact register write that starts it.
+2. Candidate: msm's first commit re-enables SSPP VIG0 (still `fc800000`) or
+   restarts INTF1 autorefresh before its own plane setup.
+   - Test: have msm clear VIG0 `SRC0_ADDR` and `SSPP_FETCH_CONFIG`, and
+     disable the autorefresh in `dpu_kms_hw_init` before the first flush.
+     This is a msm.ko swap, so warm reboots can test it.
+
+Logs: `s1-D1.txt`, `s1-Q1.txt`, `s1-Q2*.txt`, `s1-W1..W3*.txt`,
+`claude-consult-stage1-quiesce.txt`.

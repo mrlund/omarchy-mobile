@@ -4,6 +4,15 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-22: stage-1 snapshots and quiesce, wedge is not causal (18:40-19:15 CEST)
+
+- New `dodge_vbif` early_initcall snapshots (stage-1 early, before kexec, stage-2 early) plus a pre-msm DSI/SMMU peek. These were one-shot `fastboot boot` images, not flashed.
+- The xin0/xin4 busy state shows up at different points: during stage 1 (D1), or already at the stage-1 early_initcall (Q2).
+- Stage-1 prevention failed 2/2 (Q1, Q2). It turned autorefresh off, waited a frame and halted xin0/xin4 with ack. The VBIF was then idle all the way to msm, and the boot was still bad.
+- Warm boots W1 and W2 had an idle VBIF before msm and were bad. Round 11's predictor is broken (5/7). Good W3 and bad W1 have identical pre-msm state. The bad outcome is decided at msm init: the single CB9 fault at the last 2 KiB of the splash frame, then DSI -110.
+- Fastboot one-shots were 3/3 bad this round (3/6 overall), so the "fastboot is clean" idea is not supported.
+- Claude consult 3: stale DSI DMA and CB stall ruled out (DMA_BASE is ABL's own buffer, CB9 SCTLR 0x67 terminates). Splash 1:1 map already tried. Next: trace inside msm's first commit/kickoff. Boot table: dev-doc Round 12. boot_a unchanged, display recovered on W3.
+
 ## 2026-10-22: VBIF drain fails, wedge predates msm (18:15-18:45 CEST)
 
 - xin7 is the DSI cmd DMA. Halting xin7 on a good boot reproduces the bad signature exactly.
