@@ -4,6 +4,12 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-22: poweroff-with-USB test and live stall readout (15:56-16:30 CEST)
+
+- `systemctl poweroff` with USB attached (self power-on) is **not** a cold start: P1, P2 clean, P3 bad, P4 (from bad) bad, then a warm reboot from bad was bad too. Not a workaround.
+- Live read of the stuck boot (`kernel/diag/dodge_peek`, read-only unless `act=`): the DSI SID's SMMU context (CB9) is terminate-mode with no fault pending, so the SMMU is not holding the read. The PLL is locked and the DSI clocks are on. Clearing BLOCK_DMA_WITHIN_FRAME or TE, or re-triggering, does not release DMA busy. msm already resets the MDSS BCR at probe and soft-resets DSI on every enable.
+- Next: peek a good boot for comparison, then the TPG DMA-FIFO send (no memory fetch) on a stuck boot. The phone is dark and needs a cold start. Details: dev-doc Round 9.
+
 ## 2026-10-22: rails v2 (0053) warm series, 14:49-15:45 CEST
 
 - The reported 0051 "idle regression" was the old warm-sticky failure: boot 14:32 failed at its first init (7.4 s), 6 s after the bad U1 boot. v1's unprepare power-cycle worked on the 14:44 boot.
