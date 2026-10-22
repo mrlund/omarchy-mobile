@@ -1,0 +1,88 @@
+From f756aa0914d6be38523e3f47124b8cf323d43d30 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Thu, 22 Oct 2026 10:30:56 +0200
+Subject: [PATCH] DIAG dodge: log and reset ABL CTL/INTF/SSPP state at DPU init
+
+---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c | 58 +++++++++++++++++++++++++
+ 1 file changed, 58 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+index 416bb40d5..d3fe091b8 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+@@ -1135,6 +1135,62 @@ unsigned long dpu_kms_get_clk_rate(struct dpu_kms *dpu_kms, char *clock_name)
+ 
+ #define	DPU_PERF_DEFAULT_MAX_CORE_CLK_RATE	412500000
+ 
++/*
++ * dodge: ABL drives the AA569 command-mode panel and can leave its DPU
++ * pipeline mid-frame (SMMU faults always hit the last line of the splash).
++ * Log what is still active and reset any CTL that still has an INTF or a
++ * fetch pipe, before the DSI host starts sending panel commands.
++ */
++static void dodge_dpu_handover(struct dpu_kms *k)
++{
++	int i, r;
++
++	for (i = 0; i < ARRAY_SIZE(k->rm.ctl_blks); i++) {
++		struct dpu_hw_ctl *ctl;
++		struct dpu_hw_blk_reg_map *c;
++		u32 ia, fp;
++
++		if (!k->rm.ctl_blks[i])
++			continue;
++		ctl = to_dpu_hw_ctl(k->rm.ctl_blks[i]);
++		c = &ctl->hw;
++		ia = DPU_REG_READ(c, 0x0f4);
++		fp = DPU_REG_READ(c, 0x0fc);
++		pr_info("dodge-dpu: ctl%d top %08x flush %08x start %08x intf_active %08x fetch_active %08x layer0 %08x layer_active %08x\n",
++			i, DPU_REG_READ(c, 0x014), DPU_REG_READ(c, 0x018),
++			DPU_REG_READ(c, 0x01c), ia, fp, DPU_REG_READ(c, 0x000),
++			DPU_REG_READ(c, 0x130));
++		if (!ia && !fp)
++			continue;
++		r = ctl->ops.reset ? ctl->ops.reset(ctl) : -ENOENT;
++		DPU_REG_WRITE(c, 0x0fc, 0);	/* CTL_FETCH_PIPE_ACTIVE */
++		DPU_REG_WRITE(c, 0x0f4, 0);	/* CTL_INTF_ACTIVE */
++		pr_info("dodge-dpu: ctl%d reset %d, now intf_active %08x fetch_active %08x\n",
++			i, r, DPU_REG_READ(c, 0x0f4), DPU_REG_READ(c, 0x0fc));
++	}
++	for (i = SSPP_NONE + 1; i < SSPP_MAX; i++) {
++		struct dpu_hw_sspp *p = k->rm.hw_sspp[i - SSPP_NONE];
++		u32 a;
++
++		if (!p)
++			continue;
++		a = DPU_REG_READ(&p->hw, 0x14);	/* SSPP_SRC0_ADDR */
++		if (a)
++			pr_info("dodge-dpu: sspp%d src0 %08x format %08x size %08x\n",
++				i, a, DPU_REG_READ(&p->hw, 0x30),
++				DPU_REG_READ(&p->hw, 0x00));
++	}
++	for (i = 0; i < ARRAY_SIZE(k->rm.hw_intf); i++) {
++		struct dpu_hw_intf *f = k->rm.hw_intf[i];
++
++		if (f)
++			pr_info("dodge-dpu: intf%d status %08x frame %08x line %08x\n",
++				i, DPU_REG_READ(&f->hw, 0x26c),
++				DPU_REG_READ(&f->hw, 0x0ac),
++				DPU_REG_READ(&f->hw, 0x0b0));
++	}
++}
++
+ static int dpu_kms_hw_init(struct msm_kms *kms)
+ {
+ 	struct dpu_kms *dpu_kms;
+@@ -1203,6 +1259,8 @@ static int dpu_kms_hw_init(struct msm_kms *kms)
+ 		goto err_pm_put;
+ 	}
+ 
++	dodge_dpu_handover(dpu_kms);
++
+ 	for (int i = 0; i < ARRAY_SIZE(dpu_kms->rm.hw_intf); i++) {
+ 		struct dpu_hw_intf *intf = dpu_kms->rm.hw_intf[i];
+ 
+-- 
+2.55.0
+

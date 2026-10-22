@@ -80,7 +80,7 @@ Budget for this investigation: 6 boots; used 4 (7.3 boots 6-9).
 - Cold vs warm, which needs Martin: full power-off, then 6.16 and 7.3 from
   cold. If cold boots are clean, the carried-over state is the lead
   (panel reset/power sequencing on shutdown, or ABL reinit).
-- Then: ramoops via `DTB_OPTS='ramoops splash fb'` for the death, and the
+- Superseded by Round 4 below. Then: ramoops via `DTB_OPTS='ramoops splash fb'` for the death, and the
   shutdown path (what 7.3 leaves in the panel and DSI at reboot).
 
 ## Round 3: cold vs warm (2026-10-22, CEST)
@@ -104,5 +104,76 @@ through fastboot (a warm path) from a running 6.16.
 `/etc/omamobile/unplug-poweroff.enable`. Once the gadget has been
 configured, unplugging USB for 3 s runs `systemctl poweroff --force`. This
 is needed because a poweroff with USB attached powers the phone back on.
-Step 2 (Martin unplugs 7.3, waits 30 s, cold-starts into 6.16) is pending.
-Display budget: 6 of 6 boots used.
+Step 2 result: the unit did **not** fire when Martin unplugged at about
+09:56. The UDC stayed `configured` after the unplug (no carrier loss on
+usb0 in the journal). This is the same open bug as the USB gadget not
+noticing a replug. Martin powered off from the Omarchy menu instead
+(normal poweroff at about 746 s), waited 30 s and cold-started: 6.16 was
+clean (0 `tx failed`). The flag has been removed. Tally: a cold start
+after 7.3 gave 1 clean 6.16 of 1, against 4 bad of 6 warm.
+
+**Green flashes (Martin, cold 6.16 boot about 09:58):** during the console
+text, quick green flashes in a band about 5 mm wide, first down one side
+and then along the bottom, then gone. They look like a scan-out of the
+wrong memory, stride or format (DSC slice/pitch, or a stale splash fetch)
+during the handover from simpledrm to msm. Not reproduced or captured.
+
+## Round 4: memory-bus lead (7.3 boots 12-15, 2026-10-22, CEST)
+
+`omamobile-display-diag` now also logs the `interconnect_summary` nodes on
+the display path (`qnm_mdp`, `qns_mem_noc_hf`, `qnm_mnoc_hf`, `ebi`,
+`qhs_display_cfg`, `qns_gem_noc_cnoc`, `qnm_gemnoc_cnoc`) at pre-bind,
+after the panel and 4 s later, plus every device with `state_synced`. On
+7.3 the node names carry an `@provider` suffix.
+
+| boot | time | change | display | notes |
+|---|---|---|---|---|
+| 12 | 10:04 | icc diag (regex missed 7.3 names) | bad | died at about 20 s |
+| 13 | 10:07 | icc diag fixed | good | |
+| 14 | 10:11 | same | bad | early SMMU fault at 0.40 s, died at about 27 s |
+| 15 | 10:16 | fix 1: `dodge_dpu_handover()` (0028): dump ABL CTL/INTF/SSPP at DPU init, reset any active CTL | bad | -110 at 9.24 s, alive to at least 77 s |
+
+Findings:
+- **Interconnect is ruled out.** The DT paths are the same on both kernels
+  (`mdp0-mem` MASTER_MDP to EBI1, `cpu-cfg` APPSS to DISPLAY_CFG). icc
+  `sync_state` is unchanged in 7.3 and never completes globally on either
+  kernel, so the init bandwidth (INT_MAX) stays on every display node, good
+  boot and bad, and on 6.16 too. The votes are the same (mdss peak 400000,
+  dpu peak 800000, cpu-cfg 57000, `reg_bus_bw` 57000). The only difference
+  is the DPU average vote: 2903040 on the good boot and 0 on the bad one,
+  because the CRTC is never enabled there (a consequence). sm8750 icc has no
+  QoS on either kernel. `mmss_noc` reaches `state_synced` at 8.1-8.4 s on
+  both.
+- **The DPU is idle at DPU init.** On bad boot 15, CTL0-5 read top f0000000
+  with flush/start/intf_active/fetch_active/layer 0, INTF0-3
+  status/frame/line 0, no SSPP has a source address, and autorefresh is
+  off. So the reset in 0028 never ran. Caveat (Claude): `msm_mdss` already
+  resets `DISP_CC_MDSS_CORE_BCR` at probe, before this dump (6.16 does the
+  same), so the dump cannot show what ABL left running.
+- **The splash handover matches 6.16.** Same reserved `splash` region,
+  simple-framebuffer, and the same `msm_mdss_reset`. The `mdp` core clock
+  reads off (`en 0`) at mdss probe on good and bad boots alike.
+- The early SMMU faults (SID 0x800, inside the splash, at 0.40-0.43 s
+  when arm-smmu probes) appear on only 2 of the 6 saved bad boots (7, 14) and
+  on none of the good ones. ABL's MDP is sometimes still fetching when the
+  kernel starts, but bad boots 8, 10, 12 and 15 have no fault, so that
+  alone does not explain them.
+- Fix attempts that failed: the splash identity map (0026) and the CTL reset
+  (0028). Claude consult 2: `logs/claude-consult-dsi-dma2.txt`. Its top
+  pick is a pending AXI read left by ABL's pipeline (reset or clock gate
+  mid-fetch), which wedges the shared MDP/DSI AXI path. Its suggested E1/E2
+  (sample the INTF counters before the BCR reset, and let the frame drain
+  before resetting) would have to run with the `mdp` clock already off, so
+  they are weak.
+
+**New lead: the fastboot path.** Every 7.3 boot is a `fastboot boot`
+one-shot, and every flashed 6.16 boot goes ABL -> boot_a. The only 6.16
+one-shots on record (rmtfs, 2026-10-21) lost the display 1 of 2 times. The
+"6.16 after 7.3" failures are also the first boot after a fastboot
+session. So ABL's fastboot UI (a different panel/MDP state) may be the
+carried-over state, not 7.3 code. A cheap test: `fastboot boot` the 6.16
+`boot-chain.img` from a cold-started, clean 6.16, 2-3 times. No code change.
+
+Budget: 4 of 6 lead boots used (12-15). The phone is on 6.16, but its
+display is **lost** (11 `tx failed` after the warm 6.16 boot at 10:28;
+the one before it, after 7.3 boot 15, had 3). It needs Martin's cold start.
