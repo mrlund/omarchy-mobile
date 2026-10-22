@@ -4,6 +4,12 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-22: 6.16 warm-reboot path (13:02-13:15 CEST)
+
+- From a clean cold start: `dpms off` then a warm reboot was **bad** (D1, 13:04). A plain warm reboot was bad (C1). Stopping Hyprland and unbinding msm-mdss (GDSC off) before the reboot was bad (U1). The first -110 was at 7.0-7.1 s every time. 2 failed no-code attempts; Claude consult 3 is in `logs/claude-consult-warm-sticky.txt`.
+- Bad state survives warm reboots (3 of 3) and clears only on a cold start (4 of 4 clean). Lead: the panel driver never requests its `vddio`/`vci`/`vdd` rails (L12B/L13B/L11B: `users=0`, on ABL's RPMh vote), so the panel IC never loses power on a warm reset. Next: a panel module that owns the rails and turns them off in unprepare/shutdown.
+- The phone is on flashed 6.16 with the display lost; it needs a cold start.
+
 ## 2026-10-22: fastboot-path test on 6.16 (12:26-12:57 CEST)
 
 - After Martin's true cold start (clean, no green flashes), the exact flashed 6.16 image was one-shot 3 times with `fastboot boot`: **3 of 3 clean**, each surviving 5 dpms transitions. The fastboot path is not the trigger.
