@@ -336,3 +336,58 @@ Hyprland `dpms` disable/enable cycles, then about 175 s without input
   rails) shows the panel did lose power. ABL's re-init of an
   unpowered panel shows garbage or a colour frame once.
 - The phone ended dark on R8 (flashed 6.16, v2 module); it needs a cold start.
+
+## Round 9: poweroff-with-USB, and the stuck host read live (2026-10-22, CEST)
+
+**Track 1: does `systemctl poweroff` with USB attached (the phone powers itself back on) act like a cold start?**
+
+| # | time | path | from | result |
+|---|---|---|---|---|
+| C | 15:56 | Martin: power off from the fastboot menu, 30 s, power on | bad R8 | clean (baseline) |
+| P1 | 15:59:58 | `systemctl poweroff`, USB attached, self power-on | clean | clean, dpms 3x ok |
+| P2 | 16:02:25 | same | clean | clean, dpms 3x ok |
+| P3 | 16:04:40 | same | clean | **bad**, first -110 at about 5 s (16:04:45) |
+| P4 | 16:08:12 | same | bad | **bad** |
+| W1 | 16:14:22 | warm `reboot` | bad | **bad**, unrecovered; stopped here |
+
+**Verdict: not a workaround.** A poweroff with USB attached behaves like
+a warm reboot (1 bad of 3 from clean, no recovery from bad). The
+self power-on doesn't remove enough power. Only a power-off with USB
+unplugged has cleared the state so far.
+
+**Track 2: the stuck controller, read live** (`kernel/diag/dodge_peek`,
+an out-of-tree module whose init does its work and returns -EAGAIN, so
+nothing stays loaded). It must only run while `ae94000.dsi` and
+`ae00000.display-subsystem` are runtime-`active`: while the display
+was idle-suspended it read all zeros (unclocked; it did not hang, but
+don't rely on that).
+
+- **Apps SMMU at the stall:** SID 0x800 maps to SMR[3], then CB9. CB9
+  `SCTLR 0x67` (translation on, fault reporting, **terminate**, not
+  stall). `FSR 0x400` (FORMAT bits only, no fault), `GFSR 0`. CB9's
+  `FAR fd965800` is the old splash fault. **The SMMU is not holding the
+  DSI read.**
+- **DSI host** (6G offsets +4): `STATUS0 00020003`, `CMD_DMA_CTRL
+  14000000` (FROM_FRAME_BUFFER, LOW_POWER), `DMA_BASE 0x1000`, `LEN 8`,
+  `TRIG_CTRL 80001004`, `LANE_STATUS 1f1f`, `CLK_STATUS 008037c3`.
+- **Live writes on the stuck controller, no effect** (DMA busy stays
+  set): clearing `BLOCK_DMA_WITHIN_FRAME`, clearing the `TE` bit,
+  writing `TRIGGER_DMA` again.
+- **Already in place and not enough:** msm resets `DISP_CC_MDSS_CORE_BCR`
+  at every probe (`resets` in sm8750.dtsi), and does a DSI soft reset
+  (`DSI_RESET`) on every host power-on. Every dpms retry fails the same
+  way, so neither reset clears the state.
+- **While stuck and active:** DSI PLL `COMMON_STATUS_ONE` 0x51 (bit 0,
+  locked). The byte0/byte0_intf/pclk0/esc0/mdp CBCRs read on
+  (`08000001`). The `mdp_lut` CBCR reads `08000000` (enable bit clear)
+  although Linux counts it enabled once. The PHY CMN registers are saved
+  in `logs/peek3-616-bad-W1.txt`. Comparing against a good boot is still
+  to do.
+- Claude consult 4 (`logs/claude-consult-dma-stuck.txt`): a warm reset
+  clears on-chip digital state, including the NoC, TBU and GCC
+  handshakes. So it favours analog/off-chip state, the PHY/PLL rails left
+  on by the PMIC. Next tests: (1) the same peek on a good boot at the
+  same point; (2) on a stuck boot, send one DCS NOP through the
+  TPG DMA-FIFO path (no memory fetch). If that completes, the fetch path
+  is guilty (then ATOS on CB9); if it hangs too, the link/PHY is.
+- The phone is dark on W1 (flashed 6.16, v2 panel module); it needs a cold start.
