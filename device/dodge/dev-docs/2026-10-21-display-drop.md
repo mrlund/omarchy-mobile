@@ -283,3 +283,56 @@ Revert (on the phone, then reboot):
 Plan once Martin has cold-started: check the rails came up (`users=1`) and
 the display is clean, then a series of warm reboots. Require 5+ clean in a
 row. A clean warm boot after a bad boot would be the first ever.
+
+## Round 8: rails v2 (0053) and the warm series (2026-10-22, CEST)
+
+**The two boots after 0051 (v1, rails off on every unprepare):**
+- Boot 14:32:08 started 6 s after the bad U1 boot ended (14:32:02), so it was a
+  warm reset, and that shutdown still ran the old module. **It failed at
+  its first init (7.43 s)**, before any idle or unprepare. So this was the known
+  warm-sticky failure, not an idle regression of 0051. The later -110s
+  (backlight, wake re-init `ff 5a a5 07`) are the same dead host.
+- Boot 14:44:05 (started 14 s after the previous one ended) was clean. At 15.6 s,
+  v1 powered the panel off on unprepare (Hyprland's takeover modeset), and the
+  power-up and re-init after it worked (0 errors, rails `users=1`).
+- Lane dump on every failure: `status0 00020003 lane_status 00001f1f
+  lane_ctrl 01000000 clk_status 008037c3 dln0_phy_err 00088888`.
+  `LANE_STATUS` 0x1f1f means all four data lanes and the clock lane are in
+  stop state (LP-11), none in ULPS. **The panel is not holding a lane.** The
+  host's command DMA never starts transmitting, so this is a host-side
+  stall (DMA fetch, as with the GDSC wedge), not the panel.
+
+**0053 (v2):** rails are taken at probe (`users=1`) and stay on across
+unprepare/prepare (unprepare and failed init only assert reset, as
+before). They are cut only at shutdown and remove (reset asserted, vci,
+vdd, vddio off, 200 ms). Installed `dda4e21c`; v1 kept as `*.ko.rails1`,
+the original as `*.ko.pre-rails`.
+
+Each boot below: a plain warm `systemctl reboot` of flashed boot_a, then 3
+Hyprland `dpms` disable/enable cycles, then about 175 s without input
+(idle-off is 150 s) and a wake.
+
+| # | reboot | previous shutdown | display | dpms 3x | idle + wake | notes |
+|---|---|---|---|---|---|---|
+| R1 | 14:49:30 | v1, panel already off (idle) | clean | ok | ok | |
+| R2 | 14:54:57 | v2, first cut of powered rails | clean | ok | ok | **Martin: a brief full-colour flash during the console, then back to the console** |
+| R3 | 15:00:16 | v2 | clean | ok | ok | gate +53 mA at 100%, full-battery rule |
+| R4 | 15:05:36 | v2 | clean | ok | idle-off did not fire (dpms stayed On); wake ok | |
+| R5 | 15:10:54 | v2 | **bad** | - | - | first -110 at 7.57 s; 10 SMMU splash faults |
+| R6 | 15:18:35 | v2, from bad R5 | **clean** | ok | ok | **first bad -> warm clean ever** (0 of 3 before) |
+| R7 | 15:24:05 | v2 | **bad** | - | - | first -110 at 6.94 s |
+| R8 | 15:37:11 | v2, from bad R7 | **bad** | - | - | no recovery; the series stopped |
+
+- **Result: not fixed.** 6 clean of 8 warm boots, at most 4 in a row. The
+  old baseline was about 60% bad warm. Bad -> warm was 1 of 2 clean,
+  against 0 of 3 before. Cutting the rails at shutdown may help, but it
+  does not prevent the stall, which matches the lane dump: the host is stuck
+  with idle lanes.
+- Runtime is fine with v2: 18 dpms transitions and 4 idle-off/wake
+  cycles on clean boots, 0 errors.
+- The shutdown log line can't be checked: journald stops before the
+  kernel's device shutdown, so `dodge: panel power off (shutdown)` never
+  reaches the journal. The R2 flash (the first ABL start after v2 cut powered
+  rails) shows the panel did lose power. ABL's re-init of an
+  unpowered panel shows garbage or a colour frame once.
+- The phone ended dark on R8 (flashed 6.16, v2 module); it needs a cold start.
