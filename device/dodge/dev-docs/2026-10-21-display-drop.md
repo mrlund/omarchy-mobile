@@ -207,3 +207,46 @@ rule, all others passed normally.
   appear on clean 6.16 boots (B0, F3), so they do not tell the two apart.
 - The phone ended on flashed 6.16 with the display lost; it needs Martin's
   cold start.
+
+## Round 6: 6.16 warm-reboot shutdown path (2026-10-22, CEST)
+
+Start: Martin's true cold start at about 13:02, clean. Each run: battery gate
+(full-battery rule where needed), the pre-reboot step, `systemctl reboot` of
+the flashed boot_a, then the kernel journal of the new boot.
+
+| # | time | pre-reboot step | from | result | first -110 |
+|---|---|---|---|---|---|
+| D1 | 13:04 | Hyprland `dpms off` (dpms read Off), 4 s | clean cold boot | **bad** | 7.11 s |
+| C1 | 13:07 | none (recovery try) | bad | **bad** | 7.06 s |
+| U1 | 13:11 | stop Hyprland, unbind `msm-mdss` (rc 0, `mdss_gdsc` off-0), then reboot | bad | **bad** | 7.03 s |
+
+- C1's gate read +131 mA with the display wedged (Hyprland spinning). It
+  passed on the full-battery rule at 100%. U1 was gated after stopping
+  Hyprland (-16 mA, OK).
+- Neither no-code step helped (2 failed attempts). Claude consult 3:
+  `logs/claude-consult-warm-sticky.txt`.
+- **Warm reboots are sticky.** A bad boot was followed by a bad warm boot
+  3 of 3 times (W2 -> D1 was cold in between; C1 and U1 follow bad boots).
+  Cold starts are 4 of 4 clean. So the state survives a warm reset but
+  not a cold power-off, and MDSS-internal state is ruled out: the GDSC was
+  off before U1's reset.
+- **Lead: the panel IC is never power-cycled by Linux.** The DT gives the
+  panel `vddio` L12B 1.8 V, `vci` L13B 3.0 V and `vdd` L11B 1.0 V, but
+  `panel-aa569-p-3-a0019-dsc` never requests them: all three show
+  `users=0`, state `unknown` (RPMh, still on ABL's vote). Prepare only
+  pulses reset (GPIO 98, active low), and unprepare sends sleep-in and
+  asserts reset. A PS_HOLD warm reset leaves PMIC LDOs on, so a wedged
+  panel stays wedged until a cold power-off. Because the reset pulse in
+  prepare doesn't clear it, holding reset alone (Claude's T1) is unlikely
+  to help; cutting the rails (T2) is the test. The three rails are used only
+  by the panel in our DT.
+- The phone ended on flashed 6.16 with the display lost; it needs a cold start.
+
+Next (one change per boot, kernel module only, nothing flashed): build
+`panel-aa569-p-3-a0019-dsc.ko` with the three supplies as a regulator bulk.
+Enable them in prepare before the reset pulse. In unprepare and a new
+`.shutdown`, assert reset, then turn off vci, vdd and vddio, and wait
+about 200 ms. Log `regulator_is_enabled()`. Test from a bad boot (3/3-bad
+baseline), then require 5+ clean warm reboots in a row. Also add
+`DSI_LANE_STATUS` (0x0a8) to the -110 dump, to tell a stuck lane from a
+host/PLL problem.
