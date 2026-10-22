@@ -4,6 +4,14 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-22: c60 predictor, DSI regs at handover, frame-wait (variant B) fails (20:37- CEST, in progress)
+
+- DSI0 at mdss-prereset (D1-D3, B1-B3): ACK_ERR 0, TIMEOUT_STATUS 0 on every boot. DLN0_PHY_ERR 0x88888 and LANE_STATUS 0x1f1f are the same on good and bad boots (sticky from ABL), so the link is not flagged in error at handover. The only difference: CLK_STATUS 0x2343 on c60 boots vs 0x8037c3 mid-frame (bits 7/10/12/23 clear, so the DSI HS clocks are idle/gated).
+- At c60 the splash autorefresh is stalled: AUTOREFRESH reads 0x80000001 (enabled) but no new frame starts within 50 ms (dodge-wait timed out on every c60 boot).
+- Variant B (wait up to 50 ms for the next frame when idle at c60): B1-B3 and G4-G8 were 8 clean one-shot boots in a row, 3 of them c60, with dpms/idle checks OK on G4-G8. H1 (c60) then failed with -110 at 21:25. It was rebooted onto 2c86 (R6, clean). Not a fix.
+- G3 did not take the one-shot (it ran 2c86, clean at boot, txfail +3 during the dpms checks with no Hyprland socket).
+- Self-heal safety net drafted, opt-in only: display/selfheal/ (not installed, not enabled).
+
 ## 2026-10-22: msm first-commit trace, splash map removes the fault but not the -110 (19:16-20:40 CEST)
 
 - msm.ko one-shot swaps on 6.16 (drop-in `91-dodge-oneshot.conf`), tools in `kernel/diag/msm-trace/`. Boot table: dev-doc Round 13.

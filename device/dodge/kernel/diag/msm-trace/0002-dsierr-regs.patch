@@ -1,0 +1,45 @@
+From 16266afbaa0c9ee5b305cb4128b62697f05e57cd Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Thu, 22 Oct 2026 20:52:00 +0200
+Subject: [PATCH 1/2] DIAG drm/msm: dodge_trace DSI error/status regs at
+ mdss-prereset/stopped
+
+---
+ drivers/gpu/drm/msm/dodge_trace.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dodge_trace.c b/drivers/gpu/drm/msm/dodge_trace.c
+index ca8f92cae..8158365a7 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.c
++++ b/drivers/gpu/drm/msm/dodge_trace.c
+@@ -30,7 +30,7 @@ void dodge_trace_map(void)
+ 	ctl0 = ioremap(0x0ae16000UL, 0x200);
+ 	ctl1 = ioremap(0x0ae17000UL, 0x200);
+ 	intf1 = ioremap(0x0ae36000UL, 0x300);
+-	dsi0 = ioremap(0x0ae94000UL, 0x100);
++	dsi0 = ioremap(0x0ae94000UL, 0x200);
+ }
+ 
+ /* dispcc CBCR bit 31 is CLK_OFF */
+@@ -67,9 +67,17 @@ void dodge_trace(const char *tag, u32 arg)
+ 		readl(ctl0), readl(ctl0 + 0x18), readl(ctl0 + 0x1c), readl(ctl0 + 0xfc),
+ 		readl(ctl1), readl(ctl1 + 0x18), readl(ctl1 + 0x1c), readl(ctl1 + 0xfc),
+ 		readl(intf1), readl(intf1 + 0x2b4), readl(intf1 + 0x2b0));
+-	if (dsi)
++	if (dsi) {
+ 		pr_info("dodge-trace: %s dsi st0 %08x ctrl %08x dma %08x\n", tag,
+ 			readl(dsi0 + 0x08), readl(dsi0 + 0x04), readl(dsi0 + 0x48));
++		/* 6G: xml offset + 4 (DSI_6G_REG_SHIFT) */
++		if (!strncmp(tag, "mdss-", 5))
++			pr_info("dodge-trace: %s dsierr ack %08x timeout %08x dln0 %08x lane_st %08x lane_ctrl %08x clk_st %08x clk_ctrl %08x errmask %08x intr %08x trig %08x\n",
++				tag, readl(dsi0 + 0x68), readl(dsi0 + 0xc0), readl(dsi0 + 0xb4),
++				readl(dsi0 + 0xa8), readl(dsi0 + 0xac), readl(dsi0 + 0x120),
++				readl(dsi0 + 0x11c), readl(dsi0 + 0x10c), readl(dsi0 + 0x110),
++				readl(dsi0 + 0x84));
++	}
+ 	else
+ 		pr_info("dodge-trace: %s dsi clk off\n", tag);
+ }
+-- 
+2.56.0
+
