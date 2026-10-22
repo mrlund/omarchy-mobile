@@ -177,3 +177,33 @@ carried-over state, not 7.3 code. A cheap test: `fastboot boot` the 6.16
 Budget: 4 of 6 lead boots used (12-15). The phone is on 6.16, but its
 display is **lost** (11 `tx failed` after the warm 6.16 boot at 10:28;
 the one before it, after 7.3 boot 15, had 3). It needs Martin's cold start.
+
+## Round 5: fastboot-path test, 6.16 only (2026-10-22, CEST)
+
+Image: a read-only dump of the flashed boot_a (`boot_a-dump-1022.img`,
+outside the repo), the exact flashed 6.16 chain, one-shot with `fastboot
+boot`. Nothing was flashed, and the slot stayed `a` the whole time. Per boot: 4 samples
+of `cmd dma tx failed`, kickoff/frame-done/vblank timeouts and DSI state
+over about 2 min, then 5 Hyprland `dpms` transitions. Battery at 100%; the
+F1 gate read +11 mA (full, not charging) and passed on the full-battery
+rule, all others passed normally.
+
+| # | time | path | from | display | first failure | SMMU faults |
+|---|---|---|---|---|---|---|
+| B0 | 12:26 | flashed boot_a | Martin's true cold start | clean, dpms ok | - | 1 |
+| F1 | 12:37 | `fastboot boot` | B0 | clean, dpms ok | - | 0 |
+| W1 | 12:41 | warm reboot, boot_a | F1 | clean, dpms ok | - | 0 |
+| F2 | 12:45 | `fastboot boot` | W1 | clean, dpms ok | - | 0 |
+| F3 | 12:49 | `fastboot boot` | F2 | clean, dpms ok | - | 6 |
+| W2 | 12:53 | warm reboot, boot_a | F3 | **bad** | 7.18 s (`ff`, then `51`, -110) | 1 |
+
+- The fastboot one-shot path itself is **not** the trigger: 3 of 3 clean,
+  each surviving the dpms cycles.
+- The failure came on a plain warm reboot of the flashed image (W2). So the
+  "6.16 after 7.3" pattern is not about 7.3, nor about fastboot. Warm 6.16
+  boots fail at some base rate. The tally of warm boots after a one-shot is
+  now 5 bad of 8 (W1 clean, W2 bad).
+- SMMU faults at the end of the splash (iova 0xfd965800, SID 0x800) also
+  appear on clean 6.16 boots (B0, F3), so they do not tell the two apart.
+- The phone ended on flashed 6.16 with the display lost; it needs Martin's
+  cold start.
