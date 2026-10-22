@@ -90,19 +90,60 @@ static void dsi_act(void)
 		writel(t & ~BIT(31), d + D_TRIG_CTRL);
 	else if (act == 3)
 		writel(1, d + D_TRIG_DMA);
+	else if (act == 4 || act == 5) {
+		/* DSI soft reset, as msm's dsi_sw_reset (absolute offsets) */
+		u32 ctrl = readl(d + 0x04), cdma = readl(d + 0x3c);
+
+		writel(ctrl & ~1, d + 0x04);
+		writel(readl(d + 0x11c) | 0x3f, d + 0x11c);
+		wmb();
+		writel(1, d + 0x118);
+		msleep(20);
+		writel(0, d + 0x118);
+		wmb();
+		writel(ctrl, d + 0x04);
+		pr_info("dodge-peek: act %d after soft reset: status0 %08x cmd_dma_ctrl %08x int_ctrl %08x\n",
+			act, readl(d + D_STATUS0), readl(d + 0x3c), readl(d + 0x110));
+		if (act == 4) {
+			/* one DCS NOP (05 00 00) from the TPG DMA FIFO: no memory fetch */
+			writel(0, d + 0x15c);
+			writel(1, d + 0x1ec);
+			udelay(1);
+			writel(0, d + 0x1ec);
+			writel(BIT(1) | BIT(2) | (3 << 16), d + 0x15c);
+			writel(0x80050000, d + 0x17c);
+			writel(0, d + 0x17c); /* odd dword count: pad */
+			writel(cdma | BIT(28) | BIT(26), d + 0x3c);
+			writel(4, d + 0x4c);
+			writel(readl(d + 0x110) | 1, d + 0x110); /* ack old CMD_DMA_DONE, masks kept */
+			wmb();
+			writel(1, d + D_TRIG_DMA);
+		}
+	}
 	for (i = 0; i < 20; i++) {
 		msleep(5);
 		st = readl(d + D_STATUS0);
 		if (!(st & 2))
 			break;
 	}
-	pr_info("dodge-peek: act %d after %d ms: status0 %08x trig_ctrl %08x clk_status %08x lane_status %08x\n",
-		act, (i + 1) * 5, st, readl(d + D_TRIG_CTRL), readl(d + 0x120), readl(d + 0xa8));
+	pr_info("dodge-peek: act %d after %d ms: status0 %08x trig_ctrl %08x clk_status %08x lane_status %08x int_ctrl %08x tpg_fifo_status %08x\n",
+		act, (i + 1) * 5, st, readl(d + D_TRIG_CTRL), readl(d + 0x120), readl(d + 0xa8),
+		readl(d + 0x110), readl(d + 0x1dc));
+	if (act == 4) {
+		writel(0, d + 0x15c);
+		writel(1, d + 0x1ec);
+		udelay(1);
+		writel(0, d + 0x1ec);
+	}
 	iounmap(d);
 }
 
 static int __init dodge_peek_init(void)
 {
+	if (act == 6) {	/* read-only: DPU VBIF (xin/axi halt, clkon, err) */
+		peek_block("vbif", 0x0aeb0000UL, 0x300);
+		return -EAGAIN;
+	}
 	if (act) {
 		dsi_act();
 		return -EAGAIN;
