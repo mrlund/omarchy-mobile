@@ -1,0 +1,31 @@
+From 4485c548f73da5a78bfe8644074c3595728c53df Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Thu, 22 Oct 2026 13:22:23 +0200
+Subject: [PATCH 52/52] DIAG drm/msm/dsi: dump STATUS0, LANE_STATUS, LANE_CTRL,
+ CLK_STATUS, DLN0_PHY_ERR on cmd dma failure
+
+---
+ drivers/gpu/drm/msm/dsi/dsi_host.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 7086f5336..c604cf9b2 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -1532,6 +1532,13 @@ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 	if (ret < 0) {
+ 		pr_err("%s: cmd dma tx failed, type=0x%x, data0=0x%x, len=%d, ret=%d\n",
+ 			__func__, msg->type, (*(u8 *)(msg->tx_buf)), len, ret);
++		/* DIAG (dodge): host/PLL problem or a lane held by the panel? */
++		pr_err("dodge-diag: dsi tx-fail: status0 %08x lane_status %08x lane_ctrl %08x clk_status %08x dln0_phy_err %08x\n",
++			dsi_read(msm_host, REG_DSI_STATUS0),
++			dsi_read(msm_host, REG_DSI_LANE_STATUS),
++			dsi_read(msm_host, REG_DSI_LANE_CTRL),
++			dsi_read(msm_host, REG_DSI_CLK_STATUS),
++			dsi_read(msm_host, REG_DSI_DLN0_PHY_ERR));
+ 		return ret;
+ 	} else if (ret < len) {
+ 		pr_err("%s: cmd dma tx failed, type=0x%x, data0=0x%x, ret=%d len=%d\n",
+-- 
+2.55.0
+
