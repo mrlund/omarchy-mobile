@@ -106,6 +106,10 @@ only `panel-aa569-p-3-a0019-dsc.ko` and `msm.ko`. Both are installed in
   failed init and `.shutdown`, it asserts reset, turns off vci, vdd, vddio
   and waits 200 ms. This is a test for the warm-reboot display drop
   (dev-docs/2026-10-21-display-drop.md, Round 7); not boot-proven yet.
+- `0053` drm/panel: oneplus-dodge: v2. The rails are taken at probe and stay on
+  across unprepare/prepare; they are cut only at shutdown and remove. Local
+  `7327948f9`. Installed (`dda4e21c`, v1 kept on the phone as
+  `*.ko.rails1`). Warm series: 6 of 8 clean, not a fix (Round 8).
 - `0052` DIAG drm/msm/dsi: on `cmd dma tx failed` it logs `STATUS0`,
   `LANE_STATUS` (0x0a4), `LANE_CTRL`, `CLK_STATUS` and `DLN0_PHY_ERR`.
 - Fallback: `../fallback/panel-aa569-p-3-a0019-dsc.ko.pre-rails` (md5
@@ -180,3 +184,4 @@ only `panel-aa569-p-3-a0019-dsc.ko` and `msm.ko`. Both are installed in
 - `0050-drm-msm-mdss-keep-MDSS_GDSC-on-across-runtime-suspen.patch`
 - `0051-drm-panel-oneplus-dodge-own-the-panel-supplies-and-p.patch`
 - `0052-DIAG-drm-msm-dsi-dump-STATUS0-LANE_STATUS-LANE_CTRL-.patch`
+- `0053-drm-panel-oneplus-dodge-keep-the-supplies-on-across-.patch`

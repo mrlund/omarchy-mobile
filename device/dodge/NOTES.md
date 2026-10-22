@@ -4,6 +4,14 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-22: rails v2 (0053) warm series, 14:49-15:45 CEST
+
+- The reported 0051 "idle regression" was the old warm-sticky failure: boot 14:32 failed at its first init (7.4 s), 6 s after the bad U1 boot. v1's unprepare power-cycle worked on the 14:44 boot.
+- Lane dump at every -110: `LANE_STATUS 00001f1f`, so all lanes are in stop state. The panel is not holding a lane; this is a host-side DMA stall.
+- v2 (0053: rails on across unprepare, cut only at shutdown/remove): 8 warm reboots, R1-R4 clean, R5 bad, **R6 clean after bad (first ever)**, R7 bad, R8 bad. Not fixed. Runtime dpms and idle off/on are fine (0 errors on clean boots).
+- R2 (14:55, the first boot after v2 cut powered rails) is the boot where Martin saw a brief full-colour flash during the console: ABL re-initialising an unpowered panel.
+- The phone is dark on R8 and needs a cold start. Details: dev-doc Round 8.
+
 ## 2026-10-22: panel rails module installed (6.16, not rebooted)
 
 - Kernel patch `0051`: the panel driver owns `vddio`/`vdd`/`vci` (existing DT names, no voltages set). It powers them off with reset asserted on unprepare, failed init and shutdown. `0052` (DIAG) adds `LANE_STATUS` to the -110 log. Installed as module files only, with the old ones beside them (`*.pre-rails`, `msm.ko.pre-lanediag`) and in `kernel/fallback/`. The next boot is the first test. Revert command: dev-doc Round 7.
