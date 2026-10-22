@@ -4,6 +4,12 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-22: fastboot-path test on 6.16 (12:26-12:57 CEST)
+
+- After Martin's true cold start (clean, no green flashes), the exact flashed 6.16 image was one-shot 3 times with `fastboot boot`: **3 of 3 clean**, each surviving 5 dpms transitions. The fastboot path is not the trigger.
+- Controls, plain warm reboots of boot_a: W1 clean, **W2 (12:53) bad** (first -110 at 7.18 s). So 6.16 fails on its own warm reboots too; "after 7.3" was a coincidence of warm boots. SMMU splash faults appear on clean boots too. Details: dev-doc Round 5.
+- The phone is on flashed 6.16 with the display lost; it needs a cold start.
+
 ## 2026-10-22: memory-bus lead, 7.3 boots 12-15 (10:04-10:16 CEST)
 
 - Interconnect is ruled out: the DT paths, votes and init-bandwidth hold (INT_MAX, icc never syncs) are the same on good and bad 7.3 boots and on 6.16. The splash handover is the same code as 6.16 (the `msm_mdss` BCR reset at probe).
