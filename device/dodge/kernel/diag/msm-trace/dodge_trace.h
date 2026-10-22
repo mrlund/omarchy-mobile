@@ -5,4 +5,5 @@
 void dodge_trace_map(void);
 void dodge_trace(const char *tag, u32 arg);
 void dodge_stop_splash(void);
+extern bool dodge_c60;
 #endif

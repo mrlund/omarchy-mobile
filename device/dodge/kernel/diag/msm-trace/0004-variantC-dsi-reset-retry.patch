@@ -1,0 +1,118 @@
+From 4c5ec2a774ba3165ffd7cdc2a3f61868ee8d374a Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Thu, 22 Oct 2026 21:31:58 +0200
+Subject: [PATCH] DIAG drm/msm: variant C, DSI sw reset before first cmd when
+ splash idle (c60), one sw-reset retry on -110; drop B wait
+
+---
+ drivers/gpu/drm/msm/dodge_trace.c  | 22 ++++++----------------
+ drivers/gpu/drm/msm/dodge_trace.h  |  1 +
+ drivers/gpu/drm/msm/dsi/dsi_host.c | 20 ++++++++++++++++++++
+ 3 files changed, 27 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dodge_trace.c b/drivers/gpu/drm/msm/dodge_trace.c
+index 46b5a683d..1934d4ff2 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.c
++++ b/drivers/gpu/drm/msm/dodge_trace.c
+@@ -17,6 +17,7 @@
+ 
+ static void __iomem *dcc, *gdsc, *vbif, *vig0, *ctl0, *ctl1, *intf1, *dsi0;
+ static atomic_t budget = ATOMIC_INIT(120);
++bool dodge_c60;
+ static atomic_t dsi_budget = ATOMIC_INIT(6);
+ 
+ void dodge_trace_map(void)
+@@ -96,8 +97,8 @@ void dodge_trace(const char *tag, u32 arg)
+ void dodge_stop_splash(void)
+ {
+ 	u32 ar, te, wr = 0, h0, ack = 0;
+-	u32 w0, cs0 = 0, cs1 = 0;
+-	int i, t_wr = -1, t_ack = -1, t_nf = -1;
++	u32 w0, cs0;
++	int i, t_wr = -1, t_ack = -1;
+ 
+ 	if (!dcc || !gdsc || !vbif || !vig0 || !ctl0 || !intf1)
+ 		return;
+@@ -110,20 +111,9 @@ void dodge_stop_splash(void)
+ 	 * the stop lands right after an active transfer, like the good boots */
+ 	wr = readl(intf1 + 0x2b0) & 0xffff;
+ 	w0 = wr;
+-	if (wr == 0 || wr >= VDISPLAY) {
+-		cs0 = (dsi0 && DCC_ON(0x34) && DCC_ON(0x44)) ? readl(dsi0 + 0x120) : 0xdead;
+-		for (i = 0; i < 1000; i++) {
+-			wr = readl(intf1 + 0x2b0) & 0xffff;
+-			if (wr > 0 && wr < VDISPLAY) {
+-				t_nf = i;
+-				break;
+-			}
+-			udelay(50);
+-		}
+-		cs1 = (dsi0 && DCC_ON(0x34) && DCC_ON(0x44)) ? readl(dsi0 + 0x120) : 0xdead;
+-		pr_info("dodge-wait: entry wr %x clk_st %08x -> wr %x after %d (x50us) clk_st %08x\n",
+-			w0, cs0, wr, t_nf, cs1);
+-	}
++	dodge_c60 = (wr == 0 || wr >= VDISPLAY);
++	cs0 = (dsi0 && DCC_ON(0x34) && DCC_ON(0x44)) ? readl(dsi0 + 0x120) : 0xdead;
++	pr_info("dodge-c: entry wr %x clk_st %08x idle %d\n", w0, cs0, dodge_c60);
+ 	ar = readl(intf1 + 0x2b4);
+ 	te = readl(intf1 + 0x288);
+ 	/* 1. TE off, autorefresh off */
+diff --git a/drivers/gpu/drm/msm/dodge_trace.h b/drivers/gpu/drm/msm/dodge_trace.h
+index ac0d8caec..bc5dbc904 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.h
++++ b/drivers/gpu/drm/msm/dodge_trace.h
+@@ -5,4 +5,5 @@
+ void dodge_trace_map(void);
+ void dodge_trace(const char *tag, u32 arg);
+ void dodge_stop_splash(void);
++extern bool dodge_c60;
+ #endif
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 27e182ff0..36b86315e 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -24,6 +24,7 @@
+ #include <drm/display/drm_dsc_helper.h>
+ #include <drm/drm_of.h>
+ 
++#include "../dodge_trace.h"
+ #include "dsi.h"
+ #include "dsi.xml.h"
+ #include "sfpb.xml.h"
+@@ -1501,6 +1502,7 @@ static int dsi_cmd_dma_rx(struct msm_dsi_host *msm_host,
+ 	return j;
+ }
+ 
++static bool dodge_first_done, dodge_retried;
+ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 				const struct mipi_dsi_msg *msg)
+ {
+@@ -1531,7 +1533,25 @@ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 		return -EINVAL;
+ 	}
+ 
++	/* DIAG (dodge) variant C: the splash was idle at takeover (c60, the
++	 * bad-boot predictor). Reset the DSI controller right before the first
++	 * panel command; on a -110 reset once more and retry that command. */
++	if (!dodge_first_done) {
++		dodge_first_done = true;
++		if (dodge_c60) {
++			dsi_sw_reset(msm_host);
++			pr_info("dodge-c: c60, dsi sw reset before first cmd: st0 %08x clk_st %08x\n",
++				dsi_read(msm_host, REG_DSI_STATUS0), dsi_read(msm_host, REG_DSI_CLK_STATUS));
++		}
++	}
+ 	ret = dsi_cmd_dma_tx(msm_host, len);
++	if (ret == -ETIMEDOUT && !dodge_retried) {
++		dodge_retried = true;
++		pr_err("dodge-c: tx -110 (st0 %08x), sw reset + retry\n", dsi_read(msm_host, REG_DSI_STATUS0));
++		dsi_sw_reset(msm_host);
++		ret = dsi_cmd_dma_tx(msm_host, len);
++		pr_err("dodge-c: retry ret %d st0 %08x\n", ret, dsi_read(msm_host, REG_DSI_STATUS0));
++	}
+ 	if (ret < 0) {
+ 		pr_err("%s: cmd dma tx failed, type=0x%x, data0=0x%x, len=%d, ret=%d\n",
+ 			__func__, msg->type, (*(u8 *)(msg->tx_buf)), len, ret);
+-- 
+2.56.0
+

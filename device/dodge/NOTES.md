@@ -10,6 +10,7 @@ Attempts live in [dev-docs/](dev-docs/).
 - At c60 the splash autorefresh is stalled: AUTOREFRESH reads 0x80000001 (enabled) but no new frame starts within 50 ms (dodge-wait timed out on every c60 boot).
 - Variant B (wait up to 50 ms for the next frame when idle at c60): B1-B3 and G4-G8 were 8 clean one-shot boots in a row, 3 of them c60, with dpms/idle checks OK on G4-G8. H1 (c60) then failed with -110 at 21:25. It was rebooted onto 2c86 (R6, clean). Not a fix.
 - G3 did not take the one-shot (it ran 2c86, clean at boot, txfail +3 during the dpms checks with no Hyprland socket).
+- Variant C (DSI controller sw reset right before the first panel command when the splash was idle, plus one sw-reset retry on -110; the panel already gets a reset pulse with rails on in every prepare): C1-C4 at 21:33-21:39. C3 (c60) failed: after the reset the first DMA still timed out with STATUS0 0x20003, and the retry after a second sw reset too. So the stuck state survives a DSI controller reset: it is below the controller (PHY/lanes or the DMA fetch path). C2 (wr 0, idle, clk_st 0x2343) survived. Not a fix.
 - Self-heal safety net drafted, opt-in only: display/selfheal/ (not installed, not enabled).
 
 ## 2026-10-22: msm first-commit trace, splash map removes the fault but not the -110 (19:16-20:40 CEST)
