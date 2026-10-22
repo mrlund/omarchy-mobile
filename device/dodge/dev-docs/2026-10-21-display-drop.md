@@ -250,3 +250,36 @@ about 200 ms. Log `regulator_is_enabled()`. Test from a bad boot (3/3-bad
 baseline), then require 5+ clean warm reboots in a row. Also add
 `DSI_LANE_STATUS` (0x0a8) to the -110 dump, to tell a stuck lane from a
 host/PLL problem.
+
+## Round 7: panel owns its rails (6.16 module only, installed 2026-10-22 13:3x CEST)
+
+Kernel patches `0051` (the panel driver takes `vddio`/`vdd`/`vci` by their
+existing DT names; it turns them on one at a time before the reset pulse,
+and on unprepare, failed init and shutdown asserts reset, turns off vci,
+vdd, vddio and waits 200 ms; no voltage is ever set) and `0052` (DIAG:
+`LANE_STATUS` and friends at every `cmd dma tx failed`). Built from
+`out-dodge-cfg1` with `KERNELRELEASE=6.16.0-gbd9587d65`, vermagic matches,
+and the dependencies (`backlight`, `drm_display_helper`) match
+`modules.dep` in the `.held` tree. The loader insmods by path, and there is
+no `/lib/modules/<R>`, so depmod does not apply.
+
+Installed in `/usr/local/lib/omamobile.6.16.0-gbd9587d65/display/`
+(md5 panel `e4a2cfd8`, msm `9930b870`). The old modules are next to them as
+`panel-aa569-p-3-a0019-dsc.ko.pre-rails` (`463dd36b`) and
+`msm.ko.pre-lanediag` (`69f90211`); the old panel module is also in
+`kernel/fallback/`. Not rebooted: the current boot still runs the old
+modules, so the next boot (Martin's cold start) is the first with 0051.
+
+Behaviour changes to expect: every screen-off (dpms off) now powers the panel
+down and every screen-on does a full power-up and init, so wake may be slower.
+A failed panel init now also cuts the rails, so a retry inside the same boot
+starts from an unpowered panel. At reboot or poweroff the log should show
+`dodge: panel power off (shutdown): vci 0 vdd 0 vddio 0` (in the
+journal of the previous boot, if it gets flushed in time).
+
+Revert (on the phone, then reboot):
+`cd /usr/local/lib/omamobile.6.16.0-gbd9587d65/display && cp panel-aa569-p-3-a0019-dsc.ko.pre-rails panel-aa569-p-3-a0019-dsc.ko && cp msm.ko.pre-lanediag msm.ko && sync`
+
+Plan once Martin has cold-started: check the rails came up (`users=1`) and
+the display is clean, then a series of warm reboots. Require 5+ clean in a
+row. A clean warm boot after a bad boot would be the first ever.

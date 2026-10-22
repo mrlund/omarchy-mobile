@@ -4,6 +4,10 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-22: panel rails module installed (6.16, not rebooted)
+
+- Kernel patch `0051`: the panel driver owns `vddio`/`vdd`/`vci` (existing DT names, no voltages set). It powers them off with reset asserted on unprepare, failed init and shutdown. `0052` (DIAG) adds `LANE_STATUS` to the -110 log. Installed as module files only, with the old ones beside them (`*.pre-rails`, `msm.ko.pre-lanediag`) and in `kernel/fallback/`. The next boot is the first test. Revert command: dev-doc Round 7.
+
 ## 2026-10-22: 6.16 warm-reboot path (13:02-13:15 CEST)
 
 - From a clean cold start: `dpms off` then a warm reboot was **bad** (D1, 13:04). A plain warm reboot was bad (C1). Stopping Hyprland and unbinding msm-mdss (GDSC off) before the reboot was bad (U1). The first -110 was at 7.0-7.1 s every time. 2 failed no-code attempts; Claude consult 3 is in `logs/claude-consult-warm-sticky.txt`.

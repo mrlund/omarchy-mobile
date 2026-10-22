@@ -33,7 +33,7 @@ Left out of the series:
 - `not-applied/0002` (local `bd9587d65`, 2026-10-21) adds the 4 MiB `rmtfs_mem`
   region at `0xd7c00000` for the modem. **Flashed to boot_a on 2026-10-21** after
   5 boots with the node (4 clean, one unexplained display kickoff failure). It is
-  kept here until it becomes `0051`. It applies on top of `0050`.
+  kept here and applies on top of `0050` (or `0052`).
 
 ## Config
 
@@ -92,6 +92,25 @@ the battery gate to run before a reboot or flash.
 
 The boot image is put together as in [../../dev-docs/](../../dev-docs/)
 (`2026-10-16-flash-boot-a.md`). Flash rules are in [../../AGENTS.md](../../AGENTS.md).
+
+## Module-only patches on top of `0050` (2026-10-22)
+
+`0051` and `0052` sit on local `bd9587d65` (the flashed kernel, which also
+has `not-applied/0001`-`0002`) as `02a123bae` and `4485c548f`. They change
+only `panel-aa569-p-3-a0019-dsc.ko` and `msm.ko`. Both are installed in
+`/usr/local/lib/omamobile.6.16.0-gbd9587d65/display/`; nothing is flashed.
+
+- `0051` drm/panel: oneplus-dodge: the panel takes its `vddio`/`vdd`/`vci`
+  supplies (L12B/L11B/L13B, existing DT names; no DT change, and it never
+  sets a voltage). It enables them before the reset pulse. On unprepare,
+  failed init and `.shutdown`, it asserts reset, turns off vci, vdd, vddio
+  and waits 200 ms. This is a test for the warm-reboot display drop
+  (dev-docs/2026-10-21-display-drop.md, Round 7); not boot-proven yet.
+- `0052` DIAG drm/msm/dsi: on `cmd dma tx failed` it logs `STATUS0`,
+  `LANE_STATUS` (0x0a4), `LANE_CTRL`, `CLK_STATUS` and `DLN0_PHY_ERR`.
+- Fallback: `../fallback/panel-aa569-p-3-a0019-dsc.ko.pre-rails` (md5
+  `463dd36b`, stripped `0050`-era build); on the phone as `*.ko.pre-rails`
+  and `msm.ko.pre-lanediag` next to the live modules.
 
 ## Workarounds, not fixes
 
@@ -159,3 +178,5 @@ The boot image is put together as in [../../dev-docs/](../../dev-docs/)
 - `0048-drm-msm-dsi-round-the-byte-clock-rate-after-reparent.patch`
 - `0049-drm-msm-dsi-Drop-dev_pm_opp_set_rate-0.patch`
 - `0050-drm-msm-mdss-keep-MDSS_GDSC-on-across-runtime-suspen.patch`
+- `0051-drm-panel-oneplus-dodge-own-the-panel-supplies-and-p.patch`
+- `0052-DIAG-drm-msm-dsi-dump-STATUS0-LANE_STATUS-LANE_CTRL-.patch`
