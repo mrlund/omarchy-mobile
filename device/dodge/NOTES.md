@@ -4,6 +4,14 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-22: three-button verdict, TPG NOP, VBIF wedge (17:52-18:20 CEST)
+
+- The three-button reset (USB in) is a warm reset, not a cold start. The 1st one (17:13) was bad at boot. The 2nd (17:45) was clean.
+- Good vs bad peek: only STATUS0, CLK_STATUS and the PLL calibration readbacks differ. `mdp_lut` is the same in both.
+- On a bad boot, a DSI soft reset clears the stall, and a DCS NOP from the TPG FIFO (no memory fetch) **completes**. A normal memory DMA stalls again. So the link and panel are fine, and the fetch path is wedged.
+- VBIF: the bad boot has xin0 (SSPP_VIG0, ABL splash pipe) and xin7 not idle, and the AXI port not idle. The good boot is all idle. Every bad boot has the single CB9 splash fault (0xfd965800) at msm init; clean boots have none.
+- Lead: the ABL splash fetch is still running when msm attaches its SMMU domain. The faulted reads wedge the VBIF, and the DSI DMA fetch is stuck behind them. Next: VBIF xin halt/drain in place on a bad boot, then the fix (stop VIG0 and drain before the IOMMU attach). Details: dev-doc Round 10.
+
 ## 2026-10-22: poweroff-with-USB test and live stall readout (15:56-16:30 CEST)
 
 - `systemctl poweroff` with USB attached (self power-on) is **not** a cold start: P1, P2 clean, P3 bad, P4 (from bad) bad, then a warm reboot from bad was bad too. Not a workaround.

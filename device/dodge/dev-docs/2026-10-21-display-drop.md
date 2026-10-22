@@ -391,3 +391,69 @@ don't rely on that).
   TPG DMA-FIFO path (no memory fetch). If that completes, the fetch path
   is guilty (then ATOS on CB9); if it hangs too, the link/PHY is.
 - The phone is dark on W1 (flashed 6.16, v2 panel module); it needs a cold start.
+
+## Round 10: three-button reset, good-vs-bad peek, TPG NOP, VBIF (2026-10-22, 17:52-18:20 CEST)
+
+**Three-button reset (Martin, USB in, no fastboot power-off):** it acts as
+a warm reset, not a cold start.
+
+| boot | window (CEST) | path | result |
+|---|---|---|---|
+| W1 | ~16:15-16:53 | my warm reboot | bad (my dpms wakes failed); log ends abruptly at 16:53 |
+| 1st 3-button | 17:13-17:45 | three-button reset | **bad at boot** (first -110 at 7.1 s), not a later idle failure |
+| 2nd 3-button | 17:45 | three-button reset | clean |
+
+**Good-vs-bad peek (both with the display runtime-active):** the only
+differences are `STATUS0` (0 vs 00020003), `CLK_STATUS` (2343 vs 008037c3)
+and the DSI PLL calibration readbacks (pll +0x1c4/0x1c8/0x1cc/0x1f4/0x274/
+0x27c). The PLL is locked in both. DSI config, PHY CMN and lanes are the
+same, and so are the dispcc CBCRs, including `mdp_lut` (08000000 in both, so
+not a lead). MDSS +0x90..0xcc read 1 after any runtime resume, good or
+bad. Logs: `peek-616-good-b0*.txt`.
+
+**TPG NOP (`dodge_peek act=4`):** DSI soft reset, then one DCS NOP
+(`0x80050000`) from the TPG DMA FIFO, so no memory fetch. Offsets are from
+downstream `dsi_ctrl_reg.h` / `kickoff_fifo_command()`.
+- On a good boot (positive control), it completes: `INT_CTRL` bit 0 is
+  set, busy clears, and the display is unaffected.
+- On bad boot T2 (warm reboot 17:58), the soft reset clears the stall
+  (`STATUS0 00020003` -> `00020000`, `CLK_STATUS` back to 2343). The FIFO NOP
+  then **completes** (DMA_DONE).
+- A memory DMA right after (`act=3`, the normal path) stalls again
+  (`00020003`/`008037c3`), with no new SMMU fault.
+- **The link/PHY and panel path work; the memory-fetch path is wedged.**
+
+**The SMMU fault correlates 1:1** (6 boots in the journal): each bad boot
+has exactly one CB9 fault (`iova 0xfd965800`, the end of the ABL splash,
+SID 0x800) about 200 ms before the first -110. The clean boots have none.
+The fault itself is old news (Round 3). The identity map (0026, 7.3)
+removed it but not the -110.
+
+**VBIF (`act=6`, read-only, 0xaeb0000):** the only difference good vs bad:
+
+| reg | good T3 | bad T2 |
+|---|---|---|
+| `XIN_HALT_CTRL1` (+0x204, idle/ack bits 16+) | `ffff0000` | `ff7e0000` (xin0 and xin7 not idle) |
+| `AXI_HALT_CTRL1` (+0x20c) | `00000030` | `00000000` |
+
+xin0 is `SSPP_VIG0`, the pipe that ABL's splash is scanning from. So VIG0
+has reads outstanding that never retire, and the AXI port is not idle. On
+a warm boot, ABL's splash fetch is still running when msm attaches its
+SMMU domain. The read hits terminate mode and the VBIF/AXI port wedges.
+The DSI command DMA fetch (xin7?) then queues behind it. A cold start
+has no running splash, so there is nothing to wedge.
+
+**Side note:** on T2 the phone froze for ~6 minutes (18:00:31-18:06:53, no
+SSH, USB gadget dropped). Kernel boottime advanced only ~1 min over that
+span, so it was not a suspend. It recovered by itself. This is probably
+the "locks up" Martin saw on the first three-button boot.
+
+**Next:**
+1. On the next bad boot, in place: request a VBIF xin0/xin7 halt (and an
+   AXI halt), wait for ack, release, DSI soft reset, then memory DMA.
+2. As the fix: stop the ABL VIG0/CTL fetch and drain the VBIF (xin halt)
+   *before* msm attaches its IOMMU domain. Or keep the 1:1 splash map
+   until the first commit, and check the VBIF with 0026-style mapping.
+
+Logs: `tpg-616-good-b0.txt`, `tpg-616-bad-T2.txt`, `vbif-616-{bad-T2,good-T3}.txt`,
+`smmu-fault-timeline.txt`, `tpg-T2-hang.txt`.
