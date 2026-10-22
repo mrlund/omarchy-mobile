@@ -4,7 +4,16 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-22: memory-bus lead, 7.3 boots 12-15 (10:04-10:16 CEST)
+
+- Interconnect is ruled out: the DT paths, votes and init-bandwidth hold (INT_MAX, icc never syncs) are the same on good and bad 7.3 boots and on 6.16. The splash handover is the same code as 6.16 (the `msm_mdss` BCR reset at probe).
+- Fix 1 (0028, reset ABL CTLs at DPU init): no-op. Everything is idle by then (after the BCR reset), and the display was still bad. With the splash identity map, that makes 2 failed fixes. Claude consult 2 is in `logs/claude-consult-dsi-dma2.txt`.
+- New lead: every 7.3 boot is a `fastboot boot` one-shot, and every 6.16 failure followed a fastboot session (both 6.16 one-shots for rmtfs: 1 of 2 bad). Next test: one-shot the 6.16 `boot-chain.img` from a clean, cold-started 6.16.
+- The phone is on 6.16 with the **display lost** (warm 6.16 reboot at 10:28 did not recover it). It needs Martin's cold start. Lead budget: 4 of 6. Details: [dev-docs/2026-10-21-display-drop.md](dev-docs/2026-10-21-display-drop.md) Round 4.
+
 ## 2026-10-22: cold vs warm, round 3 (CEST)
+
+- Round 3 result: the unplug unit did not fire (the UDC stayed `configured` after the unplug, the same as the gadget replug bug). The flag has been removed. Martin powered off from the Omarchy menu, waited 30 s and cold-started: 6.16 was clean. While the console text was up, he saw quick green flashes in a band about 5 mm wide, down one side and then along the bottom.
 
 - Cold starts of 6.16 by Martin (R1 09:33 with USB attached, R2 09:35 truly cold) were clean.
 - 7.3 boot 10 (09:39), started via fastboot from the truly cold 6.16: **display bad** (same stall). It died at about 96 s, and the warm 6.16 after it was clean. A cold start before 7.3 does not prevent the 7.3 drop. 7.3 cannot be cold-started directly (a one-shot always goes through fastboot).

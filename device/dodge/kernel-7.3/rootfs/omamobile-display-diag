@@ -5,9 +5,16 @@
 # collapse count from early boot until the panel is up, then the clk,
 # regulator and genpd summaries. Read-only. Output: the journal.
 D=/sys/kernel/debug
+# Also to disk: the journal is lost when a bad boot is reset.
+LOG=/var/log/omamobile/display-diag-$(cut -c1-8 /proc/sys/kernel/random/boot_id).txt
+exec > >(tee -a "$LOG") 2>&1
 mountpoint -q $D || mount -t debugfs none $D
 G=$D/pm_genpd/mdss_gdsc
-last=
+last= lastsync=
+icc() {
+	echo "icc $1 t=$(cut -d' ' -f1 /proc/uptime)"
+	grep -E -A3 "^(qnm_mdp|qns_mem_noc_hf|qnm_mnoc_hf|ebi|qhs_display_cfg|qns_gem_noc_cnoc|qnm_gemnoc_cnoc)(@| )" $D/interconnect/interconnect_summary
+}
 for i in $(seq 300); do
 	if [ -d $G ]; then
 		s="$(cat $G/current_state) collapses=$(awk '$1=="S0"{print $3}' $G/idle_states) devs=$(tr '\n' ' ' < $G/devices)"
@@ -15,12 +22,22 @@ for i in $(seq 300); do
 		s="no-genpd"
 	fi
 	[ "$s" != "$last" ] && echo "gdsc t=$(cut -d' ' -f1 /proc/uptime) $s" && last=$s
+	y=$(for f in /sys/bus/platform/devices/*/state_synced; do [ "$(cat $f)" = 1 ] && basename ${f%/state_synced}; done | tr '\n' ' ')
+	[ "$y" != "$lastsync" ] && echo "synced t=$(cut -d' ' -f1 /proc/uptime) $y" && lastsync=$y
+	[ "$s" != no-genpd ] && [ -z "$iccpre" ] && iccpre=1 && icc pre-bind && sync -f "$LOG"
 	[ "$(cat /sys/class/drm/card*-DSI-1/enabled 2>/dev/null)" = enabled ] && [ $i -gt 10 ] && break
 	sleep 0.1
 done
+icc after-panel
+sync -f "$LOG"
 sleep 2
 echo "summary t=$(cut -d' ' -f1 /proc/uptime)"
 grep -iE "disp_cc|dsi|mdss|bi_tcxo|tcxo" $D/clk/clk_summary
 grep -iE "l3i|l3g|l3f|vreg_l3|mmcx" $D/regulator/regulator_summary
 cat $D/pm_genpd/pm_genpd_summary | grep -iE -A3 "mdss|mmcx"
 for f in $G/idle_states $D/pm_genpd/mmcx/idle_states; do echo "== $f"; cat $f; done
+# Again a few seconds later (bad boots can die from about 20 s).
+sleep 4
+icc late
+for f in /sys/bus/platform/devices/*/state_synced; do echo "$(cat $f) $(basename ${f%/state_synced})"; done
+sync -f "$LOG"
