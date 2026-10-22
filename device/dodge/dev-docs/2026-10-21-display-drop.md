@@ -457,3 +457,87 @@ the "locks up" Martin saw on the first three-button boot.
 
 Logs: `tpg-616-good-b0.txt`, `tpg-616-bad-T2.txt`, `vbif-616-{bad-T2,good-T3}.txt`,
 `smmu-fault-timeline.txt`, `tpg-T2-hang.txt`.
+
+## Round 11 (2026-10-22, 18:15-18:45 CEST): xin ID, VBIF drain, pre-msm snapshot
+
+**Boots** (warm `systemctl reboot`, battery gate each time; "full-battery
+rule" = capacity 100%, only the current-sign check failed, treated as pass):
+
+| boot | reboot (CEST) | result | notes |
+|---|---|---|---|
+| T1 | 17:56:54 | clean | |
+| T2 | 17:58:09 | bad | ~6-min freeze (see Round 10) |
+| T3 | 18:11:50 | clean | full-battery rule; xin ID test |
+| T4 | 18:17:18 | bad | drain test, rebind test |
+| T5 | 18:25:35 | bad | full-battery rule; pre-msm hook live from here |
+| T6 | 18:28:36 | clean | full-battery rule |
+| T7 | 18:30:20 | bad | |
+| T8 | 18:32:02 | clean | full-battery rule |
+| T9 | 18:33:33 | clean | left running, display on |
+
+**xin of the DSI cmd DMA (good boot T3, `dodge_peek act=8`):** halting
+xin7 (`xm=0x80`) reproduces the exact bad signature (STATUS0 `00020003`,
+CLK_STATUS `008037c3`, no DMA_DONE). After release, a reset and memory DMA
+completes in 5 ms. Halting xin0 does not block the DMA. **xin7 = DSI cmd
+DMA.**
+
+**In-place drain on bad boot T4 (`act=7 xm=0x81`): failed.** The xin0 and
+xin7 halt requests never ack (the other xins do). The AXI halt never acks
+(CTRL1 stays 0). All VBIF error registers are 0. After release, a DSI soft
+reset and a memory DMA still stall at `00020003`.
+
+**Rebind on T4:** stopped Hyprland, unbound msm-mdss (mdss_gdsc went to
+off), rebound (the BCR reset runs in probe). The result was `ctl 1 reset
+failure` ×3, then -110 again. The VBIF still read `ff7e0000` after the GDSC
+collapse plus BCR. **The wedge survives MDSS power collapse**, so the lost
+transactions sit outside MDSS (TBU/MNoC side). Runtime recovery is not
+possible; only prevention can work.
+
+**Claude consult** (`claude-consult-vbif-wedge.txt`): the lost reads are in
+the TBU/MNoC. The identity map removed the fault but not the cause. Its
+proposal: quiesce ABL's autorefresh/VIG0, then halt the xins and AXI
+*before* the msm BCR and SMMU attach. It also suggested logging the state
+right before the BCR.
+
+**Pre-msm snapshot (`act=9`, read-only):** a systemd drop-in
+(`omamobile-display-msm.service.d/90-dodge-premsm.conf`) runs it before
+dispcc and msm load. It reads MDSS_GDSCR first and skips the MDSS reads
+if that is off:
+
+| boot | xin_halt1 | axi_halt1 | pnd/src_err | CB5 faults | outcome |
+|---|---|---|---|---|---|
+| T5 | `ffee0000` | `0` | `11/11` | 6 | bad |
+| T6 | `ffff0000` | `30` | `0/0` | 0 | clean |
+| T7 | `ffee0000` | `0` | `0/0` | 0 | bad |
+| T8 | `ffff0000` | `30` | `11/11` | 6 | clean |
+| T9 | `ffff0000` | `30` | `11/11` | 6 | clean |
+
+All boots: VIG0 SRC0_ADDR `fc800000` (splash), INTF1 autorefresh
+`80000001` (enabled), tear check on, CTL0 flush/start 0.
+
+- **The wedge already exists before msm or dispcc load.** xin0 (VIG0) and
+  xin4 are not idle, and the AXI port is not idle. This predicts the bad
+  boot 2/2, and the good boots are 3/3 idle. msm's BCR and SMMU attach do
+  not create it; they only expose it (xin7 queues behind it later).
+- The CB5 faults (SID 0x800, a pre-msm domain, splash iova) are not the
+  cause. They come on good boots too; the VBIF logs them as xin0/xin4
+  errors and the reads retire. T7 wedged without any of them.
+- ABL leaves autorefresh on in every boot, so that alone does not
+  separate good from bad. It is still the thing keeping the fetch running
+  across the handover.
+
+**Fix status:** no msm fix was written. Draining does not unstick a
+wedged VBIF, and the wedge is set before msm probes. A probe-time drain
+in msm would be too late.
+
+**Next lead:** find the stage where the wedge forms and quiesce before it.
+1. Take the same read-only snapshot earlier: in the stage-1 initramfs
+   before kexec, and in stage 2 before arm-smmu probes (initramfs or
+   early module). That tells whether ABL, stage 1, kexec or the stage-2
+   SMMU takeover causes it.
+2. Prevention at that point: write INTF1 `TEAR_AUTOREFRESH_CONFIG`=0, wait
+   one frame, then halt xin0/xin4 with ack before the SMMU/kexec handover.
+   Most likely this goes in stage 1 right before kexec.
+
+Logs: `xinid-616-good-T3.txt`, `drain-616-bad-T4.txt`,
+`rebind-616-bad-T4.txt`, `claude-consult-vbif-wedge.txt`, `pre-T5..T9.txt`.

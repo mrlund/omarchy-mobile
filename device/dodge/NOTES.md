@@ -4,6 +4,14 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-22: VBIF drain fails, wedge predates msm (18:15-18:45 CEST)
+
+- xin7 is the DSI cmd DMA. Halting xin7 on a good boot reproduces the bad signature exactly.
+- In-place drain on a bad boot failed: the xin0/xin7 and AXI halts never ack, and DMA still stalls. An msm unbind/rebind (GDSC off plus BCR) does not clear it either, so the wedge is outside MDSS and only prevention can work. A Claude consult agreed (TBU/MNoC lost reads).
+- A read-only pre-msm snapshot (systemd drop-in `90-dodge-premsm.conf`, runs `dodge_peek act=9` before dispcc/msm) shows the VBIF already wedged (xin0+xin4 busy, AXI not idle) on bad boots, before msm loads. It predicted 5/5. ABL leaves INTF1 autorefresh on in every boot. The CB5 splash faults are not the cause.
+- The T2 freeze (18:00:31-18:06:53, no SSH, USB gadget dropped, boottime advanced only ~1 min, recovered by itself) is a possible separate issue tied to bad boots. Not investigated yet.
+- No fix written (a msm-probe drain is too late). Next: snapshot in stage 1 before kexec and in stage 2 before arm-smmu, then quiesce autorefresh and halt xin0/4 at that point. Boot table and details: dev-doc Round 11.
+
 ## 2026-10-22: three-button verdict, TPG NOP, VBIF wedge (17:52-18:20 CEST)
 
 - The three-button reset (USB in) is a warm reset, not a cold start. The 1st one (17:13) was bad at boot. The 2nd (17:45) was clean.
