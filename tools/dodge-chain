@@ -110,6 +110,7 @@ cmd_pack() {
 dir /dev 0755 0 0
 nod /dev/console 0600 0 0 c 5 1
 dir /proc 0755 0 0
+dir /sys 0755 0 0
 dir /omamobile 0755 0 0
 dir /omamobile/lib 0755 0 0
 file /omamobile/busybox $x/bin/busybox.static 0755 0 0
