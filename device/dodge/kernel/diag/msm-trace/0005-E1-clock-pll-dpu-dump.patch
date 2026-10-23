@@ -1,0 +1,74 @@
+From aac42f150ba51745f55d4ab225c49526942ef80a Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Thu, 22 Oct 2026 21:41:30 +0200
+Subject: [PATCH] DIAG drm/msm: E1 clock tree/PLL/DPU state at first cmd and
+ -110 (variant C actions removed)
+
+---
+ drivers/gpu/drm/msm/dsi/dsi_host.c | 37 ++++++++++++++++++++----------
+ 1 file changed, 25 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 36b86315e..97b4ead95 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -1503,6 +1503,27 @@ static int dsi_cmd_dma_rx(struct msm_dsi_host *msm_host,
+ }
+ 
+ static bool dodge_first_done, dodge_retried;
++static void dodge_clkdump(struct msm_dsi_host *msm_host, const char *tag)
++{
++	static void __iomem *cc, *pll, *intf, *ctl;
++	if (!cc) {
++		cc = ioremap(0x0af08000UL, 0x200);
++		pll = ioremap(0x0ae95500UL, 0x400);
++		intf = ioremap(0x0ae36000UL, 0x300);
++		ctl = ioremap(0x0ae16000UL, 0x100);
++	}
++	if (!cc || !pll || !intf || !ctl)
++		return;
++	pr_info("dodge-clk: %s cbcr byte0 %08x byte0_intf %08x pclk0 %08x esc0 %08x | rcg byte0 %08x/%08x pclk0 %08x/%08x esc0 %08x/%08x | pll st1 %08x | rate byte %lu pix %lu esc %lu | dsi st0 %08x clk_st %08x ctrl %08x | intf ar %08x te %08x wr %08x | ctl0 flush %08x start %08x\n",
++		tag, readl(cc + 0x34), readl(cc + 0x38), readl(cc + 0x04), readl(cc + 0x44),
++		readl(cc + 0x180), readl(cc + 0x184), readl(cc + 0x108), readl(cc + 0x10c),
++		readl(cc + 0x1b8), readl(cc + 0x1bc), readl(pll + 0x1b0),
++		clk_get_rate(msm_host->byte_clk), clk_get_rate(msm_host->pixel_clk),
++		clk_get_rate(msm_host->esc_clk),
++		dsi_read(msm_host, REG_DSI_STATUS0), dsi_read(msm_host, REG_DSI_CLK_STATUS),
++		dsi_read(msm_host, REG_DSI_CTRL), readl(intf + 0x2b4), readl(intf + 0x288),
++		readl(intf + 0x2b0), readl(ctl + 0x18), readl(ctl + 0x1c));
++}
+ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 				const struct mipi_dsi_msg *msg)
+ {
+@@ -1533,24 +1554,16 @@ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 		return -EINVAL;
+ 	}
+ 
+-	/* DIAG (dodge) variant C: the splash was idle at takeover (c60, the
+-	 * bad-boot predictor). Reset the DSI controller right before the first
+-	 * panel command; on a -110 reset once more and retry that command. */
++	/* DIAG (dodge) round 14 E1: link-clock tree + PLL lock + DPU/DSI cmd
++	 * state at the first panel command and at a -110 (read-only). */
+ 	if (!dodge_first_done) {
+ 		dodge_first_done = true;
+-		if (dodge_c60) {
+-			dsi_sw_reset(msm_host);
+-			pr_info("dodge-c: c60, dsi sw reset before first cmd: st0 %08x clk_st %08x\n",
+-				dsi_read(msm_host, REG_DSI_STATUS0), dsi_read(msm_host, REG_DSI_CLK_STATUS));
+-		}
++		dodge_clkdump(msm_host, "first-cmd");
+ 	}
+ 	ret = dsi_cmd_dma_tx(msm_host, len);
+ 	if (ret == -ETIMEDOUT && !dodge_retried) {
+ 		dodge_retried = true;
+-		pr_err("dodge-c: tx -110 (st0 %08x), sw reset + retry\n", dsi_read(msm_host, REG_DSI_STATUS0));
+-		dsi_sw_reset(msm_host);
+-		ret = dsi_cmd_dma_tx(msm_host, len);
+-		pr_err("dodge-c: retry ret %d st0 %08x\n", ret, dsi_read(msm_host, REG_DSI_STATUS0));
++		dodge_clkdump(msm_host, "tx-110");
+ 	}
+ 	if (ret < 0) {
+ 		pr_err("%s: cmd dma tx failed, type=0x%x, data0=0x%x, len=%d, ret=%d\n",
+-- 
+2.56.0
+
