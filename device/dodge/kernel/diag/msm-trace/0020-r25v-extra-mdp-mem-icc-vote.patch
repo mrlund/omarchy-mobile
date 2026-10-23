@@ -1,0 +1,45 @@
+From b6d2a05e7214d76e1369c5dee1d5b73421f23638 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 14:03:23 +0200
+Subject: [PATCH 1/2] DIAG dodge r25v: extra mdp-mem icc vote at MDSS enable
+ instead of the QTB read
+
+---
+ drivers/gpu/drm/msm/msm_mdss.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/msm_mdss.c b/drivers/gpu/drm/msm/msm_mdss.c
+index c26796f16..2790159d6 100644
+--- a/drivers/gpu/drm/msm/msm_mdss.c
++++ b/drivers/gpu/drm/msm/msm_mdss.c
+@@ -317,8 +317,17 @@ const struct msm_mdss_data *msm_mdss_get_mdss_data(struct device *dev)
+  */
+ static void msm_mdss_qtb_sync(struct msm_mdss *msm_mdss)
+ {
+-	if (msm_mdss->hf_qtb)
+-		readl(msm_mdss->hf_qtb);
++	int i;
++
++	/*
++	 * DIAG dodge r25v: no QTB read. Extra mdp0/mdp1-mem bandwidth vote
++	 * (avg 400 MB/s, peak 1.6 GB/s) at the point fix1 reads the QTB.
++	 * icc API only; msm_mdss_disable() drops it to 0 as before.
++	 */
++	for (i = 0; i < msm_mdss->num_mdp_paths; i++)
++		icc_set_bw(msm_mdss->mdp_path[i], Bps_to_icc(MIN_IB_BW),
++			   Bps_to_icc(4 * MIN_IB_BW));
++	pr_info("dodge-r25v: extra mdp-mem vote on %u paths\n", msm_mdss->num_mdp_paths);
+ }
+ 
+ static int msm_mdss_enable(struct msm_mdss *msm_mdss)
+@@ -802,7 +811,6 @@ static const struct msm_mdss_data sm8750_data = {
+ 	.macrotile_mode = true,
+ 	.reg_bus_bw = 57000,
+ 	.keep_gdsc_on = true,
+-	.hf_qtb_base = 0x017d0000,	/* mdp_hf_qtb, stock DT apps-smmu */
+ };
+ 
+ static const struct msm_mdss_data x1e80100_data = {
+-- 
+2.56.0
+
