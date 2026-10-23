@@ -4,7 +4,13 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (09:08 CEST)
+## 2026-10-23: resume here (09:31 CEST)
+
+- Phone is UP and CLEAN on the fallback (R19-3-fb, booted ~09:28, 0 tx failures, dpms On). msm 2c86 and panel v2 a36a080, drop-ins 50/90/91/92, no one-shot staged.
+- Round 19 (FIFO for every <=64 B command from the first one, memory DMA only for 0x81 and the PPS) is NOT a workaround. Good boots are unaffected (init, brightness, 3 screen off/on, idle-off and wake all OK, 12 memory DMAs, 0 failures). On the bad c60 boot R19-3, memory DMA #1 (0x81, 104 B) completed and DMA #2 (PPS, 132 B) hung. So the budget is not "2 DSI commands": it looks like a small number of AXI read bursts (or bytes). Every screen wake also re-sends 0x81 and the PPS (2 memory DMAs per wake), so even a working init would die on the first wake.
+- Next (per the 09:09 plan, since R19 failed): the translation-unit (TBU/QTB) outstanding-transaction registers, good vs bad. See the Round 19 section in the dev-doc.
+
+## 2026-10-23: resume here (09:08 CEST) (superseded by 09:31)
 
 - Phone is UP and CLEAN on the fallback (S2-fb, booted ~09:05, 0 tx failures, display on). msm 2c86 and panel v2 a36a080, drop-ins 50/90/91/92, no one-shot staged.
 - Round 18 (below): the FIFO route for the whole panel init is closed. The TPG DMA FIFO holds 8 (maybe 9) 64-bit entries, about 64-72 bytes, which matches the downstream 64-byte limit. The 0x81 write (104 B) and the PPS (128 B) do not fit. MIPI long packets are atomic and DCS has no write-continue, so a legal split is not possible.

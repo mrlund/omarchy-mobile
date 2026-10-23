@@ -760,3 +760,23 @@ Diags: r18 (wt-dodge 908cb920c, `msm-trace/0008`) and r18b (9ef8fa8b8, `msm-trac
 3. LLCC/memtype state left from the previous boot.
 
 The next steps are the QTB OT-snapshot/fence registers on a good boot and a bad boot, a clean teardown (VBIF halt with ack / msm unbind) in the outgoing kernel before a warm reboot, and an SSPP fetch before the first DSI DMA (shared pool vs per-xin).
+
+## Round 19: FIFO for every short command, memory DMA only for the two big ones (09:09-09:31 CEST, 2026-10-23)
+
+Variant r19 (wt-dodge b64688f01 on top of the revert of r18b, `msm-trace/0010`; msm.ko 3117af136838). From the first DSI command, on `of_machine_is_compatible("OnePlus,13")` only, every command of 64 B or less goes through the TPG DMA FIFO. Larger ones use memory DMA and are logged (`dodge-r19: mem-dma #n`). The r17 -110 handler and the r18 dumps stay; the first-done FIFO probe was dropped. One-boot msm only, nothing flashed, no voltage change.
+
+Commands over 64 B, from the panel driver: only the 0x81 write in on() (100-byte payload, 104 B packet) and the PPS in prepare() (132 B packet). Everything else in on()/off() is at most 29 B. Runtime: brightness 0x51 (8 B, HS) and the brightness read are short. But prepare() (on() + PPS) runs again on every modeset and every screen wake, so a boot does 2 memory DMAs per panel power-up: 4 by the time Hyprland is up, 12 after the dp.sh cycles.
+
+| boot | prereset ln | result |
+|---|---|---|
+| R19-1 | 721 | good. 12 FIFO cmds DONE, mem-dma #1-#4 OK. Brightness OK (400 is clamped to 1000 by userspace, 2000 and 1000 apply). dp.sh: 3 screen off/on OK, idle-off at 165 s then wake OK, 0 tx failures, mem-dma #12 at 285 s |
+| R19-2 | 0 | good, mem-dma #1-#4 OK |
+| R19-3 | c60 | bad. All FIFO cmds DONE, mem-dma #1 (0x81, 104 B) DONE, mem-dma #2 (PPS, 132 B) -110 (xh1 ffff0000 -> ff7f0000, axi1 0x30 -> 0x20, as before). The FIFO resend after sw reset fails -7 (too long). "failed to transmit PPS". Then 167 frame-done and 181 pp:0 kickoff timeouts, plus "ctl 1 reset failure". Hyprland's re-init (mem-dma #3) -110, panel init -110, brightness through the FIFO TIMEOUT (DSI still wedged, STATUS0 0x20003). dpms Off. Still on SSH at 516 s (no freeze yet); rebooted |
+| R19-3-fb | - | fallback 2c86, good |
+
+Findings:
+- The bad-boot budget is not 2 DSI commands. Earlier bad boots completed two short DMAs (8 B and 4 B) and hung on the third. Here a 104 B DMA completed and the 132 B one hung. That fits a fixed count of AXI read bursts. With 128-byte bursts, 0x81 needs one burst and the PPS two (128 + 4), so the hang lands on the 3rd burst again. A small byte budget also fits. Either way, the two big commands cannot both get through on a bad boot.
+- Even a working init would not survive. Each wake does prepare() again, which costs two more memory DMAs.
+- Shared vs per-client credit pool: not answered. The frame-done/pingpong timeouts come after the DSI engine is wedged (STATUS0 0x20003) with the PPS missing, so they do not show whether the SSPP fetch itself would hang. Answering it needs an SSPP fetch before the first DSI memory DMA, or a bad boot where the DSI does not wedge.
+- Next: the TBU/QTB outstanding-transaction (OT) snapshot and fence registers, good vs bad (offsets still to be verified), and a clean teardown in the outgoing kernel before a warm reboot.
+
