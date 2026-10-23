@@ -735,3 +735,28 @@ This is consult step 1. The diag (wt-dodge f3e2991dd, `msm-trace/0007`) runs on 
 On a bad boot the DSI controller, PHY and lanes deliver commands when the payload comes from the FIFO. Only the memory-fetched DMA hangs. STATUS0 bit 17 stays set while the FIFO commands succeed, so it marks the stuck fetch, not a dead engine. At the -110, VBIF XIN_HALT_CTRL1 goes ffff0000 -> ff7f0000 and AXI_HALT_CTRL1 0x30 -> 0x20. That still needs a good-boot comparison. Next: test whether the FIFO accepts the 104-byte PPS (if so, all panel init can bypass the fetch). In parallel, chase the fetch: the dma_base/iova and SMMU mapping, the interconnect vote, and a VBIF/AXI halt+release before the first DMA.
 
 Also: with USB attached, `systemctl poweroff` is a warm restart. The 08:14 self-power-on (boot 58a45297) came up clean.
+
+## Round 18: FIFO depth, good-boot comparison, the DMA #3 count (08:38-09:07 CEST, 2026-10-23)
+
+Diags: r18 (wt-dodge 908cb920c, `msm-trace/0008`) and r18b (9ef8fa8b8, `msm-trace/0009`). Both are read-only apart from the TPG FIFO, which is reset after the probe. No voltages changed, nothing flashed, one-boot msm only.
+
+| boot | variant | result |
+|---|---|---|
+| R18a | r18 | good. VBIF idle at first-cmd/first-trig/first-done; dma_base 0x1000, iova2phys MATCH |
+| R18b | r18 | good, same |
+| R18c | r18 | bad. DMA #1, #2 DONE; DMA #3 -110 (xh1 ff7f0000, axi1 0x20, iova2phys MATCH, no fault) |
+| R18c-fb, -fb2 | 2c86 | bad, then good |
+| S1 | r18b | good (3 identical DMAs, then the rest) |
+| S2 | r18b | bad. cmd #1, repeat 1 ok, repeat 2 (DMA #3) -110 |
+| S2-fb | 2c86 | good |
+
+**FIFO depth.** With TPG FIFO mode on and no trigger, TPG_DMA_FIFO_STATUS reads 1 after 4 words and goes up by 1 every 2 words to 8 at 18 words. After that it does not change. That is about 8-9 64-bit entries (64-72 B), in line with the downstream `DSI_CTRL_MAX_CMD_FIFO_STORE_SIZE` of 64. The panel's 0x81 write (a 101-byte DSC PPS copy, 104 B packed) and the 128-byte PPS do not fit. A MIPI DSI long packet is one atomic transfer and DCS has no write-continue, so they cannot be split legally. The whole init cannot go through the FIFO, so a bad boot cannot be brought up that way.
+
+**The failure is the 3rd fetch.** Every traced bad boot (13 in logs/) completes DMA #1 and #2 and hangs on DMA #3. The count-shift diag resent cmd #1 twice from the same buffer, and the hang landed on repeat 2, which is DMA #3. So it does not depend on the command content, the iova/phys mapping (still valid at the -110, no SMMU fault) or the ICC vote (keepalive INT_MAX on both good and bad). It looks like a fixed number of read transactions succeed and the next one never gets a response.
+
+**Consult r18** (logs/claude-consult-r18.txt) ranks the causes:
+1. Leaked outstanding-transaction credits in the display TBU/QTB or MMNOC port. The MDSS BCR does not reset them, but warm reset leaves them in place.
+2. A table walk wedged after a TLBI between #2 and #3. Less likely, because the count follows the fetch, not the time.
+3. LLCC/memtype state left from the previous boot.
+
+The next steps are the QTB OT-snapshot/fence registers on a good boot and a bad boot, a clean teardown (VBIF halt with ack / msm unbind) in the outgoing kernel before a warm reboot, and an SSPP fetch before the first DSI DMA (shared pool vs per-xin).

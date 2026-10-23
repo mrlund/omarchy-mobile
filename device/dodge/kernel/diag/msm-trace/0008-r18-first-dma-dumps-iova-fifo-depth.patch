@@ -1,0 +1,159 @@
+From 908cb920c7d5db0a9e0dc6e6f46f8ca3b04a2f04 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 08:42:13 +0200
+Subject: [PATCH] DIAG dodge round 18: first-trig/first-done VBIF+STATUS0, dma
+ iova/SMMU dump, TPG FIFO depth probe
+
+---
+ drivers/gpu/drm/msm/dsi/dsi_host.c | 96 ++++++++++++++++++++++++++++++
+ 1 file changed, 96 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 51ff23b87..170bbc23b 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -9,6 +9,7 @@
+ #include <linux/dma-mapping.h>
+ #include <linux/err.h>
+ #include <linux/interrupt.h>
++#include <linux/iommu.h>
+ #include <linux/mfd/syscon.h>
+ #include <linux/of.h>
+ #include <linux/of_graph.h>
+@@ -1417,6 +1418,77 @@ int dsi_dma_base_get_v2(struct msm_dsi_host *msm_host, uint64_t *dma_base)
+ 	return 0;
+ }
+ 
++/*
++ * DIAG (dodge) round 18: iova/SMMU view of the DSI cmd buffer, and a
++ * no-trigger depth probe of the TPG DMA FIFO (read-only apart from the
++ * FIFO itself, which is reset afterwards).
++ */
++static void dodge_iova_dump(struct msm_dsi_host *msm_host, const char *tag)
++{
++	const struct msm_dsi_cfg_handler *cfg_hnd = msm_host->cfg_hnd;
++	struct device *d = msm_host->dev->dev;
++	struct iommu_domain *dom;
++	uint64_t base = 0;
++	phys_addr_t ph = 0, pg = 0;
++	u32 *v;
++	u32 w0 = 0;
++
++	cfg_hnd->ops->dma_base_get(msm_host, &base);
++	if (!device_iommu_mapped(d) && d->parent)
++		d = d->parent;
++	dom = iommu_get_domain_for_dev(d);
++	if (dom)
++		ph = iommu_iova_to_phys(dom, base);
++	if (msm_host->tx_gem_obj && to_msm_bo(msm_host->tx_gem_obj)->pages)
++		pg = page_to_phys(to_msm_bo(msm_host->tx_gem_obj)->pages[0]);
++	v = cfg_hnd->ops->tx_buf_get(msm_host);
++	if (!IS_ERR_OR_NULL(v))
++		w0 = v[0];
++	if (cfg_hnd->ops->tx_buf_put)
++		cfg_hnd->ops->tx_buf_put(msm_host);
++	pr_info("dodge-iova: %s dev %s dom %px type %x | dma_base %llx hw %08x | iova2phys %pa page0 %pa %s | w0 %08x\n",
++		tag, dev_name(d), dom, dom ? dom->type : 0, base,
++		dsi_read(msm_host, REG_DSI_DMA_BASE), &ph, &pg,
++		ph == pg ? "MATCH" : "MISMATCH", w0);
++}
++
++#define DODGE_TPG_CTRL_R	0x158
++#define DODGE_TPG_DMA_INIT_R	0x178
++#define DODGE_TPG_FIFO_ST_R	0x1d8
++#define DODGE_TPG_FIFO_RST_R	0x1e8
++static void dodge_fifo_probe(struct msm_dsi_host *msm_host, const char *tag)
++{
++	u32 st, prev, fs;
++	int i, n = 0;
++	char buf[400];
++
++	dsi_write(msm_host, DODGE_TPG_CTRL_R, 0);
++	dsi_write(msm_host, DODGE_TPG_FIFO_RST_R, 1);
++	udelay(1);
++	dsi_write(msm_host, DODGE_TPG_FIFO_RST_R, 0);
++	dsi_write(msm_host, DODGE_TPG_CTRL_R, BIT(1) | BIT(2) | (0x3 << 16));
++	prev = dsi_read(msm_host, DODGE_TPG_FIFO_ST_R);
++	fs = dsi_read(msm_host, REG_DSI_FIFO_STATUS);
++	n += scnprintf(buf + n, sizeof(buf) - n, "w0:%08x/%08x", prev, fs);
++	for (i = 1; i <= 72; i++) {
++		dsi_write(msm_host, DODGE_TPG_DMA_INIT_R, 0);
++		st = dsi_read(msm_host, DODGE_TPG_FIFO_ST_R);
++		if (st != prev)
++			n += scnprintf(buf + n, sizeof(buf) - n, " w%d:%08x/%08x",
++				       i, st, dsi_read(msm_host, REG_DSI_FIFO_STATUS));
++		prev = st;
++	}
++	dsi_write(msm_host, DODGE_TPG_CTRL_R, 0);
++	dsi_write(msm_host, DODGE_TPG_FIFO_RST_R, 1);
++	udelay(1);
++	dsi_write(msm_host, DODGE_TPG_FIFO_RST_R, 0);
++	wmb();
++	pr_info("dodge-fifo: %s depth probe (tpg_st/fifo_st after N words) %s | end tpg_st %08x fifo_st %08x\n",
++		tag, buf, dsi_read(msm_host, DODGE_TPG_FIFO_ST_R),
++		dsi_read(msm_host, REG_DSI_FIFO_STATUS));
++}
++
++static int dodge_dma_n;
+ static int dsi_cmd_dma_tx(struct msm_dsi_host *msm_host, int len)
+ {
+ 	const struct msm_dsi_cfg_handler *cfg_hnd = msm_host->cfg_hnd;
+@@ -1437,10 +1509,31 @@ static int dsi_cmd_dma_tx(struct msm_dsi_host *msm_host, int len)
+ 	dodge_trace("dsi-dma-pre", (u32)dma_base);
+ 	triggered = msm_dsi_manager_cmd_xfer_trigger(
+ 						msm_host->id, dma_base, len);
++	if (triggered && dodge_dma_n++ == 0) {
++		/* round 18: same points on good and bad boots */
++		udelay(50);
++		pr_info("dodge-r18: first-trig st0 %08x lane %08x fifo_st %08x\n",
++			dsi_read(msm_host, REG_DSI_STATUS0),
++			dsi_read(msm_host, REG_DSI_LANE_STATUS),
++			dsi_read(msm_host, REG_DSI_FIFO_STATUS));
++		dodge_vbif_dump("first-trig");
++	}
+ 	if (triggered) {
+ 		ret = wait_for_completion_timeout(&msm_host->dma_comp,
+ 					msecs_to_jiffies(200));
+ 		dodge_trace("dsi-dma-post", ret);
++		if (dodge_dma_n == 1) {
++			pr_info("dodge-r18: first-%s st0 %08x lane %08x fifo_st %08x\n",
++				ret ? "done" : "timeout",
++				dsi_read(msm_host, REG_DSI_STATUS0),
++				dsi_read(msm_host, REG_DSI_LANE_STATUS),
++				dsi_read(msm_host, REG_DSI_FIFO_STATUS));
++			dodge_vbif_dump(ret ? "first-done" : "first-timeout");
++			if (ret) {
++				dodge_iova_dump(msm_host, "first-done");
++				dodge_fifo_probe(msm_host, "first-done");
++			}
++		}
+ 		DBG("ret=%d", ret);
+ 		if (ret == 0)
+ 			ret = -ETIMEDOUT;
+@@ -1625,6 +1718,7 @@ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 		dodge_first_done = true;
+ 		dodge_clkdump(msm_host, "first-cmd");
+ 		dodge_vbif_dump("first-cmd");
++		dodge_iova_dump(msm_host, "first-cmd");
+ 	}
+ 	/* round 17: once the FIFO path has delivered a command on this boot,
+ 	 * keep sending small commands (<= 64 B, downstream FIFO limit) that way */
+@@ -1638,6 +1732,7 @@ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 		dodge_retried = true;
+ 		dodge_clkdump(msm_host, "tx-110");
+ 		dodge_vbif_dump("tx-110");
++		dodge_iova_dump(msm_host, "tx-110");
+ 		/* un-wedge the cmd engine, then resend the same command with
+ 		 * no memory fetch: DONE => fetch path, TIMEOUT => link/PHY */
+ 		dsi_sw_reset(msm_host);
+@@ -1647,6 +1742,7 @@ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 			dsi_read(msm_host, REG_DSI_LANE_STATUS));
+ 		r2 = len <= 64 ? dodge_tpg_tx(msm_host, len, "first-110") : -E2BIG;
+ 		dodge_vbif_dump("after-tpg");
++		dodge_fifo_probe(msm_host, "after-tpg");
+ 		if (r2 == len) {
+ 			dodge_tpg_mode = true;
+ 			ret = len;
+-- 
+2.56.0
+
