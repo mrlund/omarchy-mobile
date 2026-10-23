@@ -1,0 +1,53 @@
+From b64688f01061a86e74bdbc6f3d66dfda785c9191 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 09:10:32 +0200
+Subject: [PATCH] WORKAROUND dodge round 19: TPG FIFO for every <=64 B DSI cmd
+ from the first one; memory DMA only for the 0x81 and PPS writes
+
+---
+ drivers/gpu/drm/msm/dsi/dsi_host.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 170bbc23b..6a57a0800 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -1529,10 +1529,8 @@ static int dsi_cmd_dma_tx(struct msm_dsi_host *msm_host, int len)
+ 				dsi_read(msm_host, REG_DSI_LANE_STATUS),
+ 				dsi_read(msm_host, REG_DSI_FIFO_STATUS));
+ 			dodge_vbif_dump(ret ? "first-done" : "first-timeout");
+-			if (ret) {
++			if (ret)
+ 				dodge_iova_dump(msm_host, "first-done");
+-				dodge_fifo_probe(msm_host, "first-done");
+-			}
+ 		}
+ 		DBG("ret=%d", ret);
+ 		if (ret == 0)
+@@ -1719,13 +1717,21 @@ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 		dodge_clkdump(msm_host, "first-cmd");
+ 		dodge_vbif_dump("first-cmd");
+ 		dodge_iova_dump(msm_host, "first-cmd");
++		/* round 19 workaround (dodge only): from the first command, send
++		 * every command of <= 64 B through the TPG DMA FIFO, so only the
++		 * two commands that cannot fit (0x81 104 B, PPS) use memory DMA. */
++		dodge_tpg_mode = of_machine_is_compatible("OnePlus,13");
++		pr_info("dodge-r19: fifo-first %s\n", dodge_tpg_mode ? "on" : "off");
+ 	}
+ 	/* round 17: once the FIFO path has delivered a command on this boot,
+ 	 * keep sending small commands (<= 64 B, downstream FIFO limit) that way */
+-	if (dodge_tpg_mode && len <= 64)
++	if (dodge_tpg_mode && len <= 64) {
+ 		ret = dodge_tpg_tx(msm_host, len, "fifo");
+-	else
++	} else {
+ 		ret = dsi_cmd_dma_tx(msm_host, len);
++		pr_info("dodge-r19: mem-dma #%d type 0x%x data0 0x%x len %d -> %d\n",
++			dodge_dma_n, msg->type, *(u8 *)msg->tx_buf, len, ret);
++	}
+ 	if (ret == -ETIMEDOUT && !dodge_retried) {
+ 		int r2;
+ 
+-- 
+2.56.0
+

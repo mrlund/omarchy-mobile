@@ -15,3 +15,5 @@ Rule learned the hard way: any MDP/DSI MMIO read must check the GDSC **and** the
 - `0007-tpg-fifo-resend-and-vbif-halt-dump.patch`: Round 17. On the first -110, sw reset and resend through the TPG DMA FIFO (no memory fetch). Later commands of 64 bytes or less use the FIFO after a success. VBIF XIN/AXI halt dump at the BCR, first command and -110. Applies on top of the revert of 0006.
 - `0008-r18-first-dma-dumps-iova-fifo-depth.patch`: Round 18. VBIF+STATUS0 at first-trig/first-done, dma_base iova vs iommu_iova_to_phys, and a no-trigger TPG FIFO depth probe. On top of 0007.
 - `0009-r18b-dma-count-shift.patch`: Round 18b. Resends the first panel command twice (DMA count-shift test). On top of 0008.
+- `0010-r19-fifo-first-two-mem-dma.patch`: Round 19. On OnePlus,13 only, every DSI command of 64 B or less goes through the TPG FIFO from the first command, and memory DMA is used only for longer ones (0x81, PPS), each logged. On top of 0008 (0009 reverted). Not a workaround: on a bad boot the PPS DMA hangs.
+- `loop19.sh FIRST LAST`: r19 one-shot warm boots until a c60 or failing boot (installed as /tmp/loop19.sh).
