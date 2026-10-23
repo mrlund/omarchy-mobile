@@ -4,7 +4,12 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (12:35 CEST)
+## 2026-10-23: resume here (13:28 CEST)
+- loop22b done (logs/loop22b.txt, 20 boots, 12:52-13:25): 1 bad of 20. c60 boots: fix1 (F2/F2b) 4/4 good (F2-1, F2-3, F2b-3, F2b-4); F2b-3 was the arm right after a bad boot (biased toward bad) and still good. No-read controls on c60: R22c-3 BAD (txfail 32, ended by host at 228 s), R22c-4 good. Non-c60 boots: 14/14 good, all arms.
+- RUNNING (since 13:25): /tmp/chain23.sh -> /tmp/loop23.sh 4 "r22n:N23 fix1:F3 r21k:R23k" (logs/loop23.txt). loop23.sh = loop20x.sh plus a stop check before each boot (STOPAT 13:41, or touch /tmp/stop23). r22n = fix1 with an mmss_noc base read instead of the QTB read.
+- Phone: one-shot loop, fallback (msm 2c86 + panel v2) between one-shots; nothing staged when the loop ends.
+
+## 2026-10-23: resume here (12:35 CEST) (superseded by 13:28)
 - Round 21 interleave (logs/loop21b.txt, 20 boots, arms r21s/r21k/r21v no QTB read, r21a sf read, r20d hf read): 0 bad of 20. c60 boots: read arms 3/3 good (R21a2-1, R21a2-3, R21d2-3), no-read arms 2/2 good (R21s-4 VIG1 stop, R21k-4 plain no-read, the kick never fired). So the c60 -> bad link did not hold after ~11:40, and the Round 20 "read cures" table is likely confounded by drift. Not settled.
 - VIG1 at takeover (r21v): VIG1 is a live splash pipe. src0 fc800000, xy x=0x2d0 (720), size 720x3168, stride 0x1680, op 80000000: ABL scans the right half with VIG1, the left with VIG0 (CTL0 fetch 0x30000). The old stop-splash leaves VIG1 SRC0 at fc800000. The CB9 fault iova 0xfd965800 is in the last line's right half, so it is a VIG1 fetch.
 - Candidate fix built (wt-dodge 2c93e5f48 on c88db6b44 = r21v state; copy in kernel/candidate/0001-*.patch): msm_mdss reads mdp_hf_qtb SWID_LOW on every MDSS enable. msm-variants/fix1 (sha fe00ad5d99d0). NOT installed.
