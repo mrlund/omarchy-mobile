@@ -1,0 +1,81 @@
+From 44f4c905017f62a7e3807f475b4ff6008a2e0a24 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 16:46:04 +0200
+Subject: [PATCH] Revert "drm/msm/mdss: keep MDSS_GDSC on across runtime
+ suspend on SM8750"
+
+This reverts commit 31453abbe.
+
+The keep-on was a workaround for "cmd dma tx failed" on the first display
+enable after a session followed by an MDSS_GDSC collapse. Its FIXME said the
+lost state was outside the DSI/PHY/MDSS/DPU register space. It was: the
+symptom is the same stalled display fetch as the warm-boot display drop, and
+both are fixed at the root by the previous commit ("drm/msm/mdss: sm8750:
+read the display QTB once on every MDSS enable"). That read runs from
+msm_mdss_enable(), which is also the runtime-resume path, so every enable
+after a GDSC collapse gets it.
+
+Tested on the OnePlus 13 (dodge) with the QTB read and keep_gdsc_on off:
+mdss_gdsc reaches off-0 with MDSS runtime suspended during screen-off, and
+repeated screen off/on plus 165 s idle-off/wake cycles over several warm
+boots show no cmd dma timeout. Without the QTB read the same sequence failed
+every time.
+
+The domain can now collapse in screen-off again.
+---
+ drivers/gpu/drm/msm/msm_mdss.c | 5 -----
+ drivers/gpu/drm/msm/msm_mdss.h | 8 --------
+ 2 files changed, 13 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/msm_mdss.c b/drivers/gpu/drm/msm/msm_mdss.c
+index a506b3633..586230249 100644
+--- a/drivers/gpu/drm/msm/msm_mdss.c
++++ b/drivers/gpu/drm/msm/msm_mdss.c
+@@ -13,7 +13,6 @@
+ #include <linux/irqchip/chained_irq.h>
+ #include <linux/of_platform.h>
+ #include <linux/platform_device.h>
+-#include <linux/pm_domain.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/reset.h>
+ 
+@@ -536,9 +535,6 @@ static struct msm_mdss *msm_mdss_init(struct platform_device *pdev, bool is_mdp5
+ 
+ 	pm_runtime_enable(&pdev->dev);
+ 
+-	if (msm_mdss->mdss_data && msm_mdss->mdss_data->keep_gdsc_on)
+-		dev_pm_genpd_rpm_always_on(&pdev->dev, true);
+-
+ 	return msm_mdss;
+ }
+ 
+@@ -792,7 +788,6 @@ static const struct msm_mdss_data sm8750_data = {
+ 	.highest_bank_bit = 3,
+ 	.macrotile_mode = true,
+ 	.reg_bus_bw = 57000,
+-	.keep_gdsc_on = true,
+ 	.hf_qtb_base = 0x017d0000,	/* mdp_hf_qtb, stock DT apps-smmu */
+ };
+ 
+diff --git a/drivers/gpu/drm/msm/msm_mdss.h b/drivers/gpu/drm/msm/msm_mdss.h
+index 0a2c6a681..66d896b1a 100644
+--- a/drivers/gpu/drm/msm/msm_mdss.h
++++ b/drivers/gpu/drm/msm/msm_mdss.h
+@@ -15,14 +15,6 @@ struct msm_mdss_data {
+ 	bool ubwc_bank_spread;
+ 	bool macrotile_mode;
+ 	u32 reg_bus_bw;
+-	/*
+-	 * Keep the MDSS power domain on while MDSS is runtime suspended.
+-	 * FIXME: on SM8750, collapsing MDSS_GDSC after a display session
+-	 * leaves DSI command DMA dead on the next enable (cmd dma tx
+-	 * timeout, no DSI error, no SMMU fault). The lost state is outside
+-	 * the DSI/PHY/MDSS/DPU register space; drop this once found.
+-	 */
+-	bool keep_gdsc_on;
+ 	/*
+ 	 * Physical address of the display (mdp_hf) QTB500 TBU of the apps
+ 	 * SMMU, or 0. If set, it is read once on every MDSS enable, before
+-- 
+2.56.0
+

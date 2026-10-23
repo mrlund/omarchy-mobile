@@ -12,7 +12,7 @@ gate() {
 	g=$(timeout 30 tools/dodge-battcheck 2>&1); echo "gate: $(echo $g | tr '\n' ' ')" >> $O
 	echo "$g" | grep -q BATT_OK && return 0
 	c=$(echo "$g" | grep -o 'cap [0-9]*' | grep -o '[0-9]*')
-	[ "${c:-0}" -ge 95 ] && { echo "gate: full-battery rule, passing" >> $O; return 0; }
+	[ "${c:-0}" -ge 100 ] && { echo "gate: full-battery rule (100%), passing" >> $O; return 0; }
 	return 1
 }
 : > $O
