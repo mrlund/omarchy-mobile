@@ -1,0 +1,93 @@
+From ebbc727a1ae9f78ee11e4ccc485db65babac8def Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 11:42:37 +0200
+Subject: [PATCH] DIAG dodge round 21k: kick on hang (one hf QTB read on the
+ first -110, 10 ms poll, sw reset + re-trigger)
+
+---
+ drivers/gpu/drm/msm/dodge_trace.c  | 14 ++++++++++++++
+ drivers/gpu/drm/msm/dodge_trace.h  |  2 ++
+ drivers/gpu/drm/msm/dsi/dsi_host.c | 24 +++++++++++++++++++++++-
+ 3 files changed, 39 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/dodge_trace.c b/drivers/gpu/drm/msm/dodge_trace.c
+index 7c39a2b56..8bb6f3e43 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.c
++++ b/drivers/gpu/drm/msm/dodge_trace.c
+@@ -111,6 +111,20 @@ void dodge_vbif_dump(const char *tag)
+ 	/* r21v: no QTB access (r20c state); VIG0/VIG1 read-only dump in dodge_stop_splash */
+ }
+ 
++/*
++ * DIAG (dodge) round 21k: kick on hang. One read of mdp_hf_qtb SWID_LOW
++ * (downstream qtb500 write_sync), only after the first DSI DMA -110.
++ */
++u32 dodge_qtb_kick(void)
++{
++	return qtb_hf ? readl(qtb_hf) : 0xdead;
++}
++
++u32 dodge_vbif_xh1(void)
++{
++	return vbif ? readl(vbif + 0x204) : 0xdead;
++}
++
+ /*
+  * DIAG (dodge) round 20: display QTB500 state, strictly read-only. Offsets
+  * from the OnePlus 13 (sm8750) downstream arm-smmu-qcom.c qtb500 impl:
+diff --git a/drivers/gpu/drm/msm/dodge_trace.h b/drivers/gpu/drm/msm/dodge_trace.h
+index 8326d68a9..fcee4a246 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.h
++++ b/drivers/gpu/drm/msm/dodge_trace.h
+@@ -8,4 +8,6 @@ void dodge_stop_splash(void);
+ extern bool dodge_c60;
+ void dodge_vbif_dump(const char *tag);
+ void dodge_qtb_dump(const char *tag);
++u32 dodge_qtb_kick(void);
++u32 dodge_vbif_xh1(void);
+ #endif
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 170bbc23b..84ae92d50 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -1595,7 +1595,7 @@ static int dsi_cmd_dma_rx(struct msm_dsi_host *msm_host,
+ 	return j;
+ }
+ 
+-static bool dodge_first_done, dodge_retried;
++static bool dodge_first_done, dodge_retried, dodge_kicked;
+ static void dodge_clkdump(struct msm_dsi_host *msm_host, const char *tag)
+ {
+ 	static void __iomem *cc, *pll, *intf, *ctl;
+@@ -1726,6 +1726,28 @@ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 		ret = dodge_tpg_tx(msm_host, len, "fifo");
+ 	else
+ 		ret = dsi_cmd_dma_tx(msm_host, len);
++	/* r21k: kick on hang: one hf QTB read, poll 10 ms for the stuck DMA
++	 * to finish (dma done / xin7 idle), else sw reset + one memory-DMA
++	 * re-trigger of the same command, before the r17 FIFO fallback */
++	if (ret == -ETIMEDOUT && !dodge_kicked) {
++		u32 xb = dodge_vbif_xh1(), st = dsi_read(msm_host, REG_DSI_STATUS0), k;
++		long w;
++
++		dodge_kicked = true;
++		k = dodge_qtb_kick();
++		w = wait_for_completion_timeout(&msm_host->dma_comp, msecs_to_jiffies(10));
++		pr_err("dodge-kick: before st0 %08x xh1 %08x | hf swid %08x | after 10ms %s st0 %08x xh1 %08x\n",
++			st, xb, k, w ? "DONE" : "still-stuck",
++			dsi_read(msm_host, REG_DSI_STATUS0), dodge_vbif_xh1());
++		if (w) {
++			ret = len;
++		} else {
++			dsi_sw_reset(msm_host);
++			ret = dsi_cmd_dma_tx(msm_host, len);
++			pr_err("dodge-kick: re-trigger after sw reset -> %d st0 %08x xh1 %08x\n",
++				ret, dsi_read(msm_host, REG_DSI_STATUS0), dodge_vbif_xh1());
++		}
++	}
+ 	if (ret == -ETIMEDOUT && !dodge_retried) {
+ 		int r2;
+ 
+-- 
+2.56.0
+
