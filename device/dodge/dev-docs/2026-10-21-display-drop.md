@@ -880,3 +880,23 @@ After a cable-out cold start at ~13:56. All arms are one-shot msm.ko on the same
 - Gate slip (15:03): a reboot ran after BATT_FAIL because it was chained with ;. Always chain with &&.
 - idcheck reports "serial" hits on the module path: the USB gadget serial is the string "omamobile" (the distro name), not a device identifier; pushed with that noted.
 - Phone: persistent qtbfix msm.ko + panel v2, nothing staged, no loop running. Next: longer soak and a few cold starts; then try dropping the GDSC workaround with the QTB read in place.
+
+### Round 28 continued, and the GDSC (0050) check (2026-10-23 16:19-16:45 CEST)
+
+- 16:19: Martin did a cable-out cold start on the qtbfix module: display up,
+  idle screen-off and wake fine.
+- soak28b (16:21-16:33): Q28b-1..9 all good, 0 tx failed (no c60 hits in
+  this batch). Round 28 total: 24/24.
+- 0050 covered the 10-20/10-21 off/on failure: a display session followed by
+  an MDSS_GDSC collapse gave `cmd dma tx failed` (-110) on the next enable,
+  with no DSI error and no SMMU fault, and the VBIF AXI halt never acked.
+  That is the same stalled-fetch signature as the warm-boot wedge, and
+  msm_mdss_enable() (where 0054 reads the QTB) runs on every runtime resume,
+  so the QTB read should cover it too.
+- Test: one-shot r29g = 0054 with `.keep_gdsc_on = false` (diag commit
+  2d09e0871, module only, no flash). With the screen off for 12 s, pm_genpd
+  showed mdss_gdsc off-0 and the MDSS device runtime-suspended. Results:
+  cyc1-4 on=On, then idle 165 s off and wake=On, tx failed delta 0. Under 0050's
+  original conditions this failed every time. Result: 0050 looks droppable;
+  confirm with a longer r29g run and a cold start before removing it.
+

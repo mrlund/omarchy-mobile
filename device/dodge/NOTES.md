@@ -4,7 +4,26 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (15:37 CEST), clean QTB fix persistent, soak 15/15
+## 2026-10-23: resume here (16:50 CEST), qtbfix persistent, soak 24/24, 0050 droppable
+
+- Phone: persistent msm.ko = qtbfix (0054, a153ae874f75), keep_gdsc_on still on.
+  Nothing staged; 91/92 in /root/dropins-disabled; 90-premsm and 93-deadline stay.
+  Rollback: `cp msm.ko.pre-qtbfix msm.ko && sync`, gated reboot.
+- Martin, 16:19 CEST: cable-out cold start on qtbfix came up fine; idle
+  screen-off and wake work.
+- Soak: Round 28 now 24/24 good, 0 tx failed (Q1 + Q28-1..14 + Q28b-1..9).
+- 0050 (keep MDSS_GDSC on) lives only in msm.ko (msm_mdss.c/h), so dropping it
+  needs no flash. One-shot r29g (qtbfix with keep_gdsc_on=false, 6069cfcd6516):
+  GDSC really collapses (pm_genpd mdss_gdsc off-0, runtime suspended) after a
+  session, 4 off/on cycles + 165 s idle-off and wake, 0 tx failed. Before the
+  QTB read that sequence failed every time. One boot only: next step is a
+  longer r29g test (warm + one cold start), then make 0050's flag false in
+  0054's series and drop 0050.
+- 7.3 port: carry 0054 (the QTB read). Derek's omamobile 7.3 tree has no TBU
+  nodes either, so keep the hard-coded hf_qtb_base until a DT node exists.
+  Never flash 7.3.
+
+## 2026-10-23: resume here (15:37 CEST), clean QTB fix persistent, soak 15/15 (superseded by 16:50)
 
 - Clean fix module: wt-dodge branch dodge-qtbfix = bd9587d65 (flashed base: product series 0001-0050 incl. the 0050 GDSC workaround) + 12048bd2c (QTB read only). No DIAG; 0052 lanediag dropped (it is DIAG and the persistent 2c86 module was the 0052 build). Exported as kernel/patches/0054. msm.ko a153ae874f75 (stripped, md5 a93bc1a3), copy in ~/android/mainline/msm-variants/qtbfix/. Panel module unchanged (v2, 0053).
 - QTB address: hard-coded 0x017d0000 as sm8750 match data (devm_ioremap). Mainline sm8750.dtsi has no TBU nodes, so there is nothing to take from DT yet; upstream form is a TBU phandle or an arm-smmu-qcom hook.

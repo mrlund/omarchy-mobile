@@ -15,6 +15,12 @@ P=~/.config/omarchy-mobile/private-ids
 [ -f $P ] && while read -r x; do [ -n "$x" ] && chk private "$x"; done < $P
 [ -f $P ] || { echo "no $P: private strings not checked"; bad=1; }
 chk psk 'psk[=]|password[=]'
+# A real device serial has digits (hex/alnum, 6+ chars). In the OS the USB gadget
+# reports a generic name (the hostname "omamobile"), which is not an identifier
+# and appears all over the repo; skip only that kind of value.
+if [ -n "$SER" ] && ! { echo "$SER" | grep -q '[0-9]'; } && [ "$SER" = "$(timeout 5 tools/phone-ssh hostname 2>/dev/null || echo omamobile)" ]; then
+	echo "note: USB serial is the generic hostname, not an identifier; not checked"; SER=
+fi
 [ -n "$SER" ] && chk serial "$SER"
 [ -z "$SER" ] && echo "note: phone serial not read (phone off?)"
 echo "$( { git diff --stat origin/dodge-plan..HEAD; git diff --cached --stat; } | tail -2)"
