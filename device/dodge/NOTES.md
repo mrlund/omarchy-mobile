@@ -4,7 +4,14 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (11:45 CEST)
+## 2026-10-23: resume here (12:35 CEST)
+- Round 21 interleave (logs/loop21b.txt, 20 boots, arms r21s/r21k/r21v no QTB read, r21a sf read, r20d hf read): 0 bad of 20. c60 boots: read arms 3/3 good (R21a2-1, R21a2-3, R21d2-3), no-read arms 2/2 good (R21s-4 VIG1 stop, R21k-4 plain no-read, the kick never fired). So the c60 -> bad link did not hold after ~11:40, and the Round 20 "read cures" table is likely confounded by drift. Not settled.
+- VIG1 at takeover (r21v): VIG1 is a live splash pipe. src0 fc800000, xy x=0x2d0 (720), size 720x3168, stride 0x1680, op 80000000: ABL scans the right half with VIG1, the left with VIG0 (CTL0 fetch 0x30000). The old stop-splash leaves VIG1 SRC0 at fc800000. The CB9 fault iova 0xfd965800 is in the last line's right half, so it is a VIG1 fetch.
+- Candidate fix built (wt-dodge 2c93e5f48 on c88db6b44 = r21v state; copy in kernel/candidate/0001-*.patch): msm_mdss reads mdp_hf_qtb SWID_LOW on every MDSS enable. msm-variants/fix1 (sha fe00ad5d99d0). NOT installed.
+- RUNNING: /tmp/chain22.sh -> loop20x.sh 6 "r21k:R22k fix1:F1 r20c:R22c fix1:F1b" (logs/loop22.txt), started after loop21b. Arms: 2 no-read controls + 2 fix per round.
+- Phone: one-shot loop, fallback (msm 2c86 + panel v2) comes back between one-shots; nothing staged when the loop ends.
+
+## 2026-10-23: resume here (11:45 CEST) (superseded by 12:35)
 - Round 20 (dev-doc "Round 20"): a single readl of mdp_hf_qtb SWID_LOW (0x17d0000) before the first DSI DMA looks like a cure. On c60 boots: 5/5 good with a read, 1/6 good without (r20c, r20e delay-only, r18/r19). QTB OT/fence values are all 0 on all read boots.
 - Not yet shown: interleaved read vs no-read on the same day (drift); hf vs sf (r21a, msm-variants/r21a, patch 0016); VIG1 at takeover (fresh consult).
 - Phone on the fallback (msm 2c86 + panel v2), nothing staged.
