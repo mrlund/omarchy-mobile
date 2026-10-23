@@ -780,3 +780,24 @@ Findings:
 - Shared vs per-client credit pool: not answered. The frame-done/pingpong timeouts come after the DSI engine is wedged (STATUS0 0x20003) with the PPS missing, so they do not show whether the SSPP fetch itself would hang. Answering it needs an SSPP fetch before the first DSI memory DMA, or a bad boot where the DSI does not wedge.
 - Next: the TBU/QTB outstanding-transaction (OT) snapshot and fence registers, good vs bad (offsets still to be verified), and a clean teardown in the outgoing kernel before a warm reboot.
 
+
+## Round 20: display QTB500 read-only state, and controls (09:40-11:40 CEST, 2026-10-23)
+
+Variants (msm-trace `0011`-`0015`, all on top of the r18 state, one-shot msm.ko per boot): r20 reads mdp_hf_qtb (0x17d0000) and sf_qtb (0x17d1000) SWID_LOW / FENCEREQ 0x410 / FENCEACK 0x418 / OT_SNAPSHOT 0xc10, 0xc20 at every VBIF dump point; r20b skips the mdss-* points; r20d does one hf SWID_LOW read at first-cmd only; r20c maps the QTBs and never reads; r20e is a timing control (dsb + udelay(5) + pr_info where r20d reads, no QTB access). r20c and r20e were run interleaved (`loop20x.sh`) to avoid drift between rounds.
+
+QTB values on every boot that read them: hf SWID_LOW 0035aefc, FENCEREQ/FENCEACK 0, OT snapshots 0 on both QTBs and both ports. All of those boots were good, so there is no good-vs-bad OT comparison. Without a fence the OT snapshot may not be a live view, so the zeros are not evidence of "no leaked credits".
+
+Outcome on c60 boots (stalled splash at takeover, the bad-boot predictor):
+
+| arm | c60 boots | good | bad |
+|---|---|---|---|
+| any QTB read before the first DSI DMA (r20 R20-3, R20-12; r20b R20b-7; r20d R20d-1, R20d-3) | 5 | 5 | 0 |
+| no QTB read (r20c R20c-0, R20c-2; r20e R20e-8; R18c, R19-3, R18b) | 6 | 1 | 5 |
+
+Across about 39 QTB-read boots there was no bad boot (baseline warm-bad rate about 30%). Non-c60 boots are good in every arm. Fisher exact on the c60 table: one-sided p about 0.013. The r20e c60 boot (R20e-8) was bad with 35 tx failures, so a 5 us delay plus a printk at the same point does not cure. That points to the QTB read itself, not timing. Not yet shown: the read arms and the no-read arms were not all interleaved (r20/r20b/r20d ran before r20c/r20e), so drift is not fully excluded.
+
+Bad detection in `rbt.sh`: R20-16 and R20b-6 were first flagged bad on 1-2 "frame done timeout" lines with 0 tx failures. That is a known transient. BAD now needs tx failed / failed to initialize panel / kickoff timeout / 5 or more frame-done timeouts / dpms not On. Both boots are good under that rule.
+
+Downstream (sm8750 arm-smmu-qcom.c qtb500): halt (FENCEREQ) / poll / resume are used only for ATOS/ECATS and testbus debug; write_sync is a readl of SWID_LOW; there is no credit clear or invalidate, and nothing runs at display handoff or reboot. A fence on a QTB with leaked OT would never ack, so a halt is not a candidate fix. The stock DT QTB nodes have no clocks and no power-domains, only `interconnects` mmss_noc -> mc_virt (hf: mmss_noc 0x15, sf: 0x20), which the display already votes (votes identical good/bad).
+
+Next: r21a (`0016`, one sf_qtb SWID_LOW read only), to test whether the cure is specific to hf. Then VIG1 at takeover (fresh consult, `fresh-consult-facts.md`): ABL scans out with VIG0 and VIG1 (CTL0 fetch 0x30000), and stop-splash only clears VIG0.
