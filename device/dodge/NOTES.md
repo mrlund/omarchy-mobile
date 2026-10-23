@@ -4,7 +4,15 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (15:08 CEST)
+## 2026-10-23: resume here (15:15 CEST), clean QTB fix installed persistently, soak RUNNING
+
+- Clean fix: wt-dodge branch dodge-qtbfix = bd9587d65 (flashed base incl. 0050 GDSC workaround) + 12048bd2c (QTB read only; no DIAG, no 0052 lanediag). Exported as kernel/patches/0054. msm.ko a153ae874f75 (stripped), copy in ~/android/mainline/msm-variants/qtbfix/.
+- One-shot check Q1 (15:10) good, then installed as the persistent msm.ko; previous 2c86 kept as msm.ko.pre-qtbfix. Rollback: cd /usr/local/lib/omamobile/display && cp msm.ko.pre-qtbfix msm.ko && sync, then a gated reboot.
+- Drop-ins: 91/92 one-shot (inert without a staged file) moved to /root/dropins-disabled/; 90-premsm kept (read-only dodge_peek act=9, no QTB access; its INTF1 line_count is the c60 counter now that the msm trace is gone); 93-deadline kept (240 s).
+- RUNNING: /tmp/soak28.sh (logs/soak28.txt), STOPAT 15:31; stop between boots with touch /tmp/stop28.
+- Gate slip (15:03): a reboot was chained with ; after BATT_FAIL; always chain with &&.
+
+## 2026-10-23: resume here (15:08 CEST) (superseded by 15:15)
 
 - Round 27 (14:35-15:01 CEST, loop27 "r25v fix1 r21k", 15 boots): V27-1 c60 BAD (vote logged "extra mdp-mem vote on 1 paths", still -110, txfail 30), all others good; F7-3/F7-4 c60 good, R27k-3 c60 good.
 - After the loop, the fallback (2c86) boot at 15:01 was BAD (-110); ended at about 100 s; the next fallback boot at 15:04 is clean.
