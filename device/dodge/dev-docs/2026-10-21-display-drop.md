@@ -661,3 +661,39 @@ Fix status: **no fix.** Nothing was installed, and the phone's persistent msm.ko
 - Read DSI ERR_INT/ACK_ERR and the PHY error registers at prereset.
 
 Never leave a bad boot running: F1 froze after about 6 minutes.
+
+## Round 14: c60 predictor, DSI state at handover, variants B/C, clock dump (20:37-21:55 CEST, 2026-10-22)
+
+The tools are in `kernel/diag/msm-trace/` (sample.sh does N one-shot boots and prints a summary for each). Patches: 0002 DSI error regs, 0003 variant B, 0004 variant C, 0005 E1 dump. wt-dodge local commits: 16266afba, bdc26a91b, 4c5ec2a77, aac42f150.
+
+| Boot | CEST | Module | Takeover ln | Result |
+|---|---|---|---|---|
+| D1 | 20:38 | diag4 | 8cf | good |
+| D2 | 20:40 | diag4 | c60 | bad, tx 2 |
+| D3 | 20:42 | diag4 | 69e | good |
+| D4 | 20:45 | 2c86 (one-shot not taken) | - | bad, cb9 1 |
+| R4 | 20:47 | 2c86 | - | bad |
+| R5 | 20:49 | 2c86 | - | clean, but 6 CB5 faults inside the splash early in boot (new) |
+| B1, B2 | 20:53, 20:54 | waitB | c60, c60 | good |
+| B3 | 20:56 | waitB | 3cd | good |
+| G3 | 20:58 | 2c86 (one-shot not taken) | - | clean at boot, no Hyprland socket, tx +3 during the dpms checks |
+| G4-G8 | 21:03-21:21 | waitB | c60, 624, 40c, 6c6, 54e | good, dpms/idle checks OK |
+| H1 | 21:25 | waitB | c60 | bad |
+| R6 | 21:28 | 2c86 | - | clean |
+| C1, C2 | 21:33, 21:34 | resetC | 15f, 0 (idle) | good |
+| C3 | 21:36 | resetC | c60 | bad; the reset and the retry failed too |
+| C4 | 21:38 | resetC | 63f | good |
+| E1-E3 | 21:42-21:45 | clkE1 | 310, 6ac, a42 | good |
+| E4 | 21:47 | clkE1 | c60 | bad, tx 19 |
+| R7 | ~21:49 | 2c86 | - | bad, tx 26, cb9 1 |
+| R8 | ~21:53 | 2c86 | - | aborted (host offline); the phone froze overnight |
+
+The full-battery rule was used on D2, D3, G6 and C4.
+
+Findings:
+- At handover, DSI ACK_ERR and TIMEOUT_STATUS are 0. DLN0_PHY_ERR 0x88888 and LANE_STATUS 0x1f1f show up on every boot, good or bad. The only difference is CLK_STATUS: 0x2343 when the splash is idle, 0x8037c3 mid-frame. At c60 the autorefresh is stalled: it reads 0x80000001, but no frame comes within 50 ms.
+- B (wait for the next frame) and C (DSI sw reset before the first command, plus a reset-and-retry on -110) both fail. The stuck state survives a DSI controller reset.
+- E1: at the first command, bad and good boots match on the link clock branches/RCGs, PLL status 0x51, rates, DSI CTRL, and INTF1/CTL0 (all reset by the BCR). At the -110 the clocks are running (CLK_STATUS 0x8037c3) and the DMA stays busy (STATUS0 0x20003). So the clock tree and a stale DPU stream are ruled out. What is left: the DSI PHY lanes/analog state, the panel controller, or the DMA fetch path.
+- c60 is not fully predictive: under B, 4 of 5 idle takeovers were good.
+- 2026-10-23 07:35-07:41: the forced restart from frozen (warm) and a warm reboot were bad, and a cable-out cold start was clean.
+- Next: a rail cycle of the panel on -110 or c60 (consult #3).

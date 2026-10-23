@@ -4,13 +4,23 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-22: c60 predictor, DSI regs at handover, frame-wait (variant B) fails (20:37- CEST, in progress)
+## 2026-10-23: resume here (07:45 CEST)
+
+- 07:35 Martin started the frozen phone. This was most likely a forced restart from frozen, which counts as warm: bad (-110). The 07:39 warm reboot was bad too. At 07:41 a cable-out cold start was CLEAN. Cold boots stay clean, warm boots are intermittent.
+- Phone: 2c86 msm, v2 panel module, drop-ins 50-omamobile-kernel-skip and 90-dodge-premsm (act=9). The one-shot drop-in is parked in /root/91-dodge-oneshot.conf.off.
+- Next (Round 15): consult #3, a full panel rail cycle (rails off >= 20 ms, then reset and re-init) when the first command returns -110 or the takeover was idle at c60. The opt-in self-heal (display/selfheal/) is still not enabled.
+
+## 2026-10-22: c60 predictor, DSI regs at handover, variants B and C fail, clock tree same (20:37-21:55 CEST)
 
 - DSI0 at mdss-prereset (D1-D3, B1-B3): ACK_ERR 0, TIMEOUT_STATUS 0 on every boot. DLN0_PHY_ERR 0x88888 and LANE_STATUS 0x1f1f are the same on good and bad boots (sticky from ABL), so the link is not flagged in error at handover. The only difference: CLK_STATUS 0x2343 on c60 boots vs 0x8037c3 mid-frame (bits 7/10/12/23 clear, so the DSI HS clocks are idle/gated).
 - At c60 the splash autorefresh is stalled: AUTOREFRESH reads 0x80000001 (enabled) but no new frame starts within 50 ms (dodge-wait timed out on every c60 boot).
 - Variant B (wait up to 50 ms for the next frame when idle at c60): B1-B3 and G4-G8 were 8 clean one-shot boots in a row, 3 of them c60, with dpms/idle checks OK on G4-G8. H1 (c60) then failed with -110 at 21:25. It was rebooted onto 2c86 (R6, clean). Not a fix.
 - G3 did not take the one-shot (it ran 2c86, clean at boot, txfail +3 during the dpms checks with no Hyprland socket).
 - Variant C (DSI controller sw reset right before the first panel command when the splash was idle, plus one sw-reset retry on -110; the panel already gets a reset pulse with rails on in every prepare): C1-C4 at 21:33-21:39. C3 (c60) failed: after the reset the first DMA still timed out with STATUS0 0x20003, and the retry after a second sw reset too. So the stuck state survives a DSI controller reset: it is below the controller (PHY/lanes or the DMA fetch path). C2 (wr 0, idle, clk_st 0x2343) survived. Not a fix.
+- Claude consult after B and C failed (logs/claude-consult-r14.txt) suggested: (1) dump the link clock tree and the PLL at the -110, (2) check that autorefresh, CTL and DSI command state are really reset before the first command, (3) do a full panel rail cycle on c60 boots.
+- E1 (read-only dump at the first panel command and at the -110, patch 0005), E1-E4 at 21:42-21:48. E4 (c60) was bad. Bad and good boots match at the first command: the byte0/byte0_intf/pclk0/esc0 branch registers all read 0x08000001 (on), the RCG configs are the same, PLL COMMON_STATUS_ONE reads 0x51, rates are byte 182159985, pix 194303984, esc 19200000. DSI CTRL reads 0x1f5 and STATUS0 0. INTF1 autorefresh/TE/line count and CTL0 flush/start all read 0, so the BCR did reset the DPU. That rules out consult #1 (clock tree) and #2 (stale stream state). At the -110: STATUS0 0x20003, CLK_STATUS 0x8037c3 (clocks running, DMA busy forever), clock tree unchanged.
+- c60 does not predict failure 100% any more: under B, 4 of 5 c60/idle takeovers survived. With the stock path it was 9/9 bad.
+- The fallback 2c86 also had bad warm boots in a row (R4 20:47, R7 ~21:49 CEST). The recovery reboot R8 (~21:53) was aborted when the host went offline, and the phone froze overnight.
 - Self-heal safety net drafted, opt-in only: display/selfheal/ (not installed, not enabled).
 
 ## 2026-10-22: msm first-commit trace, splash map removes the fault but not the -110 (19:16-20:40 CEST)
