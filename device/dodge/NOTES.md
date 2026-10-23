@@ -12,6 +12,7 @@ Attempts live in [dev-docs/](dev-docs/).
   - r25b VBIF read: B26-1 c60 BAD (txfail 34, ended at 226 s; the VBIF read ran: mdss-enable xh1 ffff0000 pnd 0); B26-2 (250) good. One c60 data point says a display-side MDSS read does not cure it, so the QTB read is specific (n=1).
   - Clustering again: after B26-1 the first fallback boot was bad too (deadline reboot), the second was clean.
 - Phone: rebooted to the fallback 14:32 (gate ok, 100%); clean (0 tx failed, no one-shot, dpms On). Nothing staged (/run one-shot gone, /root has only the dodge-deadline marker). No loop running.
+- RUNNING (since 14:35): /tmp/chain27.sh -> loop23.sh 12 "r25v:V27 fix1:F7 r21k:R27k" (logs/loop27.txt), STOPAT 15:00; phone ends on the last one-shot, reboot to the fallback after.
 - Next: more interleave "r25v fix1 r21k" (drop r25b unless n grows) until fix1 and r25v each have ~8 c60 boots and controls show c60 failures.
 
 ## 2026-10-23: resume here (14:10 CEST) (superseded by 14:35)
