@@ -116,6 +116,24 @@ only `panel-aa569-p-3-a0019-dsc.ko` and `msm.ko`. Both are installed in
   `463dd36b`, stripped `0050`-era build); on the phone as `*.ko.pre-rails`
   and `msm.ko.pre-lanediag` next to the live modules.
 
+## Display fix: `0054` (2026-10-23)
+
+- `0054` drm/msm/mdss: sm8750: read the display QTB once on every MDSS enable
+  (local `12048bd2c`, branch `dodge-qtbfix` = `bd9587d65` + this patch only;
+  no DIAG, no `0052`). Root fix for the warm-boot display drop (the third
+  DSI command DMA fetch hangs after a warm reset); evidence in the commit
+  message and dev-docs/2026-10-21-display-drop.md Rounds 20-28.
+- The QTB address (`0x017d0000`, mdp_hf_qtb) is hard-coded per-SoC match
+  data for now: mainline sm8750.dtsi has no TBU nodes, so there is nothing to
+  reference from DT. Upstream form: a DT phandle to the TBU or an
+  arm-smmu-qcom hook.
+- Installed as the persistent `msm.ko` (`a153ae874f75`, stripped) in
+  `/usr/local/lib/omamobile.6.16.0-gbd9587d65/display/`; the previous live
+  module (`2c86adc467db`, `0052` lanediag build) is kept beside it as
+  `msm.ko.pre-qtbfix`.
+- Rollback (on the phone, then a gated reboot):
+  `cd /usr/local/lib/omamobile/display && cp msm.ko.pre-qtbfix msm.ko && sync`
+
 ## Workarounds, not fixes
 
 - `0050` drm/msm/mdss: keep `MDSS_GDSC` on across runtime suspend (local
@@ -185,3 +203,4 @@ only `panel-aa569-p-3-a0019-dsc.ko` and `msm.ko`. Both are installed in
 - `0051-drm-panel-oneplus-dodge-own-the-panel-supplies-and-p.patch`
 - `0052-DIAG-drm-msm-dsi-dump-STATUS0-LANE_STATUS-LANE_CTRL-.patch`
 - `0053-drm-panel-oneplus-dodge-keep-the-supplies-on-across-.patch`
+- `0054-drm-msm-mdss-sm8750-read-the-display-QTB-once-on-eve.patch`
