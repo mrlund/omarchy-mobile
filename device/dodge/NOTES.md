@@ -4,14 +4,24 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (14:10 CEST)
+## 2026-10-23: resume here (14:35 CEST)
+- Round 25/26 (after Martin's 13:56 cold start; logs/loop25.txt, logs/loop26.txt, 14:02-14:31): 13 boots, 1 bad.
+  - fix1: F5-1, F5-2 (non-c60) good; F6-1, F6-2 (c60) good. Cumulative fix1 on c60 since 12:52: 6/0 (target ~8).
+  - r21k no-read control: R25k-1, R26k-1, R26k-2 good (all non-c60); R25k-2 invalid (no one-shot loaded, overlapped with the r25v build). No new c60 control boots.
+  - r25v icc vote: V26-1 (bc5), V26-2 (ln 0, the arm right after a bad boot) good, no c60 yet. Vote logged on 1 path (mdp0-mem only). Untested on c60: no conclusion.
+  - r25b VBIF read: B26-1 c60 BAD (txfail 34, ended at 226 s; the VBIF read ran: mdss-enable xh1 ffff0000 pnd 0); B26-2 (250) good. One c60 data point says a display-side MDSS read does not cure it, so the QTB read is specific (n=1).
+  - Clustering again: after B26-1 the first fallback boot was bad too (deadline reboot), the second was clean.
+- Phone: rebooted to the fallback 14:32 (gate ok, 100%); clean (0 tx failed, no one-shot, dpms On). Nothing staged (/run one-shot gone, /root has only the dodge-deadline marker). No loop running.
+- Next: more interleave "r25v fix1 r21k" (drop r25b unless n grows) until fix1 and r25v each have ~8 c60 boots and controls show c60 failures.
+
+## 2026-10-23: resume here (14:10 CEST) (superseded by 14:35)
 - Martin cold-started the phone ~13:56; clean on the fallback.
 - loop25 (fix1:F5 r21k:R25k, logs/loop25.txt) from 14:02, stopped after its current boot to switch to loop26.
 - New arms (both on the fix1 tree with the QTB read removed, same call site in msm_mdss_enable after the clocks; crash-safe by construction):
   - r25v (msm-variants/r25v, sha 551c74b4a3a0; wt-dodge b6d2a05e7, diag 0020): extra mdp0/mdp1-mem icc vote, avg 400 MB/s peak 1.6 GB/s, icc_set_bw() only. Logs "dodge-r25v: extra mdp-mem vote".
   - r25b (msm-variants/r25b, sha d56474d24609; wt-dodge 24b526960, diag 0021): dodge_vbif_dump("mdss-enable"), the existing guarded VBIF read (mapping from dodge_trace_map, skipped if GDSC/AHB/MDP clock off; the same reads already run at mdss-prereset in every arm).
   - Both reverted in wt-dodge (a7041394f, aa66b9fc0); tree = fix1 state.
-- RUNNING: /tmp/chain26.sh -> loop23.sh 10 "r25v:V26 fix1:F6 r21k:R26k r25b:B26" (logs/loop26.txt), STOPAT 14:31.
+- (done) /tmp/chain26.sh -> loop23.sh 10 "r25v:V26 fix1:F6 r21k:R26k r25b:B26" (logs/loop26.txt), STOPAT 14:31.
 - Phone: one-shot loop, fallback between one-shots; nothing staged when the loop ends.
 
 ## 2026-10-23: resume here (13:42 CEST) (superseded by 14:10)

@@ -833,3 +833,18 @@ Candidate fix (kernel/candidate/0001-*.patch, wt-dodge 2c93e5f48): msm_mdss read
 - Bad boots cluster: after R22k-1 the next three fallback boots were bad too; the arm right after a bad boot is biased toward bad.
 - fix1 is 4/4 on c60, controls 2 bad of 3 on c60 since 12:30. Round 21 had no-read 2/2 good on c60, so the evidence for fix1 is suggestive, not conclusive (target ~8 c60 per arm).
 - r22n does not answer the "clock/power wake vs QTB" question: the mmss_noc base is not CPU-readable from the AP (abort). The host reboot after that oops hung in shutdown and the phone needed a forced restart.
+
+## Round 25/26 (2026-10-23, 14:02-14:31 CEST): fix1 vs control vs icc vote vs VBIF read
+
+After a cable-out cold start at ~13:56. All arms are one-shot msm.ko on the same fix1 tree; r25v and r25b replace the QTB read at the same call site (msm_mdss_enable, after the clocks).
+
+| arm | change at MDSS enable | c60 good/bad | non-c60 good/bad |
+|---|---|---|---|
+| fix1 (F5, F6) | hf QTB SWID_LOW read | 2/0 (6/0 cumulative since 12:52) | 2/0 |
+| r21k (R25k, R26k) | none (control) | 0/0 | 3/0 (+1 invalid, no one-shot) |
+| r25v (V26) | icc_set_bw mdp0-mem avg 400 MB/s, peak 1.6 GB/s | 0/0 | 2/0 (V26-2 right after a bad boot) |
+| r25b (B26) | guarded VBIF RT read (dodge_vbif_dump) | 0/1 (B26-1 bad) | 1/0 |
+
+- The VBIF read ran on the bad B26-1 boot and did not prevent the hang. One point, but it argues that the cure is specific to the QTB/TBU path, not "any MDSS register read".
+- The vote arm has not met a c60 boot yet, so it says nothing about a clock/power wake.
+- Patches: kernel/diag/msm-trace/0020 (r25v), 0021 (r25b).
