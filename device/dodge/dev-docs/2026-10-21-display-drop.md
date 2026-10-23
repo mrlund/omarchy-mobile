@@ -820,3 +820,16 @@ Arms, interleaved per round (logs/loop21b.txt): r21s (VIG dump + stop-splash als
 - Lead, not yet tested: 4 of 5 c60 boots that followed a positive (charging) gate current were bad, against 4 of 16 after a negative one. Charging state, or something that tracks it, could be a covariate.
 
 Candidate fix (kernel/candidate/0001-*.patch, wt-dodge 2c93e5f48): msm_mdss reads mdp_hf_qtb SWID_LOW (0x017d0000) on every MDSS enable. This copies the downstream qtb500 "write_sync" read. The proper upstream layer would be a qcom,sm8750-tbu node plus arm-smmu-qcom TBU handling. It sits in msm_mdss for now because ARM_SMMU is built in, while msm is a module and can be one-shot tested.
+
+## Round 22 (2026-10-23, 12:31-13:42 CEST): fix1 vs no-read interleave, r22n
+
+| arm | read before first fetch | c60 boots good/bad | non-c60 good/bad |
+|---|---|---|---|
+| fix1 (F2, F2b) | hf QTB SWID_LOW | 4/0 (F2b-3 ran right after a bad boot) | 6/0 |
+| r20c (R22c) | none | 1/1 (R22c-3 bad, txfail 32) | 3/0 |
+| r21k (R22k, loop22 + loop22b) | none | 0/1 (loop22 R22k-1 bad, kick fired, no recovery) | 5/0 |
+| r22n (N23) | mmss_noc base 0x1780000 | invalid: synchronous external abort in mdss_runtime_resume | - |
+
+- Bad boots cluster: after R22k-1 the next three fallback boots were bad too; the arm right after a bad boot is biased toward bad.
+- fix1 is 4/4 on c60, controls 2 bad of 3 on c60 since 12:30. Round 21 had no-read 2/2 good on c60, so the evidence for fix1 is suggestive, not conclusive (target ~8 c60 per arm).
+- r22n does not answer the "clock/power wake vs QTB" question: the mmss_noc base is not CPU-readable from the AP (abort). The host reboot after that oops hung in shutdown and the phone needed a forced restart.
