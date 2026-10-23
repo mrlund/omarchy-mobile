@@ -710,3 +710,14 @@ Consult r14 #3. The panel driver (wt-dodge 702655734, `diag/panel-rail/0001`) cy
 | R2c (2c86) | 07:58 | 8e6 | bad, so the phone was powered off (warm-bad loop) |
 
 Result: not a fix. The stuck cmd DMA (STATUS0 0x20003) survives a full panel power cycle and reset, as it survived the DSI controller sw reset in variant C. The panel controller is not what holds it. What is left is the host DSI PHY/lanes or the DMA fetch path. The next candidate is a DSI PHY power-down and re-init (PHY reset plus PLL relock) on the -110. A mid-frame takeover (8e6) can fail too, so c60 is not needed for a failure.
+
+## Round 16: DSI link/PHY power-down and re-init on the first -110 (08:04-08:14 CEST, 2026-10-23)
+
+This is the second failed fix in this line, after Round 15, so it was followed by a Claude consult. The diag (wt-dodge 5c256bad3, `msm-trace/0006`) runs once on the first -110. It takes the link down the way post_disable does: host disable, PLL state save, host power off, PHY disable. It waits 20 ms. It brings the link back the way pre_enable does: DSI PHY_RESET, PHY enable with PLL restore, host power on (PLL relock), host enable. Then it retries the command once.
+
+| boot | time | result |
+|---|---|---|
+| P1 (phyR1) | 08:07 | -110. Relink ok; before the retry STATUS0 0x00020000, CLK_STATUS 0x2343, PLL 0x51, clock tree unchanged. Retry -110 (0x20003) |
+| P1b (2c86) | 08:11 | bad, so the phone was powered off |
+
+STATUS0 bit 17 survives a controller sw reset, the link clocks off, the host and PHY vregs off, and a PHY reset. Only the MDSS BCR clears it, and the first DMA after the BCR hangs again. LANE_STATUS 0x1f1f shows the engine never drove the lanes. That points at the cmd DMA fetch (AXI read through VBIF/NoC/SMMU) rather than the PHY or the panel. Consult (logs/claude-consult-r16.txt): next, send the command through the DSI TPG DMA FIFO (no memory fetch) to split fetch from link. Then VBIF halt registers at the BCR and at the -110, the interconnect vote, and a clean teardown before warm reboot.
