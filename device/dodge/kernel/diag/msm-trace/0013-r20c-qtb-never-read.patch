@@ -1,0 +1,28 @@
+From 2448f60e8513f7588b27f8e651f97214f6fb2e48 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 10:29:22 +0200
+Subject: [PATCH] DIAG dodge round 20c: A/B, QTB mapped but never read
+ (r18-equivalent)
+
+---
+ drivers/gpu/drm/msm/dodge_trace.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dodge_trace.c b/drivers/gpu/drm/msm/dodge_trace.c
+index 0c0dd900b..83181247c 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.c
++++ b/drivers/gpu/drm/msm/dodge_trace.c
+@@ -104,9 +104,7 @@ void dodge_vbif_dump(const char *tag)
+ 		tag, readl(vbif + 0x4), readl(vbif + 0x200), readl(vbif + 0x204),
+ 		readl(vbif + 0x208), readl(vbif + 0x20c), readl(vbif + 0x190),
+ 		readl(vbif + 0x194));
+-	/* r20b A/B: no QTB access before/around the MDSS BCR */
+-	if (strncmp(tag, "mdss-", 5))
+-		dodge_qtb_dump(tag);
++	/* r20c A/B: QTB mapped but never read (r18-equivalent) */
+ }
+ 
+ /*
+-- 
+2.56.0
+
