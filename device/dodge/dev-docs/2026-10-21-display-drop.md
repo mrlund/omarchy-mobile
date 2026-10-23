@@ -867,3 +867,16 @@ After a cable-out cold start at ~13:56. All arms are one-shot msm.ko on the same
 - Conclusion: the icc vote does NOT cure (c60 bad with the vote in place), and neither does a VBIF read; only the QTB read does. fix1 reached 8 c60 / 0 bad. Controls are 2 bad of 4 c60 (small n).
 - Recommendation: keep fix1 (msm_mdss_enable -> msm_mdss_qtb_sync, a QTB500 TBU SWID_LOW read after clk enable): an SMMU/TBU wake, not bandwidth.
 - Phone: fallback (msm 2c86 + panel v2), nothing staged, no loop. Next: more c60 controls to firm up the bad rate.
+
+## Round 28: clean fix (0054) installed persistently, soak (2026-10-23 15:10-15:36 CEST)
+
+- Clean fix module: wt-dodge branch dodge-qtbfix = bd9587d65 (flashed base: product series 0001-0050 incl. the 0050 GDSC workaround) + 12048bd2c (QTB read only). No DIAG; 0052 lanediag dropped (it is DIAG and the persistent 2c86 module was the 0052 build). Exported as kernel/patches/0054. msm.ko a153ae874f75 (stripped, md5 a93bc1a3), copy in ~/android/mainline/msm-variants/qtbfix/. Panel module unchanged (v2, 0053).
+- QTB address: hard-coded 0x017d0000 as sm8750 match data (devm_ioremap). Mainline sm8750.dtsi has no TBU nodes, so there is nothing to take from DT yet; upstream form is a TBU phandle or an arm-smmu-qcom hook.
+- Install: /usr/local/lib/omamobile.6.16.0-gbd9587d65/display/msm.ko (seen as /usr/local/lib/omamobile/display/ via a bind mount); previous 2c86 kept there as msm.ko.pre-qtbfix.
+- Rollback: on the phone `cd /usr/local/lib/omamobile/display && cp msm.ko.pre-qtbfix msm.ko && sync`, then a gated reboot (`tools/dodge-battcheck && tools/phone-ssh 'systemctl reboot'`).
+- Drop-ins: 91/92 one-shot moved to /root/dropins-disabled/ (inert without a staged file; move back to re-enable one-shots). 90-premsm kept (read-only dodge_peek act=9, no QTB access, gives the premsm INTF1 line count). 93-deadline kept.
+- Soak (Round 28, 15:10-15:32 CEST, warm reboots, battery gate, 240 s deadline armed): 15 of 15 good, 0 tx failed. Q1 was a one-shot of the same module, Q28-1..14 the persistent install. premsm INTF1 line_count c60 on Q28-9 and Q28-13 (both good); other boots 0, 282, b20, ac, 586, bc. Note: premsm ln is read before msm loads, earlier than the old takeover "pre:ln" from the msm trace, so the two counts are not strictly the same measure.
+- Function check on Q28-14: 3 screen off/on cycles OK, idle-off at 165 s then wake OK, brightness 2000/1000 set and read back exactly, 0 tx failures over 248 s.
+- Gate slip (15:03): a reboot ran after BATT_FAIL because it was chained with ;. Always chain with &&.
+- idcheck reports "serial" hits on the module path: the USB gadget serial is the string "omamobile" (the distro name), not a device identifier; pushed with that noted.
+- Phone: persistent qtbfix msm.ko + panel v2, nothing staged, no loop running. Next: longer soak and a few cold starts; then try dropping the GDSC workaround with the QTB read in place.
