@@ -1,0 +1,32 @@
+From efd3a72ca43387e37eb852cb5c1f496a805b3447 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 11:22:25 +0200
+Subject: [PATCH] DIAG dodge round 21a: one read of sf_qtb SWID_LOW at
+ first-cmd only (hf-vs-sf control for r20d)
+
+---
+ drivers/gpu/drm/msm/dodge_trace.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dodge_trace.c b/drivers/gpu/drm/msm/dodge_trace.c
+index d5dd2ae30..85ee61eb7 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.c
++++ b/drivers/gpu/drm/msm/dodge_trace.c
+@@ -106,11 +106,9 @@ void dodge_vbif_dump(const char *tag)
+ 		readl(vbif + 0x194));
+ 	/* r20d: one read of mdp_hf_qtb SWID_LOW (downstream qtb500 write_sync) at first-cmd only */
+ 	/* r20e: timing control, no QTB access: barrier + 5 us delay where r20d read SWID_LOW */
+-	if (!strcmp(tag, "first-cmd") && qtb_hf) {
+-		dsb(sy);
+-		udelay(5);
+-		pr_info("dodge-qtb: %s delay-only 5us (no read)\n", tag);
+-	}
++	/* r21a: QTB specificity, one read of sf_qtb SWID_LOW (not mdp_hf_qtb) at first-cmd only */
++	if (!strcmp(tag, "first-cmd") && qtb_sf)
++		pr_info("dodge-qtb: %s sf swid %08x (only read, sf)\n", tag, readl(qtb_sf));
+ }
+ 
+ /*
+-- 
+2.56.0
+

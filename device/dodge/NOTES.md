@@ -4,7 +4,12 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (09:31 CEST)
+## 2026-10-23: resume here (11:45 CEST)
+- Round 20 (dev-doc "Round 20"): a single readl of mdp_hf_qtb SWID_LOW (0x17d0000) before the first DSI DMA looks like a cure. On c60 boots: 5/5 good with a read, 1/6 good without (r20c, r20e delay-only, r18/r19). QTB OT/fence values are all 0 on all read boots.
+- Not yet shown: interleaved read vs no-read on the same day (drift); hf vs sf (r21a, msm-variants/r21a, patch 0016); VIG1 at takeover (fresh consult).
+- Phone on the fallback (msm 2c86 + panel v2), nothing staged.
+
+## 2026-10-23: resume here (09:31 CEST) (superseded by 11:45)
 
 - Phone is UP and CLEAN on the fallback (R19-3-fb, booted ~09:28, 0 tx failures, dpms On). msm 2c86 and panel v2 a36a080, drop-ins 50/90/91/92, no one-shot staged.
 - Round 19 (FIFO for every <=64 B command from the first one, memory DMA only for 0x81 and the PPS) is NOT a workaround. Good boots are unaffected (init, brightness, 3 screen off/on, idle-off and wake all OK, 12 memory DMAs, 0 failures). On the bad c60 boot R19-3, memory DMA #1 (0x81, 104 B) completed and DMA #2 (PPS, 132 B) hung. So the budget is not "2 DSI commands": it looks like a small number of AXI read bursts (or bytes). Every screen wake also re-sends 0x81 and the PPS (2 memory DMAs per wake), so even a working init would die on the first wake.
