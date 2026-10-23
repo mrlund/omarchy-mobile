@@ -1,0 +1,39 @@
+From 24b526960a7788aac698a40406d81fa4ea879a45 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 14:08:32 +0200
+Subject: [PATCH 2/2] DIAG dodge r25b: guarded VBIF read at MDSS enable instead
+ of the vote
+
+---
+ drivers/gpu/drm/msm/msm_mdss.c | 13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/msm_mdss.c b/drivers/gpu/drm/msm/msm_mdss.c
+index 2790159d6..dde6dc715 100644
+--- a/drivers/gpu/drm/msm/msm_mdss.c
++++ b/drivers/gpu/drm/msm/msm_mdss.c
+@@ -317,17 +317,12 @@ const struct msm_mdss_data *msm_mdss_get_mdss_data(struct device *dev)
+  */
+ static void msm_mdss_qtb_sync(struct msm_mdss *msm_mdss)
+ {
+-	int i;
+-
+ 	/*
+-	 * DIAG dodge r25v: no QTB read. Extra mdp0/mdp1-mem bandwidth vote
+-	 * (avg 400 MB/s, peak 1.6 GB/s) at the point fix1 reads the QTB.
+-	 * icc API only; msm_mdss_disable() drops it to 0 as before.
++	 * DIAG dodge r25b: no QTB read, no extra vote. Guarded read-only VBIF
++	 * RT dump (dodge_trace.c mapping, skipped if GDSC/AHB/MDP clk off) at
++	 * the point fix1 reads the QTB.
+ 	 */
+-	for (i = 0; i < msm_mdss->num_mdp_paths; i++)
+-		icc_set_bw(msm_mdss->mdp_path[i], Bps_to_icc(MIN_IB_BW),
+-			   Bps_to_icc(4 * MIN_IB_BW));
+-	pr_info("dodge-r25v: extra mdp-mem vote on %u paths\n", msm_mdss->num_mdp_paths);
++	dodge_vbif_dump("mdss-enable");
+ }
+ 
+ static int msm_mdss_enable(struct msm_mdss *msm_mdss)
+-- 
+2.56.0
+

@@ -4,7 +4,17 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (13:42 CEST)
+## 2026-10-23: resume here (14:10 CEST)
+- Martin cold-started the phone ~13:56; clean on the fallback.
+- loop25 (fix1:F5 r21k:R25k, logs/loop25.txt) from 14:02, stopped after its current boot to switch to loop26.
+- New arms (both on the fix1 tree with the QTB read removed, same call site in msm_mdss_enable after the clocks; crash-safe by construction):
+  - r25v (msm-variants/r25v, sha 551c74b4a3a0; wt-dodge b6d2a05e7, diag 0020): extra mdp0/mdp1-mem icc vote, avg 400 MB/s peak 1.6 GB/s, icc_set_bw() only. Logs "dodge-r25v: extra mdp-mem vote".
+  - r25b (msm-variants/r25b, sha d56474d24609; wt-dodge 24b526960, diag 0021): dodge_vbif_dump("mdss-enable"), the existing guarded VBIF read (mapping from dodge_trace_map, skipped if GDSC/AHB/MDP clock off; the same reads already run at mdss-prereset in every arm).
+  - Both reverted in wt-dodge (a7041394f, aa66b9fc0); tree = fix1 state.
+- RUNNING: /tmp/chain26.sh -> loop23.sh 10 "r25v:V26 fix1:F6 r21k:R26k r25b:B26" (logs/loop26.txt), STOPAT 14:31.
+- Phone: one-shot loop, fallback between one-shots; nothing staged when the loop ends.
+
+## 2026-10-23: resume here (13:42 CEST) (superseded by 14:10)
 - loop22b done (logs/loop22b.txt, 20 boots, 12:52-13:25): 1 bad of 20. c60 boots: fix1 (F2/F2b) 4/4 good (F2-1, F2-3, F2b-3, F2b-4); F2b-3 was the arm right after a bad boot (biased toward bad) and still good. No-read controls on c60: R22c-3 BAD (txfail 32, ended by host at 228 s), R22c-4 good. Non-c60 boots: 14/14 good, all arms.
 - Running c60 tally with loop22 (R22k-1 BAD) and F1x-1: fix1 on c60 4/4 good (target is ~8, not reached); no-read on c60 2 bad of 3 today after 12:30, but Round 21 had no-read 2/2 good on c60, so drift is still possible. Not settled.
 - r22n is INVALID, not a negative: N23-1 (13:25) took a synchronous external abort in mdss_runtime_resume on the read of 0x1780000 (mmss_noc base is not CPU-readable there; insmod oopsed, stayed on simpledrm, txfail 0). The host's gated "systemctl reboot" at 13:26:43 then hung in shutdown (most likely on the oopsed insmod holding the device lock): since then USB ping answers, sshd refuses, no fastboot. NEEDS MARTIN: a forced restart (hold power + volume up), cable-out cold start preferred. The r22n one-shot was already consumed by N23-1, so the next boot is the fallback (msm 2c86 + panel v2), nothing staged. Do not rerun r22n. A proper clock/power test needs a different arm: e.g. an extra mdp0-mem icc vote (or bump) before the first fetch with no QTB read, or a read of a known-readable MDSS-side register (e.g. VBIF) at the same point.
