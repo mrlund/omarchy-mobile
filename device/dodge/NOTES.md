@@ -4,7 +4,26 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (14:35 CEST)
+## 2026-10-23: resume here (15:08 CEST)
+
+- Round 27 (14:35-15:01 CEST, loop27 "r25v fix1 r21k", 15 boots): V27-1 c60 BAD (vote logged "extra mdp-mem vote on 1 paths", still -110, txfail 30), all others good; F7-3/F7-4 c60 good, R27k-3 c60 good.
+- After the loop, the fallback (2c86) boot at 15:01 was BAD (-110); ended at about 100 s; the next fallback boot at 15:04 is clean.
+- Cumulative since 12:30:
+
+| arm | c60 good/bad | non-c60 good/bad | notes |
+|---|---|---|---|
+| fix1 (QTB SWID_LOW read) | 8/0 | 11/0 | c60: F2-1, F2-3 (post-bad), F2b-3, F2b-4, F6-1, F6-2, F7-3, F7-4 |
+| r21k (no read) | 1/1 | 12/0 | R22k-1 bad (kick no recover); R27k-3 c60 good |
+| r20c (no read) | 1/1 | 3/0 | R22c-3 bad |
+| r25v (mdp0-mem icc vote, fired) | 0/1 | 6/0 | V27-1 bad (txfail 30, not post-bad); V26-2, V27-2 post-bad |
+| r25b (guarded VBIF read) | 0/1 | 1/0 | B26-1 bad (txfail 34) |
+| r22n (mmss_noc read) | invalid | invalid | sync external abort, never rerun |
+
+- Conclusion: the icc vote does NOT cure (c60 bad with the vote in place), and neither does a VBIF read; only the QTB read does. fix1 reached 8 c60 / 0 bad. Controls are 2 bad of 4 c60 (small n).
+- Recommendation: keep fix1 (msm_mdss_enable -> msm_mdss_qtb_sync, a QTB500 TBU SWID_LOW read after clk enable): an SMMU/TBU wake, not bandwidth.
+- Phone: fallback (msm 2c86 + panel v2), nothing staged, no loop. Next: more c60 controls to firm up the bad rate.
+
+## 2026-10-23: resume here (14:35 CEST) (superseded by 15:08)
 - Round 25/26 (after Martin's 13:56 cold start; logs/loop25.txt, logs/loop26.txt, 14:02-14:31): 13 boots, 1 bad.
   - fix1: F5-1, F5-2 (non-c60) good; F6-1, F6-2 (c60) good. Cumulative fix1 on c60 since 12:52: 6/0 (target ~8).
   - r21k no-read control: R25k-1, R26k-1, R26k-2 good (all non-c60); R25k-2 invalid (no one-shot loaded, overlapped with the r25v build). No new c60 control boots.
