@@ -1,0 +1,40 @@
+From 9ef8fa8b8b1bd7b3d6acca2d8fa669bc220834bf Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 08:58:33 +0200
+Subject: [PATCH] DIAG dodge round 18b: resend first panel cmd twice (DMA
+ count-shift test)
+
+---
+ drivers/gpu/drm/msm/dsi/dsi_host.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 170bbc23b..4026ac888 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -1726,6 +1726,22 @@ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 		ret = dodge_tpg_tx(msm_host, len, "fifo");
+ 	else
+ 		ret = dsi_cmd_dma_tx(msm_host, len);
++	/* round 18b: count-shift test. Resend the (idempotent page-select)
++	 * first command twice more from the same buffer. If the bad-boot hang
++	 * is a per-transaction count it lands on repeat #2 (DMA #3). */
++	if (dodge_dma_n == 1 && ret == len) {
++		int k, r;
++
++		for (k = 1; k <= 2; k++) {
++			r = dsi_cmd_dma_tx(msm_host, len);
++			pr_info("dodge-r18b: repeat %d of cmd#1 (dma #%d) -> %d st0 %08x\n",
++				k, dodge_dma_n, r, dsi_read(msm_host, REG_DSI_STATUS0));
++			if (r < 0) {
++				ret = r;
++				break;
++			}
++		}
++	}
+ 	if (ret == -ETIMEDOUT && !dodge_retried) {
+ 		int r2;
+ 
+-- 
+2.56.0
+

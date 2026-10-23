@@ -4,7 +4,24 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (08:40 CEST)
+## 2026-10-23: resume here (09:08 CEST)
+
+- Phone is UP and CLEAN on the fallback (S2-fb, booted ~09:05, 0 tx failures, display on). msm 2c86 and panel v2 a36a080, drop-ins 50/90/91/92, no one-shot staged.
+- Round 18 (below): the FIFO route for the whole panel init is closed. The TPG DMA FIFO holds 8 (maybe 9) 64-bit entries, about 64-72 bytes, which matches the downstream 64-byte limit. The 0x81 write (104 B) and the PPS (128 B) do not fit. MIPI long packets are atomic and DCS has no write-continue, so a legal split is not possible.
+- Root cause lead: it is a transaction count, not a command, a time or a mapping. On every bad boot, DMA #1 and #2 complete and DMA #3 hangs. The count-shift test (S2) resent the first command twice, and the hang moved onto repeat #2 (DMA #3). The iova (0x1000) still maps to the right page at the -110. There is no SMMU fault, and ICC is at keepalive max on both good and bad boots. Consult r18 says this is most likely leaked outstanding-transaction credits in the display TBU/QTB or NoC port, left over from the warm-reset path.
+- Next: (1) dump the display QTB/TBU OT snapshot and fence registers (from downstream qtb500, offsets unverified) before DMA #1 on a good boot and a bad boot; (2) a clean msm unbind / VBIF halt with ack in the outgoing kernel before warm reboot; (3) an SSPP fetch before the first DSI DMA, to tell a shared credit pool from a per-xin one.
+
+## 2026-10-23: Round 18, FIFO too small for the PPS, the bad-boot hang is always the 3rd DMA fetch (08:38-09:07 CEST)
+
+- Diag r18 (msm-trace/0008, wt-dodge 908cb920c, sha 341af354d9b2). It adds VBIF+STATUS0 dumps at first-trig (50 us after the trigger) and first-done, a dma_base/iova + iommu_iova_to_phys check at first-cmd, first-done and the -110, and a no-trigger TPG FIFO depth probe after the first DMA. Diag r18b (0009, 9ef8fa8b8, sha bdd46b0c06ba) also resends the first (idempotent page-select) command twice.
+- Good boots R18a/R18b: VBIF is idle (xh1 ffff0000, axi1 0x30) at first-cmd, first-trig and first-done. STATUS0 is 0 at 50 us. dma_base 0x1000 maps to the gem page (MATCH).
+- FIFO depth: TPG_FIFO_STATUS counts 1 per 2 words from word 4 up to 8 at word 18, then stops. That is about 8-9 x 64-bit entries, 64-72 B. The same happens on a bad boot.
+- Bad boot R18c (c60): DMA #1 and #2 were DONE with VBIF idle. DMA #3 (the same 8-byte page-select header, same iova and phys) was -110: xh1 ff7f0000, axi1 0x20. iova2phys still MATCH, no context fault. The FIFO resend and the small FIFO commands were DONE, and the 104-byte 0x81 write was -110. Every bad boot with traces in the logs (13 of them) fails at exactly DMA #3 (posts 32 32 0).
+- Count shift S2 (r18b, bad): DMA #1 ok, repeat 1 (DMA #2) ok, repeat 2 (DMA #3) -110 st0 0x20003. So the failure follows the fetch count, not the command.
+- ICC: on both good and bad boots, every node aggregate is INT_MAX (sync_state keepalive) and the display votes look alike, so the vote is not the cause. The ath12k/MHI firmware load sometimes lands next to DMA #3, but bad boots exist with ath12k much later (R2b-fallback, s1-W1), so it is not needed for the failure.
+- Boots: R18a 08:42 good, R18b 08:44 good, R18c 08:46 bad, R18c-fb 08:49 bad, R18c-fb2 08:52 good, S1 08:59 good, S2 09:01 bad, S2-fb 09:05 good. Consult: logs/claude-consult-r18.txt. Logs: logs/m-R18*, m-S1, m-S2*, m-R18-b-*-mono.txt (monotonic).
+
+## 2026-10-23: resume here (08:40 CEST, superseded)
 
 - Phone is UP and CLEAN on the fallback (boot at ~08:35, rebooted from the T1b bad boot; 0 tx failures, display on). msm 2c86 and panel v2 a36a080. Drop-ins 50, 90 (act=9), 91 and 92. No one-shot is staged.
 - With USB attached, `systemctl poweroff` is a warm restart, not off: the phone powers itself back on. To leave it truly off, Martin has to pull the cable. That self-power-on CAN come up clean: boot 58a45297 at 08:14 (after the 08:14 poweroff) was clean (0 x -110, desktop up).

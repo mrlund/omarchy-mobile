@@ -13,3 +13,5 @@ Rule learned the hard way: any MDP/DSI MMIO read must check the GDSC **and** the
 - `rbt.sh TAG`: battery gate (full-battery rule), warm reboot, saves logs/m-TAG.txt and the kernel journal. It replaces the lost /tmp/rbt.sh.
 - `../panel-rail/`: the Round 15 panel rail-cycle diag patch, the one-boot panel drop-in `92-dodge-panel-oneshot.conf`, and `rbp.sh TAG KO` to stage it.
 - `0007-tpg-fifo-resend-and-vbif-halt-dump.patch`: Round 17. On the first -110, sw reset and resend through the TPG DMA FIFO (no memory fetch). Later commands of 64 bytes or less use the FIFO after a success. VBIF XIN/AXI halt dump at the BCR, first command and -110. Applies on top of the revert of 0006.
+- `0008-r18-first-dma-dumps-iova-fifo-depth.patch`: Round 18. VBIF+STATUS0 at first-trig/first-done, dma_base iova vs iommu_iova_to_phys, and a no-trigger TPG FIFO depth probe. On top of 0007.
+- `0009-r18b-dma-count-shift.patch`: Round 18b. Resends the first panel command twice (DMA count-shift test). On top of 0008.
