@@ -1,0 +1,28 @@
+From e057a249c4c13804058ba183daedb4939419918c Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 10:09:58 +0200
+Subject: [PATCH] DIAG dodge round 20b: A/B, no QTB reads at the mdss-*
+ (pre/around BCR) dump points
+
+---
+ drivers/gpu/drm/msm/dodge_trace.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/dodge_trace.c b/drivers/gpu/drm/msm/dodge_trace.c
+index 2494e9d52..0c0dd900b 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.c
++++ b/drivers/gpu/drm/msm/dodge_trace.c
+@@ -104,7 +104,9 @@ void dodge_vbif_dump(const char *tag)
+ 		tag, readl(vbif + 0x4), readl(vbif + 0x200), readl(vbif + 0x204),
+ 		readl(vbif + 0x208), readl(vbif + 0x20c), readl(vbif + 0x190),
+ 		readl(vbif + 0x194));
+-	dodge_qtb_dump(tag);
++	/* r20b A/B: no QTB access before/around the MDSS BCR */
++	if (strncmp(tag, "mdss-", 5))
++		dodge_qtb_dump(tag);
+ }
+ 
+ /*
+-- 
+2.56.0
+

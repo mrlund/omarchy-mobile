@@ -1,0 +1,73 @@
+From c2d7feb3ad8a845b464993facb8c09b8c456d31f Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 09:40:41 +0200
+Subject: [PATCH] DIAG dodge round 20: read-only display QTB500 fence/OT
+ snapshot dump at every VBIF dump point
+
+---
+ drivers/gpu/drm/msm/dodge_trace.c | 24 ++++++++++++++++++++++++
+ drivers/gpu/drm/msm/dodge_trace.h |  1 +
+ 2 files changed, 25 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dodge_trace.c b/drivers/gpu/drm/msm/dodge_trace.c
+index 2c87aab45..2494e9d52 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.c
++++ b/drivers/gpu/drm/msm/dodge_trace.c
+@@ -16,6 +16,7 @@
+ #include "dodge_trace.h"
+ 
+ static void __iomem *dcc, *gdsc, *vbif, *vig0, *ctl0, *ctl1, *intf1, *dsi0;
++static void __iomem *qtb_hf, *qtb_sf;
+ static atomic_t budget = ATOMIC_INIT(120);
+ bool dodge_c60;
+ static atomic_t dsi_budget = ATOMIC_INIT(6);
+@@ -32,6 +33,9 @@ void dodge_trace_map(void)
+ 	ctl1 = ioremap(0x0ae17000UL, 0x200);
+ 	intf1 = ioremap(0x0ae36000UL, 0x300);
+ 	dsi0 = ioremap(0x0ae94000UL, 0x200);
++	/* r20: display QTB500s (stock DT apps-smmu mdp_hf_qtb / sf_qtb, inside mmss_noc's range) */
++	qtb_hf = ioremap(0x017d0000UL, 0x1000);
++	qtb_sf = ioremap(0x017d1000UL, 0x1000);
+ }
+ 
+ /* dispcc CBCR bit 31 is CLK_OFF */
+@@ -100,6 +104,26 @@ void dodge_vbif_dump(const char *tag)
+ 		tag, readl(vbif + 0x4), readl(vbif + 0x200), readl(vbif + 0x204),
+ 		readl(vbif + 0x208), readl(vbif + 0x20c), readl(vbif + 0x190),
+ 		readl(vbif + 0x194));
++	dodge_qtb_dump(tag);
++}
++
++/*
++ * DIAG (dodge) round 20: display QTB500 state, strictly read-only. Offsets
++ * from the OnePlus 13 (sm8750) downstream arm-smmu-qcom.c qtb500 impl:
++ * SWID_LOW 0x0 (its write_sync read), OVR_DBG_FENCEREQ 0x410 (bit0 halt
++ * request), OVR_DBG_FENCEACK 0x418 (bit0 ack), NS_DBG_PORT_N_OT_SNAPSHOT(n)
++ * 0xc10 + 0x10*n ("port n outstanding transactions bitmap", 64-bit,
++ * num-qtb-ports = 2). Same MDSS GDSC/clock guard as the VBIF read (caller).
++ */
++void dodge_qtb_dump(const char *tag)
++{
++	if (!qtb_hf || !qtb_sf)
++		return;
++	pr_info("dodge-qtb: %s hf swid %08x freq %llx fack %llx ot0 %016llx ot1 %016llx | sf freq %llx fack %llx ot0 %016llx ot1 %016llx\n",
++		tag, readl(qtb_hf), readq(qtb_hf + 0x410), readq(qtb_hf + 0x418),
++		readq(qtb_hf + 0xc10), readq(qtb_hf + 0xc20),
++		readq(qtb_sf + 0x410), readq(qtb_sf + 0x418),
++		readq(qtb_sf + 0xc10), readq(qtb_sf + 0xc20));
+ }
+ 
+ /*
+diff --git a/drivers/gpu/drm/msm/dodge_trace.h b/drivers/gpu/drm/msm/dodge_trace.h
+index 478257360..8326d68a9 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.h
++++ b/drivers/gpu/drm/msm/dodge_trace.h
+@@ -7,4 +7,5 @@ void dodge_trace(const char *tag, u32 arg);
+ void dodge_stop_splash(void);
+ extern bool dodge_c60;
+ void dodge_vbif_dump(const char *tag);
++void dodge_qtb_dump(const char *tag);
+ #endif
+-- 
+2.56.0
+

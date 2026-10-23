@@ -1,0 +1,28 @@
+From cb43efec048b8d6cdc2499435b58c42910943f22 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 10:38:50 +0200
+Subject: [PATCH] DIAG dodge round 20d: single read of mdp_hf_qtb SWID_LOW at
+ first-cmd only
+
+---
+ drivers/gpu/drm/msm/dodge_trace.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/dodge_trace.c b/drivers/gpu/drm/msm/dodge_trace.c
+index 83181247c..6896a641b 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.c
++++ b/drivers/gpu/drm/msm/dodge_trace.c
+@@ -104,7 +104,9 @@ void dodge_vbif_dump(const char *tag)
+ 		tag, readl(vbif + 0x4), readl(vbif + 0x200), readl(vbif + 0x204),
+ 		readl(vbif + 0x208), readl(vbif + 0x20c), readl(vbif + 0x190),
+ 		readl(vbif + 0x194));
+-	/* r20c A/B: QTB mapped but never read (r18-equivalent) */
++	/* r20d: one read of mdp_hf_qtb SWID_LOW (downstream qtb500 write_sync) at first-cmd only */
++	if (!strcmp(tag, "first-cmd") && qtb_hf)
++		pr_info("dodge-qtb: %s hf swid %08x (only read)\n", tag, readl(qtb_hf));
+ }
+ 
+ /*
+-- 
+2.56.0
+
