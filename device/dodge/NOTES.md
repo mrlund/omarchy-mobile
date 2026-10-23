@@ -4,7 +4,27 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (08:15 CEST)
+## 2026-10-23: resume here (08:40 CEST)
+
+- Phone is UP and CLEAN on the fallback (boot at ~08:35, rebooted from the T1b bad boot; 0 tx failures, display on). msm 2c86 and panel v2 a36a080. Drop-ins 50, 90 (act=9), 91 and 92. No one-shot is staged.
+- With USB attached, `systemctl poweroff` is a warm restart, not off: the phone powers itself back on. To leave it truly off, Martin has to pull the cable. That self-power-on CAN come up clean: boot 58a45297 at 08:14 (after the 08:14 poweroff) was clean (0 x -110, desktop up).
+- Round 17 result (below): on a bad boot, the same command resent through the DSI TPG DMA FIFO (no AXI memory fetch) completes (DMA_DONE), and so do the next 10 small init commands. The first command that is too big for the FIFO (the 104-byte PPS, sent by memory DMA) is -110 again. So the DSI controller, PHY, link and panel all work. What is stuck is the cmd DMA memory fetch (VBIF/NoC/SMMU path).
+- Next candidates: (a) send the PPS through the FIFO too: the downstream limit is 64 bytes, so first test whether the FIFO accepts 104 bytes; (b) find out what the fetch is stuck on. VBIF XIN_HALT_CTRL1 goes ffff0000 -> ff7f0000 and AXI_HALT_CTRL1 0x30 -> 0x20 at the -110. These still need a good-boot comparison at the same point. Also check the interconnect vote, a tx buffer outside the SMMU, and the dma_base/iova that is used. Then (c) a clean DPU/DSI teardown before warm reboot.
+
+## 2026-10-23: DSI TPG DMA FIFO resend works on a bad boot, so the stuck part is the memory fetch (08:24-08:36 CEST)
+
+- Diag (msm-trace/0007, wt-dodge f3e2991dd on top of the revert of 5c256bad3, so it is E1 plus this; tpgR1 sha b735ac8ed7b1). On the first -110: E1 dump, VBIF dump, DSI sw reset, then the same command resent through the TPG DMA FIFO. The FIFO sequence is downstream dsi_ctrl_hw_cmn_kickoff_fifo_command(): TPG_CTRL = CMD_DMA_TPG_EN | TPG_DMA_FIFO_MODE | PATTERN_SEL custom, words written to TEST_PATTERN_GEN_CMD_DMA_INIT_VAL, DMA_LEN, TRIG_DMA. The offsets are downstream dsi_ctrl_reg.h minus the 6G shift of 4 (TPG_CTRL 0x158, INIT_VAL 0x178, FIFO_STATUS 0x1d8, FIFO_RESET 0x1e8), checked against DMA_LEN and TRIG_DMA. If the resend completes, later commands of 64 bytes or less go through the FIFO too (the downstream FIFO limit). VBIF XIN/AXI halt dump at mdss-prereset/stopped/postreset, at the first command and at the -110. No voltages changed, nothing flashed, one-boot msm (91).
+- T1 08:27 (the first warm boot from the clean 58a45297, line count c60 at stop): bad.
+  - The first DMA was -110 (STATUS0 0x20003, CLK_STATUS 0x8037c3, LANE 0x1f1f). After the sw reset: STATUS0 0x00020000, CTRL 0x1f5.
+  - The FIFO resend of that command (len 8, LP) was DONE. 10 more small LP init commands through the FIFO were also DONE, with STATUS0 at 0x00020000 throughout (bit 17 stays set) and CLK_STATUS 0x2343.
+  - The 104-byte PPS (too big for the FIFO, so memory DMA) was -110 again (0x20003), then "Failed to initialize panel". Later FIFO commands (HS, 0x51 brightness) timed out, but by then the engine was wedged again by the PPS DMA (STATUS0 0x20003 before the trigger, no sw reset in that path), so that is not a clean HS test.
+  - 29 tx failures. The bad boot was rebooted after about 4 min.
+- VBIF at the BCR and at the first command: xh0 0, xh1 ffff0000, axi0 0, axi1 0x30, no pending or src errors. At the -110: xh1 ff7f0000, axi1 0x20 (one XIN ack bit and AXI bit 4 drop: a client/port is busy). This has not been compared with a good boot yet.
+- Caveat: DMA_DONE shows the controller sent the command. It does not prove the panel took it. The 25 us lane samples always read 0x1f1f (stop state), which is too coarse to catch a short LP burst.
+- Conclusion: the cmd DMA memory fetch is the stuck part. The DSI link, PHY, controller and panel are not.
+- Recovery: T1b 08:32 fallback 2c86 was bad (5 tx failures). T1c 08:35 fallback was clean. Logs: logs/m-T1, m-T1b-fallback, m-T1c-fallback (+ -journal-k).
+
+## 2026-10-23: resume here (08:15 CEST, superseded)
 
 - Phone is POWERED OFF (systemctl poweroff at 08:14, on a bad warm boot, before the ~6 min freeze). It needs Martin's cable-out cold start. The next boot comes up on the fallback: msm 2c86 and the v2 panel (a36a080). Drop-ins 50, 90 (act=9), 91-dodge-oneshot (msm, re-enabled) and 92-dodge-panel-oneshot. 91 and 92 do nothing without /root/msm.oneshot.ko or /root/panel.oneshot.ko, and none is staged.
 - Round 16 (DSI link/PHY power-down and re-init on the first -110) is not a fix. The Claude consult (logs/claude-consult-r16.txt) points at the cmd DMA memory fetch, not the link (see below).

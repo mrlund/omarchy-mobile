@@ -721,3 +721,17 @@ This is the second failed fix in this line, after Round 15, so it was followed b
 | P1b (2c86) | 08:11 | bad, so the phone was powered off |
 
 STATUS0 bit 17 survives a controller sw reset, the link clocks off, the host and PHY vregs off, and a PHY reset. Only the MDSS BCR clears it, and the first DMA after the BCR hangs again. LANE_STATUS 0x1f1f shows the engine never drove the lanes. That points at the cmd DMA fetch (AXI read through VBIF/NoC/SMMU) rather than the PHY or the panel. Consult (logs/claude-consult-r16.txt): next, send the command through the DSI TPG DMA FIFO (no memory fetch) to split fetch from link. Then VBIF halt registers at the BCR and at the -110, the interconnect vote, and a clean teardown before warm reboot.
+
+## Round 17: TPG DMA FIFO resend on the first -110 (08:24-08:36 CEST, 2026-10-23)
+
+This is consult step 1. The diag (wt-dodge f3e2991dd, `msm-trace/0007`) runs on the first -110. It does a DSI sw reset, then sends the same command through the DSI test-pattern DMA FIFO. The command words are written into the controller (TEST_PATTERN_GEN_CMD_DMA_INIT_VAL), so there is no AXI memory read. After a success, later commands of 64 bytes or less use the FIFO too. VBIF XIN/AXI halt registers are dumped at the MDSS BCR, at the first command and at the -110.
+
+| boot | time | result |
+|---|---|---|
+| T1 (tpgR1) | 08:27 | c60, bad. DMA -110. The FIFO resend was DONE, and 10 more FIFO init commands were DONE. The 104-byte PPS (memory DMA) was -110 and the panel init failed |
+| T1b (2c86) | 08:32 | bad |
+| T1c (2c86) | 08:35 | clean |
+
+On a bad boot the DSI controller, PHY and lanes deliver commands when the payload comes from the FIFO. Only the memory-fetched DMA hangs. STATUS0 bit 17 stays set while the FIFO commands succeed, so it marks the stuck fetch, not a dead engine. At the -110, VBIF XIN_HALT_CTRL1 goes ffff0000 -> ff7f0000 and AXI_HALT_CTRL1 0x30 -> 0x20. That still needs a good-boot comparison. Next: test whether the FIFO accepts the 104-byte PPS (if so, all panel init can bypass the fetch). In parallel, chase the fetch: the dma_base/iova and SMMU mapping, the interconnect vote, and a VBIF/AXI halt+release before the first DMA.
+
+Also: with USB attached, `systemctl poweroff` is a warm restart. The 08:14 self-power-on (boot 58a45297) came up clean.
