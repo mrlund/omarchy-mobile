@@ -12,3 +12,4 @@ DIAG only, 6.16 (`omamobile-dodge`). Not for upstream. Built as `msm.ko`, tested
 Rule learned the hard way: any MDP/DSI MMIO read must check the GDSC **and** the branch CBCR CLK_OFF bits (dispcc 0xaf00000: ahb 0x80b0, mdp 0x8010, byte0 0x8034, esc0 0x8044). Right after the BCR, ahb/mdp read 0x88000001 (off), and a read then hangs the bus (boot loop).
 - `rbt.sh TAG`: battery gate (full-battery rule), warm reboot, saves logs/m-TAG.txt and the kernel journal. It replaces the lost /tmp/rbt.sh.
 - `../panel-rail/`: the Round 15 panel rail-cycle diag patch, the one-boot panel drop-in `92-dodge-panel-oneshot.conf`, and `rbp.sh TAG KO` to stage it.
+- `0007-tpg-fifo-resend-and-vbif-halt-dump.patch`: Round 17. On the first -110, sw reset and resend through the TPG DMA FIFO (no memory fetch). Later commands of 64 bytes or less use the FIFO after a success. VBIF XIN/AXI halt dump at the BCR, first command and -110. Applies on top of the revert of 0006.

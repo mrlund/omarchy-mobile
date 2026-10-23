@@ -1,0 +1,188 @@
+From f3e2991dd4686e7357b8543a623cd4222716330a Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 08:26:53 +0200
+Subject: [PATCH] DIAG drm/msm: round 17, on the first cmd -110 sw-reset the
+ DSI and resend the command via the TPG DMA FIFO (no AXI fetch); VBIF XIN/AXI
+ halt dump at MDSS reset, first cmd and -110
+
+---
+ drivers/gpu/drm/msm/dodge_trace.c  | 19 +++++++
+ drivers/gpu/drm/msm/dodge_trace.h  |  1 +
+ drivers/gpu/drm/msm/dsi/dsi_host.c | 91 +++++++++++++++++++++++++++++-
+ drivers/gpu/drm/msm/msm_mdss.c     |  3 +
+ 4 files changed, 113 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/dodge_trace.c b/drivers/gpu/drm/msm/dodge_trace.c
+index 1934d4ff2..2c87aab45 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.c
++++ b/drivers/gpu/drm/msm/dodge_trace.c
+@@ -83,6 +83,25 @@ void dodge_trace(const char *tag, u32 arg)
+ 		pr_info("dodge-trace: %s dsi clk off\n", tag);
+ }
+ 
++/*
++ * DIAG (dodge) round 17: VBIF RT halt/err state (XIN_HALT_CTRL0/1 0x200/
++ * 0x204, AXI_HALT_CTRL0/1 0x208/0x20c, pending/src err 0x190/0x194,
++ * CLKON 0x4). Read-only; same GDSC + AHB/MDP clock guard as dodge_trace().
++ */
++void dodge_vbif_dump(const char *tag)
++{
++	if (!dcc || !gdsc || !vbif)
++		return;
++	if (!(readl(gdsc) & BIT(31)) || !(DCC_ON(0xb0) && DCC_ON(0x10))) {
++		pr_info("dodge-vbif: %s gdsc/clk off\n", tag);
++		return;
++	}
++	pr_info("dodge-vbif: %s clkon %08x xh0 %08x xh1 %08x axi0 %08x axi1 %08x pnd %08x src %08x\n",
++		tag, readl(vbif + 0x4), readl(vbif + 0x200), readl(vbif + 0x204),
++		readl(vbif + 0x208), readl(vbif + 0x20c), readl(vbif + 0x190),
++		readl(vbif + 0x194));
++}
++
+ /*
+  * DIAG fix (dodge): stop ABL's continuous-splash scanout cleanly before
+  * msm_mdss_reset() pulses the MDSS core BCR, so no splash fetch is in
+diff --git a/drivers/gpu/drm/msm/dodge_trace.h b/drivers/gpu/drm/msm/dodge_trace.h
+index bc5dbc904..478257360 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.h
++++ b/drivers/gpu/drm/msm/dodge_trace.h
+@@ -6,4 +6,5 @@ void dodge_trace_map(void);
+ void dodge_trace(const char *tag, u32 arg);
+ void dodge_stop_splash(void);
+ extern bool dodge_c60;
++void dodge_vbif_dump(const char *tag);
+ #endif
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 97b4ead95..51ff23b87 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -1524,6 +1524,71 @@ static void dodge_clkdump(struct msm_dsi_host *msm_host, const char *tag)
+ 		dsi_read(msm_host, REG_DSI_CTRL), readl(intf + 0x2b4), readl(intf + 0x288),
+ 		readl(intf + 0x2b0), readl(ctl + 0x18), readl(ctl + 0x1c));
+ }
++/*
++ * DIAG (dodge) round 17: send a command through the DSI TPG DMA FIFO
++ * (CMD_DMA_TPG_EN | TPG_DMA_FIFO_MODE | PATTERN_SEL=custom FIFO), i.e.
++ * without any AXI memory fetch. Sequence from downstream
++ * dsi_ctrl_hw_cmn_kickoff_fifo_command()/reset_cmd_fifo(); offsets are
++ * downstream dsi_ctrl_reg.h minus DSI_6G_REG_SHIFT (cross-checked: DMA_LEN
++ * 0x4c->0x48, TRIG_DMA 0x90->0x8c, TPG_CTRL 0x15c->0x158).
++ * CMD_DMA_CTRL keeps msm's value (BIT28 embedded/FROM_FRAME_BUFFER set).
++ */
++#define DODGE_TPG_CTRL		0x158
++#define DODGE_TPG_DMA_INIT	0x178
++#define DODGE_TPG_FIFO_ST	0x1d8
++#define DODGE_TPG_FIFO_RST	0x1e8
++static bool dodge_tpg_mode;
++static int dodge_tpg_budget = 12;
++static int dodge_tpg_tx(struct msm_dsi_host *msm_host, int len, const char *tag)
++{
++	const struct msm_dsi_cfg_handler *cfg_hnd = msm_host->cfg_hnd;
++	u32 st[8], ln[8], w0, fst, dctl;
++	u32 *p;
++	int i, ret;
++
++	p = cfg_hnd->ops->tx_buf_get(msm_host);
++	if (IS_ERR_OR_NULL(p))
++		return -EINVAL;
++	w0 = p[0];
++	dsi_write(msm_host, DODGE_TPG_CTRL, 0);
++	dsi_write(msm_host, DODGE_TPG_FIFO_RST, 1);
++	udelay(1);
++	dsi_write(msm_host, DODGE_TPG_FIFO_RST, 0);
++	dsi_write(msm_host, DODGE_TPG_CTRL, BIT(1) | BIT(2) | (0x3 << 16));
++	for (i = 0; i < len / 4; i++)
++		dsi_write(msm_host, DODGE_TPG_DMA_INIT, p[i]);
++	if ((len / 4) & 1)
++		dsi_write(msm_host, DODGE_TPG_DMA_INIT, 0);
++	if (cfg_hnd->ops->tx_buf_put)
++		cfg_hnd->ops->tx_buf_put(msm_host);
++	fst = dsi_read(msm_host, DODGE_TPG_FIFO_ST);
++	dctl = dsi_read(msm_host, REG_DSI_CMD_DMA_CTRL);
++	reinit_completion(&msm_host->dma_comp);
++	dsi_write(msm_host, REG_DSI_DMA_LEN, len);
++	wmb();
++	dsi_write(msm_host, REG_DSI_TRIG_DMA, 1);
++	for (i = 0; i < 8; i++) {
++		udelay(25);
++		st[i] = dsi_read(msm_host, REG_DSI_STATUS0);
++		ln[i] = dsi_read(msm_host, REG_DSI_LANE_STATUS);
++	}
++	ret = wait_for_completion_timeout(&msm_host->dma_comp, msecs_to_jiffies(200));
++	if (dodge_tpg_budget-- > 0 || !ret)
++		pr_err("dodge-tpg: %s len %d w0 %08x %s | fifo_st %08x dma_ctrl %08x | st0 %08x %08x %08x %08x %08x | lane %08x %08x %08x %08x %08x | end st0 %08x lane %08x clk_st %08x dln0 %08x\n",
++			tag, len, w0, ret ? "DONE" : "TIMEOUT", fst, dctl,
++			st[0], st[1], st[3], st[5], st[7], ln[0], ln[1], ln[3], ln[5], ln[7],
++			dsi_read(msm_host, REG_DSI_STATUS0),
++			dsi_read(msm_host, REG_DSI_LANE_STATUS),
++			dsi_read(msm_host, REG_DSI_CLK_STATUS),
++			dsi_read(msm_host, REG_DSI_DLN0_PHY_ERR));
++	dsi_write(msm_host, DODGE_TPG_CTRL, 0);
++	dsi_write(msm_host, DODGE_TPG_FIFO_RST, 1);
++	udelay(1);
++	dsi_write(msm_host, DODGE_TPG_FIFO_RST, 0);
++	wmb();
++	return ret ? len : -ETIMEDOUT;
++}
++
+ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 				const struct mipi_dsi_msg *msg)
+ {
+@@ -1559,11 +1624,35 @@ static int dsi_cmds2buf_tx(struct msm_dsi_host *msm_host,
+ 	if (!dodge_first_done) {
+ 		dodge_first_done = true;
+ 		dodge_clkdump(msm_host, "first-cmd");
++		dodge_vbif_dump("first-cmd");
+ 	}
+-	ret = dsi_cmd_dma_tx(msm_host, len);
++	/* round 17: once the FIFO path has delivered a command on this boot,
++	 * keep sending small commands (<= 64 B, downstream FIFO limit) that way */
++	if (dodge_tpg_mode && len <= 64)
++		ret = dodge_tpg_tx(msm_host, len, "fifo");
++	else
++		ret = dsi_cmd_dma_tx(msm_host, len);
+ 	if (ret == -ETIMEDOUT && !dodge_retried) {
++		int r2;
++
+ 		dodge_retried = true;
+ 		dodge_clkdump(msm_host, "tx-110");
++		dodge_vbif_dump("tx-110");
++		/* un-wedge the cmd engine, then resend the same command with
++		 * no memory fetch: DONE => fetch path, TIMEOUT => link/PHY */
++		dsi_sw_reset(msm_host);
++		pr_err("dodge-tpg: after sw reset st0 %08x ctrl %08x lane %08x\n",
++			dsi_read(msm_host, REG_DSI_STATUS0),
++			dsi_read(msm_host, REG_DSI_CTRL),
++			dsi_read(msm_host, REG_DSI_LANE_STATUS));
++		r2 = len <= 64 ? dodge_tpg_tx(msm_host, len, "first-110") : -E2BIG;
++		dodge_vbif_dump("after-tpg");
++		if (r2 == len) {
++			dodge_tpg_mode = true;
++			ret = len;
++		} else {
++			pr_err("dodge-tpg: first-110 fifo resend failed %d\n", r2);
++		}
+ 	}
+ 	if (ret < 0) {
+ 		pr_err("%s: cmd dma tx failed, type=0x%x, data0=0x%x, len=%d, ret=%d\n",
+diff --git a/drivers/gpu/drm/msm/msm_mdss.c b/drivers/gpu/drm/msm/msm_mdss.c
+index 0db34a839..ae74d5edb 100644
+--- a/drivers/gpu/drm/msm/msm_mdss.c
++++ b/drivers/gpu/drm/msm/msm_mdss.c
+@@ -467,10 +467,13 @@ static struct msm_mdss *msm_mdss_init(struct platform_device *pdev, bool is_mdp5
+ 
+ 	dodge_trace_map();
+ 	dodge_trace("mdss-prereset", 0);
++	dodge_vbif_dump("mdss-prereset");
+ 	dodge_stop_splash();
+ 	dodge_trace("mdss-stopped", 0);
++	dodge_vbif_dump("mdss-stopped");
+ 	ret = msm_mdss_reset(&pdev->dev);
+ 	dodge_trace("mdss-postreset", ret);
++	dodge_vbif_dump("mdss-postreset");
+ 	if (ret)
+ 		return ERR_PTR(ret);
+ 
+-- 
+2.56.0
+
