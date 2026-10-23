@@ -10,3 +10,5 @@ DIAG only, 6.16 (`omamobile-dodge`). Not for upstream. Built as `msm.ko`, tested
 - `rescue-initramfs.sh`: boot-loop rescue. Pipe it into the stage-2 initramfs dropbear during its short window (about 4-6 s after the USB gadget appears). It mounts userdata and copies `msm.ko.pre-trace` over `msm.ko`.
 
 Rule learned the hard way: any MDP/DSI MMIO read must check the GDSC **and** the branch CBCR CLK_OFF bits (dispcc 0xaf00000: ahb 0x80b0, mdp 0x8010, byte0 0x8034, esc0 0x8044). Right after the BCR, ahb/mdp read 0x88000001 (off), and a read then hangs the bus (boot loop).
+- `rbt.sh TAG`: battery gate (full-battery rule), warm reboot, saves logs/m-TAG.txt and the kernel journal. It replaces the lost /tmp/rbt.sh.
+- `../panel-rail/`: the Round 15 panel rail-cycle diag patch, the one-boot panel drop-in `92-dodge-panel-oneshot.conf`, and `rbp.sh TAG KO` to stage it.

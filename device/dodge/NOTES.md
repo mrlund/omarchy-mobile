@@ -4,11 +4,20 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (07:45 CEST)
+## 2026-10-23: resume here (08:00 CEST)
 
-- 07:35 Martin started the frozen phone. This was most likely a forced restart from frozen, which counts as warm: bad (-110). The 07:39 warm reboot was bad too. At 07:41 a cable-out cold start was CLEAN. Cold boots stay clean, warm boots are intermittent.
-- Phone: 2c86 msm, v2 panel module, drop-ins 50-omamobile-kernel-skip and 90-dodge-premsm (act=9). The one-shot drop-in is parked in /root/91-dodge-oneshot.conf.off.
-- Next (Round 15): consult #3, a full panel rail cycle (rails off >= 20 ms, then reset and re-init) when the first command returns -110 or the takeover was idle at c60. The opt-in self-heal (display/selfheal/) is still not enabled.
+- Phone is POWERED OFF (systemctl poweroff at 07:58, on a bad warm boot, to avoid the ~6 min freeze). It needs Martin's cable-out cold start. The next boot comes up on the fallback: msm 2c86 and the v2 panel module. Drop-ins 50, 90 (act=9) and 92-dodge-panel-oneshot, which does nothing without /root/panel.oneshot.ko (none staged). 91 is still parked as /root/91-dodge-oneshot.conf.off.
+- 07:35 Martin started the frozen phone. This was most likely a forced restart from frozen, which counts as warm: bad. The 07:39 warm reboot was bad. At 07:41 a cable-out cold start was clean.
+- Round 15 (panel rail cycle on first -110): not a fix, see below. The panel controller is unlikely to hold the wedge. Next: the host-side DSI PHY (a full PHY power-down/re-init, or a dispcc/PHY reset of the DSI link) at the -110. The opt-in self-heal (display/selfheal/) is still not enabled.
+
+## 2026-10-23: panel rail cycle on the first -110 does not recover (07:47-07:58 CEST)
+
+- Diag (panel-rail/0001, wt-dodge 702655734, panelR1 sha 2d19d48e591f): if the first panel init fails, it runs once: reset asserted, vci/vdd/vddio disabled, 200 ms off, rails on, reset pulse, re-init. It is paired with 2c86 msm, so the panel module is the only change. It is loaded via the new one-boot panel drop-in 92-dodge-panel-oneshot.conf (rbp.sh). The rail voltages are unchanged.
+- R1 07:49 clean (line count 5f7). R2 07:52 c60, bad: the first DMA was -110. The rail cycle ran ("panel power off (rail-cycle): vci 0 vdd 0 vddio 0"). The re-init's first command was -110 again, then "Failed to initialize panel: -110", tx failed 23.
+- The panel is the only consumer of l11b/l12b/l13b and the DT has no always-on, so the APPS vote really drops. The rail drop was not measured.
+- So power-cycling and resetting the panel controller does not clear the stuck DMA. Together with variant C (a DSI controller sw reset does not clear it either), this places the wedge in the host DSI PHY/lanes or the cmd DMA fetch path.
+- The recovery reboots on fallback 2c86 were both bad: R2b 07:55 (c60) and R2c 07:58 (line count 8e6, mid-frame, so c60 is not needed for failure). That is a warm-bad loop, so the phone was powered off. Logs: logs/m-R1, m-R2, m-R2b-fallback, m-R2c-fallback (+ -journal-k).
+- rbt.sh was lost with /tmp. It was rewritten into msm-trace/rbt.sh (gate with the full-battery rule, warm reboot, summary). rbo.sh now calls the repo copy.
 
 ## 2026-10-22: c60 predictor, DSI regs at handover, variants B and C fail, clock tree same (20:37-21:55 CEST)
 

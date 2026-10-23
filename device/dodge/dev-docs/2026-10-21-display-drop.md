@@ -697,3 +697,16 @@ Findings:
 - c60 is not fully predictive: under B, 4 of 5 idle takeovers were good.
 - 2026-10-23 07:35-07:41: the forced restart from frozen (warm) and a warm reboot were bad, and a cable-out cold start was clean.
 - Next: a rail cycle of the panel on -110 or c60 (consult #3).
+
+## Round 15: panel rail cycle on the first -110 (07:47-07:58 CEST, 2026-10-23)
+
+Consult r14 #3. The panel driver (wt-dodge 702655734, `diag/panel-rail/0001`) cycles the rails once on a failed first init: reset asserted, vci/vdd/vddio off for 200 ms, on again, reset pulse, re-init. It runs on top of the 2c86 msm, as a one-boot panel module (`92-dodge-panel-oneshot.conf`, `rbp.sh`).
+
+| boot | time | INTF1 line count | result |
+|---|---|---|---|
+| R1 | 07:49 | 5f7 | clean |
+| R2 | 07:52 | c60 | -110. The rail cycle ran (all three rails disabled), the re-init was -110 again, 23 tx failed |
+| R2b (2c86) | 07:55 | c60 | bad |
+| R2c (2c86) | 07:58 | 8e6 | bad, so the phone was powered off (warm-bad loop) |
+
+Result: not a fix. The stuck cmd DMA (STATUS0 0x20003) survives a full panel power cycle and reset, as it survived the DSI controller sw reset in variant C. The panel controller is not what holds it. What is left is the host DSI PHY/lanes or the DMA fetch path. The next candidate is a DSI PHY power-down and re-init (PHY reset plus PLL relock) on the -110. A mid-frame takeover (8e6) can fail too, so c60 is not needed for a failure.
