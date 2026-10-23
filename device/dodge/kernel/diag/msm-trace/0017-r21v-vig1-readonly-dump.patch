@@ -1,0 +1,83 @@
+From 3a20e0eb8970b53f9e91c358f542ce9a6a53e1d8 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 11:41:48 +0200
+Subject: [PATCH] DIAG dodge round 21v: VIG0/VIG1 read-only dump at stop-splash
+ entry, no QTB access
+
+---
+ drivers/gpu/drm/msm/dodge_trace.c | 24 ++++++++++++++++++++----
+ 1 file changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dodge_trace.c b/drivers/gpu/drm/msm/dodge_trace.c
+index 85ee61eb7..7c39a2b56 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.c
++++ b/drivers/gpu/drm/msm/dodge_trace.c
+@@ -16,7 +16,7 @@
+ #include "dodge_trace.h"
+ 
+ static void __iomem *dcc, *gdsc, *vbif, *vig0, *ctl0, *ctl1, *intf1, *dsi0;
+-static void __iomem *qtb_hf, *qtb_sf;
++static void __iomem *qtb_hf, *qtb_sf, *vig1;
+ static atomic_t budget = ATOMIC_INIT(120);
+ bool dodge_c60;
+ static atomic_t dsi_budget = ATOMIC_INIT(6);
+@@ -29,6 +29,8 @@ void dodge_trace_map(void)
+ 	gdsc = ioremap(0x0af09000UL, 4);
+ 	vbif = ioremap(0x0aeb0000UL, 0x300);
+ 	vig0 = ioremap(0x0ae05000UL, 0x100);
++	/* r21v: VIG1 (sm8750 catalog sspp_1 base 0x6000, xin_id 4), read-only */
++	vig1 = ioremap(0x0ae07000UL, 0x100);
+ 	ctl0 = ioremap(0x0ae16000UL, 0x200);
+ 	ctl1 = ioremap(0x0ae17000UL, 0x200);
+ 	intf1 = ioremap(0x0ae36000UL, 0x300);
+@@ -106,9 +108,7 @@ void dodge_vbif_dump(const char *tag)
+ 		readl(vbif + 0x194));
+ 	/* r20d: one read of mdp_hf_qtb SWID_LOW (downstream qtb500 write_sync) at first-cmd only */
+ 	/* r20e: timing control, no QTB access: barrier + 5 us delay where r20d read SWID_LOW */
+-	/* r21a: QTB specificity, one read of sf_qtb SWID_LOW (not mdp_hf_qtb) at first-cmd only */
+-	if (!strcmp(tag, "first-cmd") && qtb_sf)
+-		pr_info("dodge-qtb: %s sf swid %08x (only read, sf)\n", tag, readl(qtb_sf));
++	/* r21v: no QTB access (r20c state); VIG0/VIG1 read-only dump in dodge_stop_splash */
+ }
+ 
+ /*
+@@ -141,6 +141,17 @@ void dodge_qtb_dump(const char *tag)
+  * Only runs while the MDSS GDSC and AHB/MDP branch clocks are on.
+  */
+ #define VDISPLAY 3168
++static void dodge_vig_dump(const char *tag, void __iomem *v, const char *n)
++{
++	if (!v)
++		return;
++	pr_info("dodge-vig: %s %s size %08x img %08x xy %08x out %08x src0 %08x src1 %08x src2 %08x src3 %08x ys0 %08x ys1 %08x fmt %08x op %08x fetch %08x\n",
++		tag, n, readl(v), readl(v + 0x4), readl(v + 0x8), readl(v + 0xc),
++		readl(v + 0x14), readl(v + 0x18), readl(v + 0x1c), readl(v + 0x20),
++		readl(v + 0x24), readl(v + 0x28), readl(v + 0x30), readl(v + 0x38),
++		readl(v + 0x48));
++}
++
+ void dodge_stop_splash(void)
+ {
+ 	u32 ar, te, wr = 0, h0, ack = 0;
+@@ -161,6 +172,10 @@ void dodge_stop_splash(void)
+ 	dodge_c60 = (wr == 0 || wr >= VDISPLAY);
+ 	cs0 = (dsi0 && DCC_ON(0x34) && DCC_ON(0x44)) ? readl(dsi0 + 0x120) : 0xdead;
+ 	pr_info("dodge-c: entry wr %x clk_st %08x idle %d\n", w0, cs0, dodge_c60);
++	pr_info("dodge-vig: entry ctl0 l0 %08x fpa %08x ctl1 l0 %08x fpa %08x\n",
++		readl(ctl0), readl(ctl0 + 0xfc), ctl1 ? readl(ctl1) : 0, ctl1 ? readl(ctl1 + 0xfc) : 0);
++	dodge_vig_dump("entry", vig0, "vig0");
++	dodge_vig_dump("entry", vig1, "vig1");
+ 	ar = readl(intf1 + 0x2b4);
+ 	te = readl(intf1 + 0x288);
+ 	/* 1. TE off, autorefresh off */
+@@ -195,6 +210,7 @@ void dodge_stop_splash(void)
+ 		udelay(50);
+ 	}
+ 	writel(h0, vbif + 0x200);
++	dodge_vig_dump("after-stop", vig1, "vig1");
+ 	pr_info("dodge-stop: ar %08x te %08x -> wr %x after %d, vbif ack %08x after %d, pnd %x src %x\n",
+ 		ar, te, wr, t_wr, ack, t_ack, readl(vbif + 0x190), readl(vbif + 0x194));
+ }
+-- 
+2.56.0
+

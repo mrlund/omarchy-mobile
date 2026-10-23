@@ -23,3 +23,7 @@ Rule learned the hard way: any MDP/DSI MMIO read must check the GDSC **and** the
 - `loop20x.sh N VAR:TAG VAR:TAG ...`: interleaved A/B one-shot boots (N rounds, one boot per arm per round), so arms see the same drift.
 - `idcheck.sh`: identifier scan of the unpushed diff (MACs, IMEI, ICCID, phone numbers, psk/password, the phone USB serial from host sysfs, and private regexes from ~/.config/omarchy-mobile/private-ids outside the repo). Prints counts only, exits 1 on a hit; push only if it exits 0.
 - `fresh-consult-facts.md`: the fact sheet given to a fresh, theory-free consult (2026-10-23).
+- `0017-r21v-vig1-readonly-dump.patch` (r21v, on top of 0016): no QTB access (r20c state); read-only VIG0/VIG1 dump (size, xy, SRC0-3, strides, format, op, fetch config) and CTL0/1 layer/fetch-pipe-active at dodge_stop_splash entry, VIG1 again after the stop. The no-read control arm of round 21.
+- `0018-r21k-kick-on-hang.patch` (r21k, on top of 0017): on the first DSI DMA -110 only, one mdp_hf_qtb SWID_LOW read, a 10 ms wait for the stuck DMA to complete, else DSI sw reset and one memory-DMA re-trigger of the same command; then the r17 FIFO fallback as before.
+- `0019-r21s-stop-splash-clears-vig1.patch` (r21s, on top of 0018: reverts the r21k kick): dodge_stop_splash also writes VIG1 SRC0 = 0 and flushes VIG1 (CTL0 flush bit 1).
+
