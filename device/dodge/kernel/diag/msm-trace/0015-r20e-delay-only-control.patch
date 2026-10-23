@@ -1,0 +1,32 @@
+From 50000e687507f1743c76b815370d66c7b1af069d Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 10:55:19 +0200
+Subject: [PATCH] DIAG dodge round 20e: delay-only control (dsb + 5 us) at
+ first-cmd, no QTB access
+
+---
+ drivers/gpu/drm/msm/dodge_trace.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dodge_trace.c b/drivers/gpu/drm/msm/dodge_trace.c
+index 6896a641b..d5dd2ae30 100644
+--- a/drivers/gpu/drm/msm/dodge_trace.c
++++ b/drivers/gpu/drm/msm/dodge_trace.c
+@@ -105,8 +105,12 @@ void dodge_vbif_dump(const char *tag)
+ 		readl(vbif + 0x208), readl(vbif + 0x20c), readl(vbif + 0x190),
+ 		readl(vbif + 0x194));
+ 	/* r20d: one read of mdp_hf_qtb SWID_LOW (downstream qtb500 write_sync) at first-cmd only */
+-	if (!strcmp(tag, "first-cmd") && qtb_hf)
+-		pr_info("dodge-qtb: %s hf swid %08x (only read)\n", tag, readl(qtb_hf));
++	/* r20e: timing control, no QTB access: barrier + 5 us delay where r20d read SWID_LOW */
++	if (!strcmp(tag, "first-cmd") && qtb_hf) {
++		dsb(sy);
++		udelay(5);
++		pr_info("dodge-qtb: %s delay-only 5us (no read)\n", tag);
++	}
+ }
+ 
+ /*
+-- 
+2.56.0
+
