@@ -4,11 +4,19 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (08:00 CEST)
+## 2026-10-23: resume here (08:15 CEST)
 
-- Phone is POWERED OFF (systemctl poweroff at 07:58, on a bad warm boot, to avoid the ~6 min freeze). It needs Martin's cable-out cold start. The next boot comes up on the fallback: msm 2c86 and the v2 panel module. Drop-ins 50, 90 (act=9) and 92-dodge-panel-oneshot, which does nothing without /root/panel.oneshot.ko (none staged). 91 is still parked as /root/91-dodge-oneshot.conf.off.
-- 07:35 Martin started the frozen phone. This was most likely a forced restart from frozen, which counts as warm: bad. The 07:39 warm reboot was bad. At 07:41 a cable-out cold start was clean.
-- Round 15 (panel rail cycle on first -110): not a fix, see below. The panel controller is unlikely to hold the wedge. Next: the host-side DSI PHY (a full PHY power-down/re-init, or a dispcc/PHY reset of the DSI link) at the -110. The opt-in self-heal (display/selfheal/) is still not enabled.
+- Phone is POWERED OFF (systemctl poweroff at 08:14, on a bad warm boot, before the ~6 min freeze). It needs Martin's cable-out cold start. The next boot comes up on the fallback: msm 2c86 and the v2 panel (a36a080). Drop-ins 50, 90 (act=9), 91-dodge-oneshot (msm, re-enabled) and 92-dodge-panel-oneshot. 91 and 92 do nothing without /root/msm.oneshot.ko or /root/panel.oneshot.ko, and none is staged.
+- Round 16 (DSI link/PHY power-down and re-init on the first -110) is not a fix. The Claude consult (logs/claude-consult-r16.txt) points at the cmd DMA memory fetch, not the link (see below).
+- Next (Round 17, consult #1): on a bad boot, send the first command through the DSI test-pattern DMA FIFO (no AXI fetch). If it completes, the fetch path (VBIF/NoC/SMMU) is the culprit. Then dump VBIF XIN/AXI halt at the BCR and at the -110, check the mdp0-mem interconnect vote, and try a tx buffer that is not behind the SMMU. Consult #3: a clean DPU/DSI teardown before reboot may stop the bad runs. The opt-in self-heal (display/selfheal/) is still not enabled.
+- Warm boots right after a cold start are often bad today: 08:03 cold clean, then the first warm boot (P1) and its fallback (P1b) were both bad.
+
+## 2026-10-23: DSI link/PHY power-down and re-init on the first -110 does not recover (08:04-08:14 CEST)
+
+- Diag (msm-trace/0006, wt-dodge 5c256bad3, phyR1 sha d0429e2edf4e, based on the E1 build). On the first -110 it mirrors post_disable/pre_enable: host disable (sw reset), irq off, PLL save state, host power off (ctrl disable, link clocks off, host vregs off), PHY disable (PHY vregs off), 20 ms, DSI PHY_RESET pulse, PHY enable + PLL restore, host power on (PLL relock, timing, sw reset, ctrl enable), host enable, then one retry. Loaded as a one-boot msm (91). No voltages changed.
+- P1 08:07 (the first warm boot after the 08:03 cold start, line count c60 at stop): bad. The relink ran cleanly ("link up, ret 0"). Before the retry: clocks on, RCGs same, PLL 0x51, same rates, CTRL 0x1f5, CLK_STATUS 0x2343, but STATUS0 0x00020000: bit 17 (undocumented upstream) survived the sw reset, the link clocks off and the PHY reset. The retry was -110 again with STATUS0 0x20003. LANE_STATUS 0x1f1f (all lanes stop state), so nothing was ever sent on the lanes.
+- P1b 08:11 fallback 2c86: bad (line count 9bd), so the phone was powered off.
+- Second failed fix in this line, so I ran the Claude consult. Its read: the MDSS BCR leaves STATUS0 at 0 on bad boots too, so the persistent state is outside the DSI. Likely the first DMA's AXI read never completes (bit 17 = fetch outstanding is a guess). Candidates: VBIF/MMNOC/QTB/SMMU, or an interconnect vote. Its ranked next steps: (1) the TPG DMA FIFO command (no fetch) to split fetch from link; (2) VBIF XIN/AXI halt request registers at the BCR and at the -110, a large mdp0-mem icc vote, an identity-mapped tx buffer; (3) a clean DPU/DSI teardown (VBIF halt and release) before warm reboot; (4) only if TPG also hangs: clear HS_REQ_SEL_PHY, clear DLN0_PHY_ERR before the command and check for new contention.
 
 ## 2026-10-23: panel rail cycle on the first -110 does not recover (07:47-07:58 CEST)
 

@@ -1,0 +1,130 @@
+From 5c256bad350fba9221cdd107c61504252dfd8cff Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Fri, 23 Oct 2026 08:07:15 +0200
+Subject: [PATCH] DIAG drm/msm: on the first cmd -110, power the DSI link down
+ (host off, PHY off) 20 ms, PHY reset + enable + PLL restore/relock, host on,
+ retry once
+
+---
+ drivers/gpu/drm/msm/dsi/dsi.h         |  1 +
+ drivers/gpu/drm/msm/dsi/dsi_host.c    |  6 +++
+ drivers/gpu/drm/msm/dsi/dsi_manager.c | 60 +++++++++++++++++++++++++++
+ 3 files changed, 67 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dsi/dsi.h b/drivers/gpu/drm/msm/dsi/dsi.h
+index 93c028a12..13b209765 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi.h
++++ b/drivers/gpu/drm/msm/dsi/dsi.h
+@@ -72,6 +72,7 @@ int msm_dsi_host_enable(struct mipi_dsi_host *host);
+ int msm_dsi_host_disable(struct mipi_dsi_host *host);
+ void msm_dsi_host_enable_irq(struct mipi_dsi_host *host);
+ void msm_dsi_host_disable_irq(struct mipi_dsi_host *host);
++void dodge_host_dump(struct mipi_dsi_host *host, const char *tag);
+ int msm_dsi_host_power_on(struct mipi_dsi_host *host,
+ 			struct msm_dsi_phy_shared_timings *phy_shared_timings,
+ 			bool is_bonded_dsi, struct msm_dsi_phy *phy);
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 97b4ead95..9dbe212b0 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -2214,6 +2214,12 @@ void msm_dsi_host_xfer_restore(struct mipi_dsi_host *host,
+ 	pm_runtime_put(&msm_host->pdev->dev);
+ }
+ 
++/* DIAG (dodge) round 16: dump hook for the PHY relink in dsi_manager.c */
++void dodge_host_dump(struct mipi_dsi_host *host, const char *tag)
++{
++	dodge_clkdump(to_msm_dsi_host(host), tag);
++}
++
+ int msm_dsi_host_cmd_tx(struct mipi_dsi_host *host,
+ 				const struct mipi_dsi_msg *msg)
+ {
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_manager.c b/drivers/gpu/drm/msm/dsi/dsi_manager.c
+index ca400924d..6259baea1 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_manager.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_manager.c
+@@ -3,6 +3,9 @@
+  * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+  */
+ 
++#include <linux/delay.h>
++#include <linux/pm_runtime.h>
++
+ #include "drm/drm_bridge_connector.h"
+ 
+ #include "msm_kms.h"
+@@ -492,6 +495,49 @@ int msm_dsi_manager_connector_init(struct msm_dsi *msm_dsi,
+ 	return 0;
+ }
+ 
++/*
++ * DIAG (dodge) round 16: on the first -110 of a panel command, power the
++ * DSI link down the same way post_disable does (host disable, PLL state
++ * save, host power off incl. link clocks and host vregs, PHY disable incl.
++ * PHY vregs), wait 20 ms, then bring it back up like pre_enable does (DSI
++ * PHY_RESET pulse, PHY enable + PLL state restore, host power on relocks
++ * the PLL through the link clocks, host enable). Regulator voltages are not
++ * touched. Single-link only. The caller retries the command once.
++ */
++static bool dodge_relinked;
++static int dodge_dsi_relink(int id)
++{
++	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(id);
++	struct mipi_dsi_host *host = msm_dsi->host;
++	struct msm_dsi_phy_shared_timings t[DSI_MAX];
++	int ret;
++
++	pm_runtime_get_sync(&msm_dsi->pdev->dev);
++	msm_dsi_host_disable(host);
++	msm_dsi_host_disable_irq(host);
++	msm_dsi_phy_pll_save_state(msm_dsi->phy);
++	msm_dsi_host_power_off(host);
++	dsi_mgr_phy_disable(id);
++	pr_err("dodge-phy: link down (host off, phy off), 20 ms\n");
++	msleep(20);
++	ret = dsi_mgr_phy_enable(id, t);
++	if (ret) {
++		pr_err("dodge-phy: phy enable failed %d\n", ret);
++		goto out;
++	}
++	ret = msm_dsi_host_power_on(host, &t[id], false, msm_dsi->phy);
++	if (ret) {
++		pr_err("dodge-phy: host power on failed %d\n", ret);
++		goto out;
++	}
++	msm_dsi_host_enable_irq(host);
++	ret = msm_dsi_host_enable(host);
++	pr_err("dodge-phy: link up, ret %d\n", ret);
++out:
++	pm_runtime_put(&msm_dsi->pdev->dev);
++	return ret;
++}
++
+ int msm_dsi_manager_cmd_xfer(int id, const struct mipi_dsi_msg *msg)
+ {
+ 	struct msm_dsi *msm_dsi = dsi_mgr_get_dsi(id);
+@@ -531,6 +577,20 @@ int msm_dsi_manager_cmd_xfer(int id, const struct mipi_dsi_msg *msg)
+ 
+ 	msm_dsi_host_xfer_restore(host, msg);
+ 
++	if (ret == -ETIMEDOUT && !is_read && !dodge_relinked && !IS_BONDED_DSI()) {
++		dodge_relinked = true;
++		ret = dodge_dsi_relink(id);
++		if (!ret) {
++			ret = msm_dsi_host_xfer_prepare(host, msg);
++			if (!ret) {
++				dodge_host_dump(host, "relink-retry");
++				ret = msm_dsi_host_cmd_tx(host, msg);
++				msm_dsi_host_xfer_restore(host, msg);
++			}
++		}
++		pr_err("dodge-phy: retry after relink: %d\n", ret);
++	}
++
+ restore_host0:
+ 	if (need_sync && msm_dsi0)
+ 		msm_dsi_host_xfer_restore(msm_dsi0->host, msg);
+-- 
+2.56.0
+
