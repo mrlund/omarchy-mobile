@@ -900,3 +900,23 @@ After a cable-out cold start at ~13:56. All arms are one-shot msm.ko on the same
   original conditions this failed every time. Result: 0050 looks droppable;
   confirm with a longer r29g run and a cold start before removing it.
 
+## Round 29: r29g persistent, GDSC collapses again, 0050 reverted (2026-10-23 16:44-17:08 CEST)
+
+- r29g (0054 + `.keep_gdsc_on = false`, 6069cfcd6516) installed as the
+  persistent msm.ko. The 0054-only module is kept as msm.ko.qtbfix-gdscon.
+- Each warm boot runs gd29.sh: 4 screen off/on cycles with 12 s off; while
+  off, pm_genpd shows `mdss_gdsc off-0` and the MDSS device is runtime
+  suspended. The first two boots also do a 165 s idle-off and wake.
+- Results: S29a-1 (16:45) 4/4 cycles ok, its idle was cut by the harness deadline reboot
+  (below); that deadline-reboot boot came up fine. S29-1 and S29-2: 4/4 cycles +
+  165 s idle/wake ok. S29-3: 4/4 cycles ok. With the G29-1 one-shot: 6 warm
+  boots with display up, 20 off/on cycles with the GDSC off, 3 idle-off/wake,
+  0 tx failed, no rollback.
+- Harness artifact: dodge-deadline-check at 80 s uptime saw dpms Off (the
+  cycles had started at 54 s), logged "NOT clean (fails 0, dpms Off)", and the
+  240 s deadline rebooted the phone in the middle of S29a-1's idle. The display
+  had not failed. soak29.sh now waits for the clean check before cycling.
+- Conclusion: the QTB read (0054) also fixes the session-then-GDSC-collapse
+  failure. 0050 is reverted as 0055 (local 44f4c9050 on dodge-qtbfix).
+  Pending: Martin's cable-out cold start and screen check on r29g.
+

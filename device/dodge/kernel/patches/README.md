@@ -133,12 +133,23 @@ only `panel-aa569-p-3-a0019-dsc.ko` and `msm.ko`. Both are installed in
   `msm.ko.pre-qtbfix`.
 - Rollback (on the phone, then a gated reboot):
   `cd /usr/local/lib/omamobile/display && cp msm.ko.pre-qtbfix msm.ko && sync`
+- `0055` Revert "drm/msm/mdss: keep MDSS_GDSC on across runtime suspend on
+  SM8750" (local `44f4c9050`, branch `dodge-qtbfix` = `bd9587d65` + `0054` +
+  `0055`). The GDSC off/on failure that `0050` worked around has the same
+  cause, and the `0054` read on every enable fixes it; the domain collapses in
+  screen-off again (saves about 1 mA). Tested as diag build `r29g` (`0054` with
+  `keep_gdsc_on = false`, `6069cfcd6516`), now the persistent `msm.ko`; the
+  `0054`-only module is kept as `msm.ko.qtbfix-gdscon` (`a153ae874f75`), and
+  `msm.ko.pre-qtbfix` stays. Rollback to GDSC-on:
+  `cd /usr/local/lib/omamobile/display && cp msm.ko.qtbfix-gdscon msm.ko && sync`
 
 ## Workarounds, not fixes
 
 - `0050` drm/msm/mdss: keep `MDSS_GDSC` on across runtime suspend (local
   `31453abbe`). Works around the first enable after a GDSC collapse failing
-  (`cmd dma tx failed -110`); costs about 1 mA. Root cause still open.
+  (`cmd dma tx failed -110`); costs about 1 mA. Root-caused and reverted by
+  `0055` (the `0054` QTB read); still in the flashed kernel source, module
+  only.
 - `0022` remoteproc: qcom: pas: `only_adsp`, a bring-up switch so the modem and
   CDSP are not probed. Not upstreamable as is.
 - `0047`-`0049` DSI byte-clock rounding and the `dev_pm_opp_set_rate(0)` drop,
@@ -204,3 +215,4 @@ only `panel-aa569-p-3-a0019-dsc.ko` and `msm.ko`. Both are installed in
 - `0052-DIAG-drm-msm-dsi-dump-STATUS0-LANE_STATUS-LANE_CTRL-.patch`
 - `0053-drm-panel-oneplus-dodge-keep-the-supplies-on-across-.patch`
 - `0054-drm-msm-mdss-sm8750-read-the-display-QTB-once-on-eve.patch`
+- `0055-Revert-drm-msm-mdss-keep-MDSS_GDSC-on-across-runtime.patch`

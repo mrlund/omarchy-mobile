@@ -4,7 +4,32 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (16:50 CEST), qtbfix persistent, soak 24/24, 0050 droppable
+## 2026-10-23: resume here (17:10 CEST), r29g persistent (QTB fix, GDSC collapses), 0050 reverted as 0055
+
+- Phone: persistent msm.ko = r29g (0054 with keep_gdsc_on=false, 6069cfcd6516).
+  Kept beside it: msm.ko.qtbfix-gdscon (0054 only, a153ae874f75) and
+  msm.ko.pre-qtbfix (2c86adc467db). Nothing staged; 91/92 in
+  /root/dropins-disabled; 90-premsm and 93-deadline stay.
+  Rollback to GDSC-on: `cd /usr/local/lib/omamobile/display && cp msm.ko.qtbfix-gdscon msm.ko && sync`, gated reboot.
+- Round 29 (soak29, warm boots on persistent r29g, each with 4 screen off/on
+  cycles of 12 s with mdss_gdsc verified off-0, plus 165 s idle-off/wake):
+  S29a-1 (16:45) 4/4 cycles ok, its idle was cut by the harness deadline reboot
+  (below); that deadline-reboot boot came up fine. S29-1 and S29-2: 4/4 cycles +
+  165 s idle/wake ok. S29-3: 4/4 cycles ok. With the G29-1 one-shot: 6 warm
+  boots with display up, 20 off/on cycles with the GDSC off, 3 idle-off/wake,
+  0 tx failed, no rollback.
+- Harness note: the phone-side deadline clean check at 80 s reads a screen-off
+  as NOT clean; the first r29g boot started cycles at 54 s, so the deadline
+  rebooted it at 240 s mid-idle (journal: "NOT clean (fails 0, dpms Off)").
+  Not a display failure; soak29.sh now waits for "dodge-deadline: clean".
+  rbt.sh's battery gate full-battery rule is now 100% (was 95%).
+- Source: dodge-qtbfix = bd9587d65 + 12048bd2c (0054) + 44f4c9050 (0055, revert
+  of 0050 31453abbe, message points at 0054 as the cause). Module builds
+  (cb801e6c0df5 stripped; same behaviour as r29g, flag code removed).
+- Waiting on Martin: cable-out cold start + screen check on r29g.
+- 7.3 port: carry 0054 and drop 0050 (0055). Never flash 7.3.
+
+## 2026-10-23: resume here (16:50 CEST), qtbfix persistent, soak 24/24, 0050 droppable (superseded by 17:10)
 
 - Phone: persistent msm.ko = qtbfix (0054, a153ae874f75), keep_gdsc_on still on.
   Nothing staged; 91/92 in /root/dropins-disabled; 90-premsm and 93-deadline stay.
