@@ -801,3 +801,22 @@ Bad detection in `rbt.sh`: R20-16 and R20b-6 were first flagged bad on 1-2 "fram
 Downstream (sm8750 arm-smmu-qcom.c qtb500): halt (FENCEREQ) / poll / resume are used only for ATOS/ECATS and testbus debug; write_sync is a readl of SWID_LOW; there is no credit clear or invalidate, and nothing runs at display handoff or reboot. A fence on a QTB with leaked OT would never ack, so a halt is not a candidate fix. The stock DT QTB nodes have no clocks and no power-domains, only `interconnects` mmss_noc -> mc_virt (hf: mmss_noc 0x15, sf: 0x20), which the display already votes (votes identical good/bad).
 
 Next: r21a (`0016`, one sf_qtb SWID_LOW read only), to test whether the cure is specific to hf. Then VIG1 at takeover (fresh consult, `fresh-consult-facts.md`): ABL scans out with VIG0 and VIG1 (CTL0 fetch 0x30000), and stop-splash only clears VIG0.
+
+## Round 21 (2026-10-23, 11:40-12:31 CEST): interleave, VIG1, kick-on-hang
+
+Arms, interleaved per round (logs/loop21b.txt): r21s (VIG dump + stop-splash also clears VIG1 SRC0 and flushes it), r21k (VIG dump; one hf QTB read + 10 ms wait + resend only after a first -110), r21v (VIG dump only, no QTB access), r21a (one sf QTB read), r20d (one hf QTB read).
+
+- 0 bad boots in 20. The kick never fired because r21k never saw a -110, so kick-on-hang is still untested.
+- VIG1 is a live splash pipe at takeover. ABL scans the left half with VIG0 and the right half with VIG1 (VIG1 src0 fc800000, x=720, 720x3168, stride 0x1680; CTL0 fetch-active 0x30000). Our stop-splash leaves VIG1 SRC0 pointing at fc800000. The earlier CB9 fault iova 0xfd965800 falls in the right half of the last line, so it was a VIG1 fetch, made after the splash buffer was unmapped.
+- c60 boots, all of 2026-10-23 (gate = mean battery current in the boot before):
+
+| arm | c60 boots | bad |
+|---|---|---|
+| no QTB read (P1, T1, R18b, R18c, S2, R19-3, R20c-0, R20c-2, R20e-8) | 9 | 8 |
+| no QTB read, VIG-dump builds (R21s-4, R21k-4) | 2 | 0 |
+| one QTB read, hf or sf (R20, R20b, R20d, R21d, R21a2) | 10 | 0 |
+
+  No bad boot at all after 11:37. The two good no-read c60 boots are both r21v-based, and that build reads SSPP registers at stop-splash entry, so a plain MMIO read-back is a confounder. Loop22 has a pure no-read arm (r20c) next to r21k.
+- Lead, not yet tested: 4 of 5 c60 boots that followed a positive (charging) gate current were bad, against 4 of 16 after a negative one. Charging state, or something that tracks it, could be a covariate.
+
+Candidate fix (kernel/candidate/0001-*.patch, wt-dodge 2c93e5f48): msm_mdss reads mdp_hf_qtb SWID_LOW (0x017d0000) on every MDSS enable. This copies the downstream qtb500 "write_sync" read. The proper upstream layer would be a qcom,sm8750-tbu node plus arm-smmu-qcom TBU handling. It sits in msm_mdss for now because ARM_SMMU is built in, while msm is a module and can be one-shot tested.
