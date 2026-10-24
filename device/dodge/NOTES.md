@@ -1056,3 +1056,4 @@ Before the boot test:
 - The deadline on 7.x is now enforced on the phone (check never cancels; 220 s after kexec). Shown armed via `systemctl list-timers` at 7.3 uptime ~10 s.
 - The ath12k endpoint's MSI config matches 6.16, but no endpoint MSI vector ever fires on 7.3. Root port MSIs do fire. IOMMU group/type/msi region matches 6.16, with no PCIe SMMU faults. The pcie DT nodes match on msi-map/interrupts, and pcie-qcom needs no new property.
 - Next: a kexec-leftover control (6.16 via the same stage-1) and an ITS MAPD debug print for DevID 0x1401.
+- Boot 6 (12:53): the ath12k MSI layout is identical to 6.16, BHI_INTVEC = 0, and BusMaster+ is set on 7.3. The flashed 6.16 is itself kexec'd and its MSIs work. New suspects: 7.3's `pcie@0/wifi@0` node (WCN7850 compatible plus supplies, so pwrctrl is in play) and the ITS DevID mapping. Boot 6 ended with "Device link is not accessible". Details are in the facts log.
