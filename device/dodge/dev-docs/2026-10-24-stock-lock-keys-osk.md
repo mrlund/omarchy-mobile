@@ -114,3 +114,15 @@ injection only) and by `wtype` as the user.
   fault: `omarchy-launch-screensaver` skips the launch when
   `pgrep -f org.omarchy.screensaver` matches, and the polling loop had that
   string on its own command line. Don't put it in a monitor's arguments.
+- `--revert` (20:18): the account went back to locked (`L`), the PAM file
+  went away (`lock lock` answers `missing-pam`), the toggles went back to
+  hypr + screensaver-off, and idle-off was active again. Applying again
+  restored all of it, and the PIN was set again as root.
+- `--revert` under a held lock (20:18): the first guard compared the output
+  of `omarchy-shell lock isLocked`, but without a UTF-8 LANG the shell
+  prints a locale WARN on stdout, so the guard missed and the revert ran
+  while locked. Recovery over ssh: set the PIN again, run `setup-stock`, and
+  unlock with the PIN. The first unlock was relocked at once (a queued lock
+  request, after a shell restart); the second one held. Fixed by setting
+  `LANG=C.UTF-8` in `as_user` and matching with `grep -qx true`. At 20:21 the
+  guard refused under a held lock and left the PIN and PAM in place.

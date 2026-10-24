@@ -41,7 +41,7 @@ added_toggles=(lock-keypad lock-on-start lock-after-screensaver suspend-off cred
 as_user() {
   local sig
   sig=$(ls -t "/run/user/$uid/hypr" 2>/dev/null | head -1 || true)
-  runuser -u "$U" -- env HOME="$H" USER="$U" LOGNAME="$U" PATH=/usr/share/omarchy/bin:/usr/local/bin:/usr/bin \
+  runuser -u "$U" -- env LANG=C.UTF-8 HOME="$H" USER="$U" LOGNAME="$U" PATH=/usr/share/omarchy/bin:/usr/local/bin:/usr/bin \
     XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
     WAYLAND_DISPLAY=wayland-1 HYPRLAND_INSTANCE_SIGNATURE="$sig" OMARCHY_PATH=/usr/share/omarchy "$@"
 }
@@ -54,6 +54,11 @@ live() {  # apply to a running session, if there is one
 
 if ((revert)); then
   [[ -f $bk/files.tgz ]] || { echo "no backup in $bk; nothing to revert" >&2; exit 1; }
+  # Removing the PAM file under a held lock would leave a lock nobody can open
+  # (the shell prints a locale WARN on stdout without LANG, hence grep -x).
+  if pgrep -u "$U" -x Hyprland >/dev/null && as_user omarchy-shell lock isLocked 2>/dev/null | grep -qx true; then
+    echo "the session is locked; unlock it first (or reboot), then revert" >&2; exit 1
+  fi
   as_user bash -s "$bk" "${files[@]}" <<'SH'
 set -u; bk=$1; shift; cd ~
 for f in "$@"; do grep -qxF "$f" "$bk/files.list" || rm -f "$f"; done
