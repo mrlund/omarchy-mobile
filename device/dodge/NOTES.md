@@ -39,7 +39,7 @@ lock". Details: [dev-docs/2026-10-24-stock-lock-keys-osk.md](dev-docs/2026-10-24
     because the poll loop's command line contained `org.omarchy.screensaver`,
     which the launcher's pgrep takes for a running screensaver.
 - **`--revert`** tested both ways (20:18-20:21). It refuses while the session
-  is locked; run it unlocked, or after a reboot before the lock.
+  is locked; unlock with the PIN first, then run it.
 - **Open:**
   - the next boot (lock-on-start, then the deadline cancelled with dpms Off)
   - Omarchy's other system install steps were not run (theme, browser
