@@ -48,6 +48,16 @@ make O=../out-omamobile-73 ARCH=arm64 LLVM=1 KERNELRELEASE=7.3.0-rc6-dodge-s1 \
 # skip-units-<R> as its skip-units file.
 ```
 
+GPU candidate `7.3.0-rc6-dodge-gpu1` (2026-10-24): same tree as s1 plus
+patches 0054-0058. Its config is `config-7.3.0-rc6-dodge-gpu1`, which is
+`config-7.3.0-rc6-dodge-s1` plus `dodge-73-gpu.config` (`CONFIG_SM_GPUCC_8750=y`;
+that is the only diff). The skip-units file is `skip-units-7.3.0-rc6-dodge-gpu1`,
+a copy of the s1 one. It is built in `out-omamobile-73-gpu` with
+`KERNELRELEASE=7.3.0-rc6-dodge-gpu1`. It has its own release and module tree
+(`/usr/lib/modules/7.3.0-rc6-dodge-gpu1.held` and
+`/usr/local/lib/omamobile.7.3.0-rc6-dodge-gpu1`), so the s1 tree that the
+current flashed default uses stays untouched.
+
 Boot (one-shot, never flashed), with the 6.16 stage 1 unchanged:
 
 ```sh

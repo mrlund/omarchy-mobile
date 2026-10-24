@@ -4,7 +4,7 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-24: Adreno 830 GPU trial gpu1 (17:17-17:58 CEST)
+## 2026-10-24: Adreno 830 GPU trial gpu1 and candidate soak (17:17-18:25 CEST)
 
 - 2026-10-24 17:25 Martin verified cable-out cold start + idle/wake on flashed 7.3
 - Details: [dev-docs/2026-10-24-gpu-a830.md](dev-docs/2026-10-24-gpu-a830.md).
@@ -39,6 +39,44 @@ Attempts live in [dev-docs/](dev-docs/).
 - Hyprland holds renderD128 and maps libgallium. Aquamarine's mgpu
   `CDRMRenderer` still logs "no matching devices" (this also happens on s1,
   and is the multi-GPU blit path only).
+- **GPU candidate soak (17:58-18:20 CEST, one-shot only, nothing flashed): GO for flashing.**
+  - **Candidate:** release `7.3.0-rc6-dodge-gpu1`, which is the s1 tree plus
+    patches 0054-0058.
+    - Config: `kernel-7.3/config-7.3.0-rc6-dodge-gpu1`, which is s1 plus
+      `CONFIG_SM_GPUCC_8750=y`.
+    - Image sha256 `ab0e5e26...0c08`.
+    - It has its own module tree and overlay, both already on the phone, and
+      the s1 tree stays untouched for the fallback.
+  - **Flash image:** `~/android/mainline/images/CANDIDATE-7.3-gpu1-boot_a.img`,
+    sha256 `64a754b70c2cf6aef71cd95fc31a1a9a8d108cbd2faf321fa42df45fb12ae120`.
+    It uses the same cmdline as the current default (with `dodge.flashed`;
+    without `oops=panic`).
+  - **gpusoak1 (840 s soak flag):**
+    - 20 timed wakes, all with GDSC off: 55.6 ms to dpms On and 323 ms to the
+      first frame, the same as s1. 0 slow, txdelta 0, 0 oopses.
+    - With the screen off, the GPU was runtime-suspended in 132 of 140 1-s
+      samples. The 8 active samples were in the first second after a
+      screen-off.
+    - The host monitor then rebooted it, a false positive: the omamobile
+      `idle-off` screen timeout turned the panel off during glmark2.
+    - The trial's sysrq return landed on s1 after 44 s.
+  - **gpusoak2:** `idle-off` was paused during the run.
+    - Full default `glmark2-es2-wayland`: rc 0, score 2083.
+    - Hyprland's render-node fdinfo shows 24.3 s of `drm-engine-gpu`, so
+      Hyprland composites on the A830. `hyprctl systeminfo` shows GPU
+      `qcom,adreno-44050000`.
+    - The GPU suspends again afterwards (active 335 s, suspended 37 s; 2121
+      devfreq transitions).
+    - Wi-Fi connected, BT powered, speaker sink and ALSA card present,
+      touchpanel present, 0 oopses or hangchecks. The only WARNs are the 4
+      old DSI clk ones.
+    - Ping loss in screen-off/off-on windows and at some checks is the
+      already open 7.3 Wi-Fi issue.
+    - Hard return was back on s1 (DSI On, txfail 0) at 18:19.
+  - **Idle power/CPU:** inconclusive. The phone is on USB; `current_now` and
+    the 5 s top samples are dominated by charging and boot settle.
+  - **Not covered:** a soak longer than 15 min, a cold start of the flashed
+    image, and Vulkan.
 - `mesa-utils` and `glmark2` were installed on the phone via pacman.
   `vulkan-freedreno` was skipped: it is 26.2.5 against mesa 26.2.4, a partial
   upgrade.
