@@ -4,6 +4,64 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-24: 7.3 Wi-Fi and Bluetooth ported (host only, 12:10 CEST), not boot-tested
+
+Patches `kernel-7.3/0036`-`0051` are on the local trial branch. They build
+(Image, modules, DTB, clang 23.1.3), with `CONFIG_ATH12K=m`. The phone was
+not booted and is still on 6.16.
+
+Packed image (not booted):
+`out-dodge-chain-73/images/boot-chain-wifibt-20261024.img`. It is the same
+pack as 2026-10-21 (6.16 stage 1, `DTB_OPTS='splash fb'`, the same stage 2
+cmdline). `boot-chain.img` now holds this image. The 10-21 image is kept as
+`boot-chain-s1-20261021.img`.
+
+What upstream changed to cause each conflict:
+- 6.16 0006/0007/0038-0042 (QCC2072 HAL backport, WCN7860 hw params): 7.3
+  moved the PCI code to `ath12k/wifi7/` and has QCC2072 natively. These are
+  replaced by 0036, a WCN7860 entry cloned from QCC2072 (PCI 0x110e, the
+  QCC2072 window register, `hal_qcc2072_ops`). The 6.16 `wcn7860_regs` table
+  is value for value the same as upstream `qcc2072_regs`.
+- 0008 (MHI lost EE): 7.3 `boot.c` finds the second ELF by itself, so the
+  `tme_supported_image` flag and its user (6.16 0009) are gone; the revert is
+  0038. In `pm.c` the only conflict was the new `mhi_uevent_notify()`. The
+  rework is 0037.
+- 0010 (TME-Lite): upstream added the AUX_UC QMI messages (0x005A) in the
+  same spot. It also moved `enum ath12k_firmware_mode` from core.h to qmi.h
+  as `ath12k_qmi_firmware_mode`, so COLD_BOOT (7) now sits there.
+- 0016 (PHY and aux ucode): 7.3 has native aux download
+  (`fw.download_aux_ucode`, `ath12k_qmi_aux_uc_load`). Only the PHY-as-M3
+  half is kept (0044).
+- 0018 and 0019: these conflicted only on the dropped aux code. The host
+  feature-list BIT(6) hunk is dropped too: 7.3 sends
+  `hw_params->qmi_cnss_feature_bitmap`.
+- 0035 (QDSS_CFG_MISS): the bit is now left out of the WCN7860 bitmap
+  instead of being masked in host_cap. The list stays 0x50 (0048).
+- 0037 (single-phy, 58 channels per command): this was a backport of the
+  upstream QCC2072 series, already in 7.3. Only the 0x110e log is left (0049).
+- 0043 (BT qca): upstream renamed `qca_power_shutdown` to `qca_power_off`,
+  moved QCA6390 out of the power switches, and checks `qcadev` for NULL.
+  WCN7860 was added to each switch. The soc data keeps the 6.16 caps (no HFP
+  offload).
+
+Obsolete on 7.3 (dropped or reverted): 0006, 0007, 0009 (TME flag), 0017
+(aux only when advertised; 6.16 had already removed that gate again in
+0019), 0036 (rfkill skip: the clone has `rfkill_pin = 0`, and that gives
+-EOPNOTSUPP, which is ignored), 0038-0041, most of 0037, the aux half of
+0016, and the two-ELF half of 0008.
+
+Before the boot test:
+- Install the new modules (`modules_install` plus the kmod overlay, as in
+  the README) for 7.3.0-rc6-dodge-s1.
+- 7.3 loads `WCN7860/hw2.0/aux_ucode.bin`. 6.16 loaded `aux_ucode20.elf`.
+  The phone needs `aux_ucode.bin` there (a link to the stock
+  `aux_ucode20.elf`). Nothing was changed on the phone yet.
+- Risk: upstream QCC2072 has `.qrtr_node_id = 0x1e03300`. 6.16 wrote
+  `PCIE_LOCAL_REG_QRTR_NODE_ID` 0x1E03164. If QMI never comes up, check
+  this first.
+- `ath12k_qmi_process_coldboot_calibration` is unused after 0047 (mission
+  mode), which gives a -Wunused-function warning. This was the same on 6.16.
+
 ## 2026-10-24: resume here (11:45 CEST), 7.3 speaker amps start, ready for an ear test
 
 - Opcode `0x01001021` is `APM_CMD_GET_SPF_STATE` (`qdsp6/audioreach.h`), sent
