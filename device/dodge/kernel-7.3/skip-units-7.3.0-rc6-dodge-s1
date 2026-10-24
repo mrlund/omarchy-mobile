@@ -1,11 +1,8 @@
-# 7.3 stage 1: display, touch and USB only. Units listed here do not
-# start on this kernel (omamobile-kmod-overlay, 50-omamobile-kernel-skip.conf).
-omamobile-bt.service
-omamobile-sensors.service
-omamobile-wifi-ath12k.service
-omamobile-wifi-pcie.service
+# 7.3: units listed here do not start on this kernel
+# (omamobile-kmod-overlay, 50-omamobile-kernel-skip.conf).
+# 2026-10-24: Wi-Fi, BT, audio, battery and sensors run on 7.3; the modem
+# stack stays skipped.
 omamobile-rmtfs.service
 omamobile-tqftpserv.service
 omamobile-modem.service
 omamobile-mm-netport.service
-omamobile-dodge-audio.service

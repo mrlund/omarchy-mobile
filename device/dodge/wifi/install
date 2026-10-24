@@ -42,4 +42,13 @@ else
 	ln -s ../WCN7850/hw2.0 "$FW/WCN7860/hw2.0"
 fi
 log "firmware: $FW/WCN7860/hw2.0 -> $(readlink "$FW/WCN7860/hw2.0" 2>/dev/null || echo '?')"
+# Regulatory country for set-wireless-regdom (udev runs it when cfg80211
+# loads). The packaged file sets none, so the helper exits 1. The owner is
+# in Denmark.
+RD=/etc/conf.d/wireless-regdom
+if [ -f "$RD" ] && ! grep -q '^WIRELESS_REGDOM="DK"' "$RD"; then
+	sed -i 's/^WIRELESS_REGDOM=.*/#&/' "$RD"
+	echo 'WIRELESS_REGDOM="DK"' >> "$RD"
+	log "$RD: WIRELESS_REGDOM=DK"
+fi
 log "done; the next boot loads ath12k"

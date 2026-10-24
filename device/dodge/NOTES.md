@@ -4,6 +4,53 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-24: 7.3 sensors on, Wi-Fi unit cleanup, regdom DK; 6.16 vs 7.3 parity (14:05-14:20 CEST)
+
+One-shot boot 14 (14:07:27 CEST, back on 6.16 at t=111 s, display healthy):
+- **Wi-Fi:** autoconnect, DHCP, and the gateway answered 3 of 3 pings.
+  `nmcli dev wifi rescan` then `list` returned 17 entries.
+- **BT:** hci0 powered, and a 10 s scan found 2 new devices.
+- **Sensors:** the 7.3 skip-units no longer lists `omamobile-sensors`.
+  hexagonrpcd and iio-sensor-proxy are active. `monitor-sensor` reports an
+  accelerometer (orientation undefined, tilt face-up: the phone lies flat),
+  proximity and compass (live heading). There are no `/sys/bus/iio`
+  devices, and the same is true on 6.16 (SSC over libssc). hexagonrpcd
+  fails once with NOPERMISSION and works after its restart, also as on
+  6.16. A real rotation test needs a hands-on step.
+- **`omamobile-wifi-ath12k`:** optional crypto modules with no .ko are now
+  skipped quietly, with a single log line ("built in on 7.3:
+  libsha256-generic sha256 ghash-generic cmac michael_mic"). 6.16 ships
+  every file, so nothing changes there.
+- **Regdom:** the phone's `/etc/conf.d/wireless-regdom` now sets
+  `WIRELESS_REGDOM="DK"`, done by `wifi/install`, which comments out any
+  previous line. `set-wireless-regdom` no longer fails. The firmware still
+  rejects the country, on both kernels (status != PASS, "Failed to set the
+  requested Country"). The 7.3-only "Timeout while waiting for regulatory
+  update" (2 this boot) is new upstream code: `ath12k_regd_update()` waits
+  on `regd_update_completed`, but the DROP path in
+  `ath12k_reg_chan_list_event()` jumps to `mem_free` and never calls
+  `complete_all()`. It only costs a delay, and the regdomain stays
+  firmware-managed (US) as on 6.16. Possible small fix: complete on DROP.
+  Upstream candidate, not done yet.
+
+### Parity: 6.16 (flashed) vs 7.3 (one-shot only)
+
+| Area | 6.16 | 7.3 | Left on 7.3 |
+|---|---|---|---|
+| Display | OK (warm-boot fix, off/on, idle) | OK: DSI On, 0 tx failed, GDSC collapse verified | long idle/wake soak; systemd-backlight unit fails |
+| Touch | OK | OK (touchpanel) | gesture/soak test |
+| USB gadget/SSH | OK | OK | none |
+| Audio | speaker + mic OK | speaker OK (ear test, same gains); silent capture path untested | mic and headset jack |
+| Bluetooth | OK | OK: hci0 powered, scan finds devices | pairing/audio |
+| Wi-Fi | OK | OK with 0052: autoconnect, DHCP, ping, scan | regulatory-wait fix (optional) |
+| Sensors | OK (libssc) | accelerometer/proximity/compass report | hands-on rotation test |
+| Modem | MPSS up, ModemManager blocked (no IPA/net port) | skipped | port the modem stack |
+| Battery | OK (battmgr) | OK: capacity reads, adsp-battery active | charge/discharge over time |
+| Suspend/idle | screen-off idle + GDSC OK; no system suspend | screen idle OK in short boots | long idle; s2idle not tried on either |
+
+7.3 still runs only as a one-shot (`fastboot boot`). Flashing it is
+Martin's call.
+
 ## 2026-10-24: 7.3 clean-build check and speaker ear test (13:59-14:03 CEST)
 
 - Clean 0052 build (no debug print), one-shot boot 13, 194 s round trip:
