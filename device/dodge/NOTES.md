@@ -4,7 +4,15 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-23: resume here (17:10 CEST), r29g persistent (QTB fix, GDSC collapses), 0050 reverted as 0055
+## 2026-10-24: resume here (08:32 CEST), r29g verified by Martin, display warm-boot work DONE
+
+- Martin verified r29g (0054 QTB-read fix + 0055 revert of 0050, msm.ko
+  6069cfcd6516) on 2026-10-24 08:24-08:32 CEST: overnight idle then tap
+  wake, cable-out UI poweroff + cold start, idle screen-off + wake. All good.
+- Warm-boot display drop: closed. 0050 (GDSC keep-on) is officially dropped.
+- Next slice: staged 7.3 port; it must carry 0054 and the 0050 drop.
+
+## 2026-10-23: resume here (17:10 CEST), r29g persistent (QTB fix, GDSC collapses), 0050 reverted as 0055 (superseded by 2026-10-24 08:32)
 
 - Phone: persistent msm.ko = r29g (0054 with keep_gdsc_on=false, 6069cfcd6516).
   Kept beside it: msm.ko.qtbfix-gdscon (0054 only, a153ae874f75) and
