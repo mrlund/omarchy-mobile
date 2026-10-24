@@ -4,6 +4,33 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-24: 7.3 Wi-Fi fixed: pcie-qcom misparsed the 2-cell iommu-map (13:40-13:55 CEST)
+
+**Wi-Fi works on 7.3.** One-shot boot 12 (13:51 CEST): BHI got its 4 interrupts,
+the firmware reached mission mode, QMI and WMI came up, and NetworkManager
+autoconnected and got a DHCP lease. Fix: `kernel-7.3/0052`.
+- Root cause: 7.3 `sm8750.dtsi` gives apps_smmu `#iommu-cells = <2>`, so
+  pcie0's `iommu-map` has 5 cells per entry. `qcom_pcie_config_sid_1_9_0()`
+  still reads 4-cell records. The endpoint (BDF 0x100) got no BDF_TO_SID
+  entry and its TLPs carried the base SID 0x1400. DMA still worked (the root
+  port and endpoint share one SMMU domain), but the ITS DeviceID is the SID,
+  so the endpoint's MSIs arrived as DeviceID 0x1400. The BHI interrupt
+  (EventID 0) landed on the root port's PME/AER vector, which counted 2 on
+  7.3 and 0 on 6.16. Everything else was dropped.
+- Re-check of the boot 2 dump: BHI_STATUS 0x8780c5b8 means SUCCESS (bits
+  31:30 = 0b10), so the device had finished and only the interrupt was lost.
+- Fix: read `#iommu-cells` from the IOMMU node and step through the records
+  at 3 + cells. The debug boot printed BDF 0x100 -> SID 0x1401
+  (cells 2). A fresh Claude consult (new session, raw facts only) ranked the
+  same cause first.
+- Boot 11 was wasted. The commit changed the kernel release string, so no
+  modules loaded. Build trial kernels with
+  `KERNELRELEASE=7.3.0-rc6-dodge-s1`.
+- New on 7.3: the interface is renamed `wlan0` -> `wlp1s0`. NetworkManager
+  doesn't care, but the boot script waits for `wlan0`, so the long check was
+  skipped. Both boots returned to 6.16 with the display healthy (190 s and
+  201 s round trips).
+
 ## 2026-10-24: 7.3 Wi-Fi/BT boot tests (12:12 and 12:25 CEST)
 
 Two one-shot boots. Details are in dev-docs/2026-10-24-wifibt-73-boot.md.
