@@ -34,8 +34,11 @@ while ((SECONDS-T0<200)); do
   $S 'uname -r' 2>/dev/null | grep -q '^7\.3' && { up=1; echo "$(date +%T) ssh up t=$((SECONDS-T0))"; break; }; sleep 3
 done
 if [ $up = 1 ]; then
-  IRQ='echo "== uptime $(cut -d" " -f1 /proc/uptime) dmesg_last=$(dmesg | tail -1 | cut -c1-14)"; grep -iE "mhi|ath12k|pci|msi|its" /proc/interrupts | tr -s " "; ls /sys/bus/pci/devices/0000:01:00.0/msi_irqs 2>/dev/null | tr "\n" " "; echo; for f in msi-map msi-map-mask interrupt-names; do p=$(ls -d /proc/device-tree/soc@0/pci@1c00000/$f 2>/dev/null); [ -n "$p" ] && { echo "$f:"; od -An -tx1 "$p" | head -3; }; done'
-  $S 'echo "uname $(uname -r) uptime $(cut -d" " -f1 /proc/uptime)"; systemctl list-timers --all --no-pager "dodge-deadline*"; dmesg | grep dodge-deadline' > $L/p73-$TAG-timers.txt 2>&1
+  IRQ='echo "== uptime $(cut -d" " -f1 /proc/uptime) dmesg_last=$(dmesg | tail -1 | cut -c1-14)"; grep -iE "mhi|ath12k|pci|msi|its" /proc/interrupts | tr -s " "; lspci -vvv -s 01:00.0 2>/dev/null | grep -A2 -E "MSI(-X)?:"; ls /sys/bus/pci/devices/0000:01:00.0/msi_irqs 2>/dev/null | tr "\n" " "; echo; for f in msi-map msi-map-mask interrupt-names; do p=$(ls -d /proc/device-tree/soc@0/pci@1c00000/$f 2>/dev/null); [ -n "$p" ] && { echo "$f:"; od -An -tx1 "$p" | head -3; }; done'
+  for i in 1 2 3 4 5 6; do
+    $S 'echo "uname $(uname -r) uptime $(cut -d" " -f1 /proc/uptime)"; systemctl list-timers --all --no-pager "dodge-deadline*"; dmesg | grep dodge-deadline' > $L/p73-$TAG-timers.txt 2>&1
+    grep -q "dodge-deadline.timer" $L/p73-$TAG-timers.txt && break; sleep 3
+  done
   cat $L/p73-$TAG-timers.txt
   # MSI sampling while BHI waits: 7.x only, uptime 10..95 s
   : > $L/p73-$TAG-irq.txt
@@ -71,6 +74,7 @@ if [ $up = 1 ]; then
     uptime' > $L/p73-$TAG-check.txt 2>&1
   echo "$(date +%T) check done rc=$? t=$((SECONDS-T0))"
   $S "$IRQ" >> $L/p73-$TAG-irq.txt 2>&1
+  $S 'for d in 0000:00:00.0 0000:01:00.0; do g=$(readlink /sys/bus/pci/devices/$d/iommu_group); echo "$d group=${g##*/} type=$(cat /sys/bus/pci/devices/$d/iommu_group/type 2>/dev/null) devs=$(ls /sys/bus/pci/devices/$d/iommu_group/devices 2>/dev/null | tr "\n" " ")"; cat /sys/bus/pci/devices/$d/iommu_group/reserved_regions 2>/dev/null; done; grep -iE "smmu" /proc/interrupts | tr -s " " | awk "{s=0; for(i=2;i<=9;i++) s+=\$i; if (s) print \$1, s, \$NF}"; dmesg | grep -iE "smmu|iommu" | grep -viE "probing|SMMUv2|stage|coherent|stream|context banks|page sizes|IPA" | tail -15' > $L/p73-$TAG-iommu.txt 2>&1
   $S 'uname -r; dmesg' > $L/p73-$TAG-dmesg.txt 2>&1
   $S 'journalctl -b --no-pager' > $L/p73-$TAG-journal.txt 2>&1
   echo "$(date +%T) captured t=$((SECONDS-T0))"; cat $L/p73-$TAG-health.txt
