@@ -42,6 +42,7 @@ if [ $up = 1 ]; then
   cat $L/p73-$TAG-timers.txt
   # MSI sampling while BHI waits: 7.x only, uptime 10..95 s
   : > $L/p73-$TAG-irq.txt
+  $S 'case "$(uname -r)" in 7.*) ;; *) echo NOT73; exit;; esac; echo "uname $(uname -r) uptime $(cut -d" " -f1 /proc/uptime)"; for d in 00:00.0 01:00.0; do echo "=== $d"; lspci -vvv -s $d; done' > $L/p73-$TAG-lspci-full.txt 2>&1
   while ((SECONDS-T0<170)); do
     o=$($S 'u=$(cut -d. -f1 /proc/uptime); case "$(uname -r)" in 7.*) ;; *) echo NOT73; exit;; esac; dmesg | grep -q "did not load image over BHI" && { echo DONE; exit; }; '"$IRQ" 2>&1)
     case "$o" in *NOT73*|*DONE*) echo "$o" | head -1 >> $L/p73-$TAG-irq.txt; break;; esac
