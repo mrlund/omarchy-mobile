@@ -1,0 +1,35 @@
+From e571a0d86442d1dbea34faa1efa058d9a91e7969 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 24 Oct 2026 11:40:31 +0200
+Subject: [PATCH] ASoC: codecs: aw882308: unmute from trigger, after BCLK is
+ running
+
+On 7.3 q6apm-lpass-dais starts the back-end graph in .trigger, no
+longer in .prepare. The amplifier start in .mute_stream ran at the end
+of prepare, before BCLK, and its PLL never locked (SYSST 0x0020,
+NOCLKS; start failed, -110). Use mute_unmute_on_trigger so the start
+runs after the CPU DAI trigger has started the graph.
+---
+ sound/soc/codecs/aw882308.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/sound/soc/codecs/aw882308.c b/sound/soc/codecs/aw882308.c
+index 78e7861c6..4be9d3221 100644
+--- a/sound/soc/codecs/aw882308.c
++++ b/sound/soc/codecs/aw882308.c
+@@ -239,6 +239,12 @@ static const struct snd_soc_dai_ops aw882308_dai_ops = {
+ 	.set_fmt = aw882308_set_fmt,
+ 	.mute_stream = aw882308_mute,
+ 	.no_capture_mute = 1,
++	/*
++	 * The amps lock their PLL to BCLK. AudioReach starts the back-end
++	 * graph, and so BCLK, in the CPU DAI trigger, after prepare, so
++	 * unmute (and start) from trigger, once the CPU DAI has run.
++	 */
++	.mute_unmute_on_trigger = 1,
+ };
+ 
+ static struct snd_soc_dai_driver aw882308_dai = {
+-- 
+2.56.0
+
