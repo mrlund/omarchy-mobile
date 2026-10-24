@@ -6,6 +6,9 @@
 # start cannot push it out). A check at 80 s uptime cancels it only if the
 # boot is clean. Env overrides for testing: DL, CK (s), ON=--on-active, FORCE_BAD=1.
 DL=${DL:-240}; CK=${CK:-80}; ON=${ON:---on-boot}
+# 7.x is kexec'd from a 6.16 stage 1 (~20 s), so arm 220 s of 7.x uptime to keep
+# the 240 s budget from fastboot boot; the 80 s check never cancels on 7.x.
+case "$(uname -r)" in 7.*) DL=${DL73:-220} ;; esac
 [ -e /run/msm.oneshot.ko ] || [ -e /run/panel.oneshot.ko ] || [ -e /root/msm.oneshot.ko ] || \
   [ -e /root/panel.oneshot.ko ] || [ -e /root/dodge-deadline ] || exit 0
 systemctl stop dodge-deadline.timer dodge-deadline-check.timer 2>/dev/null
