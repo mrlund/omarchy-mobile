@@ -4,6 +4,46 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-24: stock lock, PIN, power key and keyboard (19:57-20:30 CEST)
+
+Martin wants the stock experience; this replaces "screen off on idle, no
+lock". Details: [dev-docs/2026-10-24-stock-lock-keys-osk.md](dev-docs/2026-10-24-stock-lock-keys-osk.md).
+
+- **Why it was missing:** dodge's rootfs never ran `omamobile-firstboot`. So
+  there was no `omamobile-setup-user`, no `/etc/pam.d/omarchy-lock-password`
+  (the lock answered `missing-pam`), and the account password was locked.
+  The PIN is the account password on stock.
+- **`desktop/setup-stock` (root):** `omarchy-apply-lock`, the packaged
+  `omamobile-setup-user`, and firstboot's credential/lock-keypad/lock-on-start
+  tail. It swaps dodge's `omamobile-idle-off` for the stock idle (screensaver
+  150 s, lock 300 s, the lock blanks the panel 10 s later). Applied live, no
+  reboot. The PIN (Martin's choice) was set with `passwd` as root; it is in
+  no file. `setup-stock --revert` removes the lock and the PIN and brings
+  back idle-off.
+- **Kept dodge's:** no ufw (stock allows ssh on usb0 only; Wi-Fi ssh must
+  work), Hyprland via `omamobile-hyprland.service` rather than sddm, root
+  stays key-only through sshd.
+- **Deadline check changed:** lock-on-start blanks the panel before the 80 s
+  check, so dpms Off with Hyprland running and no DSI errors now counts as
+  clean (`dodge-deadline-check.sh`, in /root too, old one at `.pre-lock`).
+  This has to be confirmed on the next boot.
+- **Tested live:**
+  - A power press locks and darkens the panel; ssh over USB and Wi-Fi
+    works while locked.
+  - Pressing again shows the PIN pad, which blanks after 10 s.
+  - A wrong PIN is refused; the PIN typed or tapped on the pad unlocks.
+  - ABC on the pad and a text field bring up squeekboard.
+  - A long press opens the system menu.
+  - Idle: the screensaver came up at 150 s, the lock at 300 s (20:16:39), and
+    the panel was off 12 s later. An earlier run showed no screensaver only
+    because the poll loop's command line contained `org.omarchy.screensaver`,
+    which the launcher's pgrep takes for a running screensaver.
+- **Open:**
+  - the next boot (lock-on-start, then the deadline cancelled with dpms Off)
+  - Omarchy's other system install steps were not run (theme, browser
+    policy, faillock limit, ssh tweaks, x86 hardware fixes); review them
+  - Martin's hands-on check of the real power key and touch
+
 ## 2026-10-24: cable-out cold start verified; display scale and bar vs stock (19:46-20:00 CEST)
 
 - **USB race fix verified (Martin, 19:46):** a cable-out cold start of

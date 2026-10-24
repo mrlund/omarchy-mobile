@@ -15,7 +15,11 @@ esac
 [ -e /root/dodge-deadline-hard ] && { echo "dodge-deadline: hard mode, reboot stays armed" > /dev/kmsg; exit 0; }
 bad=$(dmesg | grep -cE "tx failed|Failed to initialize panel|frame done timeout|kickoff timeout")
 dp=$(cat /sys/class/drm/card*-DSI-1/dpms 2>/dev/null | head -n1)
-if [ "${FORCE_BAD:-0}" = 0 ] && [ "$bad" = 0 ] && [ "$dp" = On ]; then
+# The stock phone lock (lock-on-start, 2026-10-24) blanks the panel ~10 s after
+# login, so dpms is Off by the 80 s check on a healthy boot. Off still counts as
+# clean when Hyprland is running and the panel came up (no DSI errors above).
+[ "$dp" = Off ] && pgrep -x Hyprland >/dev/null && dp="Off (blanked by lock, Hyprland up)" && dpok=1
+if [ "${FORCE_BAD:-0}" = 0 ] && [ "$bad" = 0 ] && { [ "$dp" = On ] || [ "${dpok:-0}" = 1 ]; }; then
 	systemctl stop dodge-deadline.timer
 	echo "dodge-deadline: clean (dpms $dp), reboot cancelled" > /dev/kmsg
 else

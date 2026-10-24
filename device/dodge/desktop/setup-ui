@@ -7,7 +7,7 @@
 # It does the display part of omamobile-setup-user (omamobile-shell): the
 # phone shell plugins, the phone bar profile and the scale-3 monitor, and
 # records the same omarchy-done markers, so a later full omamobile-setup-user
-# keeps them. Lock, power-key and keyboard steps are left out on purpose.
+# keeps them. The lock, power-key and keyboard steps are in setup-stock.
 # Backups: ~/.config/omarchy/shell.json.pre-dodge-ui,
 # ~/.config/hypr/monitors.lua.pre-dodge-ui. `--revert` puts them back.
 set -euo pipefail
