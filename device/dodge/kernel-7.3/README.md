@@ -22,6 +22,7 @@ A backup of the local branch `trial/omamobile-dodge-port` in
 - `0036`-`0050` (2026-10-24): Wi-Fi (peach, WCN7860, PCI 0x110e). 0036 adds WCN7860 to the 7.3 wifi7 driver as a clone of the native QCC2072 entry (replaces 6.16 0006/0007/0038-0042). 0037 reworks the MHI lost-EE fix onto 7.3's two-ELF boot.c. 0038 and 0050 revert two older commits that 7.3 makes obsolete (the TME flag, and the rfkill skip). 0039-0049 are the 6.16 QMI bring-up, with the 6.16 aux-ucode code replaced by upstream's. Not boot-tested yet.
 - `0051` (2026-10-24): Bluetooth qca WCN7860 (hci_uart, built in). Not boot-tested yet.
 - `0052` (2026-10-24): pcie-qcom config_sid parses the 2-cell `iommu-map` (sm8750 `#iommu-cells = <2>`). Without it, the endpoint MSIs carry the root port's ITS DeviceID and Wi-Fi BHI times out. Boot-tested: Wi-Fi connects.
+- `0053` (2026-10-24): ath12k signals `regd_update_completed` on the rejected-country (DROP) path of `ath12k_reg_chan_list_event()`; before, `pdev_idx` stayed 255 there, so `ath12k_regd_update()` waited the full timeout and logged "Timeout while waiting for regulatory update". Boot-tested (regfix1): the timeout line is gone, Wi-Fi connects. Upstream candidate (not sent).
 - `0025`-`0028`: display-drop work. 0025, 0027 and 0028 are DIAG (not for
   upstream); 0026 keeps the splash identity-mapped in msm's IOMMU domain.
   See `dev-docs/2026-10-21-display-drop.md`.

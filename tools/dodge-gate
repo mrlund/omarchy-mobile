@@ -1,0 +1,9 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# dodge-gate: dodge-battcheck plus the full-battery rule from rbt.sh: at 100%
+# capacity a failure on the current sign alone (charger idle at full) passes.
+cd /home/ml/Repos/omarchy-mobile
+tools/dodge-battcheck && exit 0
+c=$(timeout 15 tools/phone-ssh 'cat /sys/class/power_supply/qcom-battmgr-bat/capacity' </dev/null)
+[ "${c:-0}" -ge 100 ] && { echo "GATE_OK full-battery rule (cap $c%)"; exit 0; }
+echo GATE_FAIL; exit 1
