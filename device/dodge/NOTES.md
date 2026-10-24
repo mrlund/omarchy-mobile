@@ -4,6 +4,50 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-24: resume here (11:33 CEST), 7.3 GDSC collapse verified, DIAG and 0026 dropped
+
+- Trial branch `trial/omamobile-dodge-port` (local only) now ends with reverts of
+  the three DIAG commits (`6744afdd7`, `b34615157`, `c8b2ae98e`) and of 0026
+  (`e21d5aaed`, splash identity map). Exported as `kernel-7.3/0031`-`0034`.
+  msm is a module, so only `msm.ko` changed; the chain image is unchanged.
+- Real screen-off on 7.3 (logs `p73-gdsc1-*`, `p73-nodiag1-*`, `p73-no0026-*`):
+  `mdss_gdsc` reaches `off-0` within 2 s of DPMS off and ae00000 goes
+  `suspended`. One long collapse (about 100 s, from the 150 s idle-off) plus 4
+  short cycles on the qtb1 module, then 3 cycles each on the no-DIAG module and
+  on the no-DIAG and no-0026 module. Every wake: DPMS On, 0 `tx failed`.
+  Display, touch and USB are fine without the DIAG commits and without 0026.
+- Harness gotcha: Hyprland 0.56 uses a Lua config, so `hyprctl dispatch dpms off`
+  is a Lua syntax error and does nothing. That's why the 11:09 "12 s off" test
+  never collapsed the GDSC. Use `omarchy-brightness-display off|on` as the
+  user (it runs `hl.dsp.dpms({ action = "disable" })` and sets bl_power).
+  Script: `logs/p73-cycles.sh`.
+- One `arm-smmu ... Unhandled context fault ... cbfrsynra=0x800` at 0.43 s
+  shows up with and without 0026 (that's before msm loads), so 0026 can't
+  affect it. It's the splash scanout before the display domain exists. It's
+  harmless, and the identity map doesn't fix it.
+- `systemd-backlight@backlight:ae94000.dsi.0` fails on every 7.3 boot
+  ("Failed to write system 'brightness' attribute: Invalid argument"). It's
+  pre-existing (qtb1/gdsc1 too), probably the saved 6.16 value is out of
+  range on 7.3. Cosmetic.
+- Clock WARNs at mdss probe (4 per boot: `dsi0_phy_pll_out_dsiclk` and
+  `dsi0_phy_pll_out_byteclk` "already disabled" / "already unprepared"):
+  these are pre-existing. They're on 6.16 as well, and on every 7.3 boot since
+  2026-10-21. Path: `dsi_phy_driver_probe` -> `devm_of_clk_add_hw_provider` ->
+  `clk_core_reparent_orphans` -> `__clk_set_parent_after`. The dispcc-sm8750
+  byte/pclk RCGs have `CLK_OPS_PARENT_ENABLE`, so the orphan reparent calls
+  `clk_core_prepare_enable(parent)` on the DSI PLL. That fails because the PLL
+  isn't configured at probe ("DSI PLL(0) lock failed"). The error is ignored,
+  and `__clk_set_parent_after` then disables/unprepares the parent anyway.
+  This is a clk-core / DSI PHY PLL issue, not a dodge one. The fix is
+  upstream (have the clk core handle a failed parent enable, or don't
+  lock-check in the PLL prepare path). It's not cheap here, so no dodge patch.
+  Harmless.
+- Phone: 7.3 dir `display/msm.ko` = no-DIAG + no-0026 build (`msm.ko.no0026`,
+  md5 84106d31...). `msm.ko.qtb1` and `msm.ko.nodiag1` are kept. It's back on
+  6.16.0-gbd9587d65.
+- Next: stage 2 on 7.3, battery (adsp-battery already runs) then audio (take
+  `omamobile-dodge-audio.service` out of skip-units), one change per boot.
+
 ## 2026-10-24: resume here (11:13 CEST), 7.3 stage 1 re-done with the QTB fix, 0050 dropped
 
 - Stage 1 (display, touch, USB) on 7.3 was already done on 2026-10-21 (boot 2).
