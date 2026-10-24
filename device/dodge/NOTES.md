@@ -4,7 +4,7 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-24: 7.3 sensors on, Wi-Fi unit cleanup, regdom DK; 6.16 vs 7.3 parity (14:05-14:20 CEST)
+## 2026-10-24: 7.3 sensors on, Wi-Fi unit cleanup, regdom DK; 6.16 vs 7.3 parity (14:05-14:11 CEST)
 
 One-shot boot 14 (14:07:27 CEST, back on 6.16 at t=111 s, display healthy):
 - **Wi-Fi:** autoconnect, DHCP, and the gateway answered 3 of 3 pings.
