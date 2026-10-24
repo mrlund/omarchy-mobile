@@ -4,6 +4,37 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-24: resume here (11:45 CEST), 7.3 speaker amps start, ready for an ear test
+
+- Opcode `0x01001021` is `APM_CMD_GET_SPF_STATE` (`qdsp6/audioreach.h`), sent
+  once by `q6apm_get_apm_state()` at q6apm probe. The same
+  `CMD timeout for [1001021]` is on 6.16 too (12.5 s, `p73-616-audio-dmesg.txt`),
+  where audio works: the SPF isn't ready yet at probe. A red herring.
+- Real cause: on 7.3 the amps logged `SYSST 0x0020, wanted 0x0011` (NOCLKS,
+  no BCLK) before `start failed`. Upstream 7.3 `q6apm-lpass-dais.c` moved
+  `q6apm_graph_start()` from `.prepare` (6.16, line 207) to a new `.trigger`.
+  Our aw882308 starts the amp in `.mute_stream`, which ASoC calls at the end of
+  prepare, so on 7.3 that ran before BCLK.
+- Fix in our codec driver: `.mute_unmute_on_trigger = 1` in `aw882308_dai_ops`
+  (trial `e571a0d86`, `kernel-7.3/0035`). ASoC then unmutes each DAI right
+  after its own trigger, and the CPU DAI (graph start) runs first. The DPCM
+  links are nonatomic, and the q6apm trigger already sleeps.
+- One-shot `p73-trig1-*` (only change: the module, with dodge-audio enabled):
+  boot streams and 2 `aplay` runs of silence (`-D default` as ml), giving
+  `running: SYSST 0x0211 SYSCTRL 0x5240` on 1-0034 and 1-0035 every time, the
+  same as 6.16. 0 `start failed`, 0 `-110`. Back on 6.16, display ok.
+- Other 6.16 to 7.3 differences checked, none matter for the speakers: the
+  sc8280xp machine driver now does MI2S fmt/sysclk in hw_params (no mclk for
+  sm8750, so it's the same result); q6i2s has `.set_fmt` upstream; the dodge DTS
+  audio nodes are the same; the topology name logic (`qcom/<soc>/<card>-tplg.bin`)
+  is the same apart from `__free` cleanup. Same adsp.mbn
+  (`qcom/sm8750/OnePlus/adsp.mbn`), aw882308-3{4,5}.bin, UCM and topology
+  (same rootfs). 7.3 also logs `7630000.soundwire: dout-ports (0) mismatch with
+  controller (1)`: that's the WSA/RX soundwire, not the MI2S speaker path.
+- Phone: in the 7.3 kmod tree, `snd-soc-aw882308.ko` = trig1 build (md5 2197063...,
+  `.orig` kept); dodge-audio stays enabled in the 7.3 skip-units.
+- Next: ear test on 7.3 (speaker), then mic/headset.
+
 ## 2026-10-24: resume here (11:33 CEST), 7.3 GDSC collapse verified, DIAG and 0026 dropped
 
 - Trial branch `trial/omamobile-dodge-port` (local only) now ends with reverts of
@@ -55,8 +86,8 @@ Attempts live in [dev-docs/](dev-docs/).
     `qcom-apm gprsvc:service:2:1: CMD timeout for [1001021] opcode`, and after
     that every stream start gives `aw882308 1-003x: start failed, SYSCTRL 0xd342`
     with `ASoC error (-110)` at digital_mute (14 of them). On 6.16: 0.
-    Reading: the ADSP graph never starts, so there's no I2S BCLK and the amps
-    can't lock. Look at the APM/GPR graph open on 7.3 first, not the amp driver.
+    Reading (wrong, see 11:45): the ADSP graph never starts, so there's no I2S
+    BCLK and the amps can't lock. The APM timeout is not the cause.
   - skip-units restored (dodge-audio skipped again). Back on 6.16, display ok.
 - Next: compare the 6.16 and 7.3 q6apm/audioreach paths (topology load, the
   opcode 0x01001021 command) for the APM timeout. One change per boot.

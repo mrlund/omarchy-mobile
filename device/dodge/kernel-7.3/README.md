@@ -18,6 +18,7 @@ A backup of the local branch `trial/omamobile-dodge-port` in
 
 - `0029`-`0030` (2026-10-24): drop the 0050 GDSC keep-on, port the 0054 QTB read.
 - `0031`-`0034` (2026-10-24): revert the DIAG commits (0025, 0027, 0028) and 0026 (splash identity map); none is needed.
+- `0035` (2026-10-24): aw882308 unmutes from trigger; on 7.3 AudioReach starts the BE graph (BCLK) in trigger, not prepare.
 - `0025`-`0028`: display-drop work. 0025, 0027 and 0028 are DIAG (not for
   upstream); 0026 keeps the splash identity-mapped in msm's IOMMU domain.
   See `dev-docs/2026-10-21-display-drop.md`.
