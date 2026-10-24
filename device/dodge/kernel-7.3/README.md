@@ -16,6 +16,7 @@ A backup of the local branch `trial/omamobile-dodge-port` in
 - `0022`-`0024` (stage 2): the aw882308 bring-up driver and its Receiver
   profile, and a fastrpc log line that `rootfs/audio-bringup.sh` waits for.
 
+- `0029`-`0030` (2026-10-24): drop the 0050 GDSC keep-on, port the 0054 QTB read.
 - `0025`-`0028`: display-drop work. 0025, 0027 and 0028 are DIAG (not for
   upstream); 0026 keeps the splash identity-mapped in msm's IOMMU domain.
   See `dev-docs/2026-10-21-display-drop.md`.

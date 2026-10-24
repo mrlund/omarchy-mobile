@@ -4,7 +4,31 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-24: resume here (08:32 CEST), r29g verified by Martin, display warm-boot work DONE
+## 2026-10-24: resume here (11:13 CEST), 7.3 stage 1 re-done with the QTB fix, 0050 dropped
+
+- Stage 1 (display, touch, USB) on 7.3 was already done on 2026-10-21 (boot 2).
+  What was left: carry 0054 and drop 0050. Trial branch `trial/omamobile-dodge-port`
+  (local only) now ends with `eea78e4f5` (drop the MDSS_GDSC keep-on, msm part
+  of ba113bc96; only_adsp stays) and `0111eb4d2` (QTB read on every MDSS enable,
+  SM8750 gets its own `sm8750_data` with `hf_qtb_base = 0x017d0000`). Exported
+  as `kernel-7.3/0029`, `0030`. DIAG 0025/0027/0028 and 0026 are still on the branch.
+- Build: `modules` in out-omamobile-73, same release `7.3.0-rc6-dodge-s1`, Image
+  unchanged (msm is a module), so the 2026-10-21 `boot-chain.img` was reused.
+  msm.ko (stripped md5 2037e74f) installed only in
+  `/usr/local/lib/omamobile.7.3.0-rc6-dodge-s1/display/` (`msm.ko.qtb1`; the old
+  one is `msm.ko.ctl1`). The 6.16 dir is untouched. The 7.3 skip-units now also
+  skips `omamobile-dodge-audio.service` (stage 1 only); old copy `skip-units.pre-qtb1`.
+- Boot p73-qtb1 (11:09 CEST, `fastboot boot`, never flashed, deadline armed via
+  /root/dodge-deadline): SSH over USB at about 60 s, DSI-1 connected, dpms On,
+  0 `cmd dma tx failed`, touchpanel registered, battmgr 100%. One dpms off/on
+  (12 s) clean; mdss_gdsc stayed on in that 12 s (collapse on 7.3 not yet seen).
+  Three clk WARNs at mdss probe (clk_core_disable/unprepare from insmod) to look at.
+  Logs: `~/android/mainline/logs/p73-qtb1-*`. Back on 6.16 (gated reboot, 11:12),
+  display connected/On, 0 failures. Picture not eyeballed (no Martin step asked).
+- Next: on 7.3, longer screen-off to see mdss_gdsc collapse and wake clean;
+  look at the probe clk WARNs; then drop the DIAG commits and repeat; then stage 2.
+
+## 2026-10-24: resume here (08:32 CEST, superseded by 11:13), r29g verified by Martin, display warm-boot work DONE
 
 - Martin verified r29g (0054 QTB-read fix + 0055 revert of 0050, msm.ko
   6069cfcd6516) on 2026-10-24 08:24-08:32 CEST: overnight idle then tap
