@@ -1,0 +1,30 @@
+From f08f72d3ebe2fadf91357ca841066bd1fa84b282 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 24 Oct 2026 17:38:41 +0200
+Subject: [PATCH 58/58] arm64: dts: qcom: sm8750: cover the A830 RSCC in the
+ GPU register range
+
+a6xx_gmu_init() maps the A8xx RSCC at GPU base + 0x50000, but the GPU
+node only mapped 0x40000, so the first runtime suspend faulted in
+a6xx_rpmh_stop() (unmapped gpu->mmio + 0x50010). Stock kgsl lists the
+RSCC at 0x3d50000 size 0x10000; extend kgsl_3d0_reg_memory to 0x60000.
+---
+ arch/arm64/boot/dts/qcom/sm8750.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8750.dtsi b/arch/arm64/boot/dts/qcom/sm8750.dtsi
+index d3d93ec87..edbd926a2 100644
+--- a/arch/arm64/boot/dts/qcom/sm8750.dtsi
++++ b/arch/arm64/boot/dts/qcom/sm8750.dtsi
+@@ -3516,7 +3516,7 @@ camcc: clock-controller@ade0000 {
+ 
+ 		gpu: gpu@3d00000 {
+ 			compatible = "qcom,adreno-44050000", "qcom,adreno";
+-			reg = <0x0 0x03d00000 0x0 0x40000>,
++			reg = <0x0 0x03d00000 0x0 0x60000>,
+ 			      <0x0 0x03d9e000 0x0 0x2000>,
+ 			      <0x0 0x03d61000 0x0 0x800>;
+ 			reg-names = "kgsl_3d0_reg_memory",
+-- 
+2.56.0
+

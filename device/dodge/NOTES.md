@@ -4,6 +4,20 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-24: Adreno 830 GPU trial gpu1 (17:17-17:5x CEST)
+
+- 2026-10-24 17:25 Martin verified cable-out cold start + idle/wake on flashed 7.3
+- Details: [dev-docs/2026-10-24-gpu-a830.md](dev-docs/2026-10-24-gpu-a830.md).
+  Patches 0054-0058 add the sm8750 GPU/GMU/gpucc/gxclkctl/SMMU nodes, the
+  A830 catalog entry, enable dodge's GPU with the OEM zap path, and fix the
+  GPU reg size. `CONFIG_SM_GPUCC_8750=y`.
+- Firmware on the phone (not in the repo): linux-firmware `gen80000_{sqe,gmu,aqe}`,
+  plus the OEM `gen80000_zap.mbn` from the OTA's vendor partition.
+- One-shot gpu1a: the GPU bound and the GMU firmware loaded (v5.1.25). The
+  display stayed clean. An oops in `a6xx_rpmh_stop` (RSCC unmapped) and a
+  hung `systemctl reboot` followed. As of 17:44 CEST the phone was still stuck in shutdown and needs a hands-on forced reboot. Retry with gpu1b (0058 + `oops=panic`).
+- Mesa 26.2.4 already knows chip id 0x44050000 (Adreno 830).
+
 ## 2026-10-24: 7.3 is the flashed default kernel; 6.16 is the fallback (16:05-16:25 CEST)
 
 Martin approved it at 16:01 CEST. Details: [dev-docs/2026-10-24-flash-7.3-default.md](dev-docs/2026-10-24-flash-7.3-default.md).

@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-24 | [gpu a830](2026-10-24-gpu-a830.md) | Adreno 830 trial gpu1a: GPU bound, GMU fw v5.1.25, display clean; oops in a6xx_rpmh_stop (RSCC outside the 0x40000 GPU reg), fixed in 0058; reboot hung in shutdown. |
 | 2026-10-24 | [flash 7.3 default](2026-10-24-flash-7.3-default.md) | 7.3 chain flashed to boot_a (6.16 stage 1, `dodge.flashed`), 6.16 boot_a kept as fallback with `tools/dodge-restore-616`; deadline keyed on trial vs flashed; first boot and warm reboot clean, slot a marked successful. |
 | 2026-10-21 | [display drop](2026-10-21-display-drop.md) | Intermittent first-DCS -110 on both kernels. DIAG msm.ko: DSI/PHY/supplies/clocks identical good vs bad, AXI-side DMA stall, no GDSC collapse, autorefresh off; splash identity map removes the SMMU faults but not the drop. 6.16 drops mostly after a 7.3 boot: next is a cold boot. |
 | 2026-10-21 | [kernel 7.3 stage 1](2026-10-21-kernel-7.3-stage1.md) | 7.3-rc6 stage 2 one-shot: USB/SSH, Gunyah watchdog, per-release module overlay with unit skip list, touch; display needed the RGB888 command format with DSC. |
