@@ -52,17 +52,32 @@ load() {
 		insmod "$D/$name.ko" "$@"
 }
 
+# Optional helpers: load if this kernel ships the .ko. When neither file
+# name exists, the code is built in or folded into another module (7.3:
+# sha256 and cmac are built in, michael_mic lives in mac80211), so skip
+# quietly. 6.16 ships every file, so nothing changes there.
+opt() {
+	n=$(echo "$1" | tr - _)
+	if [ ! -e "$D/$(echo "$n" | tr _ -).ko" ] && [ ! -e "$D/$n.ko" ]; then
+		skipped="$skipped $1"
+		return 0
+	fi
+	load "$@" || log "$1 failed"
+}
+skipped=
+
 # sha256 lets cfg80211 verify the signed regulatory.db; without it
 # the database is rejected and only the world domain is known.
-load libsha256-generic || log "libsha256-generic failed"
-load sha256 || log "sha256 failed"
+opt libsha256-generic
+opt sha256
 # Nothing autoloads crypto modules here (no /lib/modules tree), so load
 # what ath12k and mac80211 ask for by name: michael_mic for every
 # peer's rx defrag context (without it station add fails with -ENOENT),
 # and the CCMP/GCMP/BIP templates.
 for m in ctr ccm ghash-generic gcm cmac michael_mic; do
-	load "$m" || log "$m failed"
+	opt "$m"
 done
+[ -n "$skipped" ] && log "no .ko (built in on $(uname -r)):$skipped"
 load rfkill || exit 1
 load libarc4 || exit 1
 load cfg80211 ieee80211_regdom=DK || exit 1

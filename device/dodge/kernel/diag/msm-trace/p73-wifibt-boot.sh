@@ -58,7 +58,7 @@ if [ $up = 1 ]; then
   : > $L/p73-$TAG-irq.txt
   $S 'case "$(uname -r)" in 7.*) ;; *) echo NOT73; exit;; esac; echo "uname $(uname -r) uptime $(cut -d" " -f1 /proc/uptime)"; for d in 00:00.0 01:00.0; do echo "=== $d"; lspci -vvv -s $d; done' > $L/p73-$TAG-lspci-full.txt 2>&1
   $S 'echo "== pwrctrl/pwrseq at uptime $(cut -d" " -f1 /proc/uptime)"; lsmod | grep -E "pwrseq|pwrctrl"; ls /sys/bus/platform/drivers/pci-pwrctrl-pwrseq/ /sys/bus/platform/drivers/pwrseq-qcom_wcn/ 2>&1; cat /sys/kernel/debug/pwrseq 2>&1; grep -E "gpio16 |gpio102 |gpio104 " /sys/kernel/debug/gpio; dmesg | grep -iE "pwrseq|pwrctrl|wcn7880|wifi@0" | grep -v "Modules linked"' > $L/p73-$TAG-pwrctrl.txt 2>&1
-  while ((SECONDS-T0<130)); do
+  while ((SECONDS-T0<${MSI_UNTIL:-130})); do
     o=$($S 'u=$(cut -d. -f1 /proc/uptime); case "$(uname -r)" in 7.*) ;; *) echo NOT73; exit;; esac; dmesg | grep -qE "did not load image over BHI|failed to power up" && { echo DONE; exit; }; '"$IRQ" 2>&1)
     case "$o" in *NOT73*|*DONE*) echo "$o" | head -1 >> $L/p73-$TAG-irq.txt; break;; esac
     echo "$o" >> $L/p73-$TAG-irq.txt; sleep 12
@@ -86,13 +86,16 @@ if [ $up = 1 ]; then
     echo wlan_ipv4=$(ip -4 a show $WL 2>/dev/null | grep -c inet)
     echo nm_wlan=$(nmcli -t -f GENERAL.STATE dev show $WL 2>/dev/null) autoconnect_active=$(nmcli -t -f TYPE,DEVICE c show --active | grep -c ":$WL")
     gw=$(ip -4 route show default dev $WL | awk "{print \$3; exit}"); [ -n "$gw" ] && echo gw_ping=$(ping -c3 -W2 -I $WL $gw | grep -o "[0-9]* received") || echo gw_ping=nogw
-    iw dev $WL scan >/tmp/scan.txt 2>&1; echo scan_rc=$? bss=$(grep -c "^BSS" /tmp/scan.txt)
+    nmcli dev wifi rescan ifname $WL 2>&1 | tail -1; sleep 4; echo nm_wifi_list=$(nmcli -t -f BSSID dev wifi list ifname $WL 2>/dev/null | grep -c .)
     echo "== regdom"; iw reg get 2>&1 | grep -E "^global|^country|^phy" ; systemctl is-active set-wireless-regdom 2>/dev/null; journalctl -b -o cat -u set-wireless-regdom | tail -3; dmesg | grep -iE "regulatory|regdb|cfg80211" | tail -8
     echo "== bt"; timeout 5 btmgmt info 2>&1 | grep -E "^hci|current settings" | sed -E "s/([0-9a-f]{2}:){5}[0-9a-f]{2}/<addr>/gi"
     echo hci0_up=$(cat /sys/class/bluetooth/hci0/../uevent >/dev/null 2>&1 && echo present; timeout 3 hciconfig hci0 2>/dev/null | grep -c "UP RUNNING")
     timeout 5 bluetoothctl power on 2>&1 | tail -1
     n=$(timeout 15 bluetoothctl --timeout 10 scan on 2>/dev/null | grep -c "NEW.*Device"); echo bt_scan_new_devices=$n
     echo "== bt dmesg"; dmesg | grep -iE "bluetooth|hci_uart|qca" | sed -E "s/([0-9a-f]{2}:){5}[0-9a-f]{2}/<addr>/gi" | tail -25
+    echo "== sensors"; for u in omamobile-adsp-battery omamobile-sensors iio-sensor-proxy; do echo "$u $(systemctl is-active $u)"; done; ls /dev/fastrpc* 2>&1 | tr "\n" " "; echo; echo iio_devs=$(ls /sys/bus/iio/devices 2>/dev/null | wc -l)
+    timeout 10 monitor-sensor 2>&1 | grep -E "^===|changed" | head -12
+    journalctl -b -o cat -u omamobile-sensors | grep -viE "Could not open|Tried to open" | tail -5
     uptime' > $L/p73-$TAG-check.txt 2>&1
   fi
   echo "$(date +%T) check done rc=$? t=$((SECONDS-T0))"
