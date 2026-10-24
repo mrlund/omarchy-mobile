@@ -920,3 +920,4 @@ After a cable-out cold start at ~13:56. All arms are one-shot msm.ko on the same
   failure. 0050 is reverted as 0055 (local 44f4c9050 on dodge-qtbfix).
   Pending: Martin's cable-out cold start and screen check on r29g.
 
+Closed 2026-10-24 08:24-08:32 CEST: Martin verified r29g (overnight idle + tap wake, cable-out cold start, idle screen-off + wake), all good. 0050 dropped; work done. Next: 7.3 port carries 0054 and the 0050 drop.
