@@ -4,6 +4,22 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-24: 7.3 clean-build check and speaker ear test (13:59-14:03 CEST)
+
+- Clean 0052 build (no debug print), one-shot boot 13, 194 s round trip:
+  - Display, touch and USB OK.
+  - Wi-Fi: autoconnect, DHCP and a gateway ping all work.
+  - BT: hci0 powered.
+  - **Speaker ear test passed:** the 1 kHz tone was heard clearly from about
+    0.5 m. Sink volume (0.85) and amp gain (703) match 6.16.
+- `0052` is an **upstream candidate** (pcie-qcom with a 2-cell `iommu-map`
+  affects upstream sm8750). Not sent.
+- The country-setting failure and the empty `set-wireless-regdom` config are
+  the same on 6.16. Only the regulatory-update timeout is new on 7.3. See
+  the dev-doc.
+- `p73-wifibt-boot.sh` now matches any `wl*` interface, pings the gateway,
+  records the regdom and has an `EARTEST=1` tone mode.
+
 ## 2026-10-24: 7.3 Wi-Fi fixed: pcie-qcom misparsed the 2-cell iommu-map (13:40-13:55 CEST)
 
 **Wi-Fi works on 7.3.** One-shot boot 12 (13:51 CEST): BHI got its 4 interrupts,

@@ -21,6 +21,7 @@ fi
 for i in $(seq 60); do fastboot devices | grep -q . && break; sleep 2; done
 fastboot devices | grep -q . || { echo "$(date +%T) no fastboot"; exit 1; }
 echo "$(date +%T) fastboot boot"; T0=$SECONDS
+[ "${EARTEST:-0}" = 1 ] && echo "BOOTING $(date +%T) CEST" > $L/eartest-now.txt
 fastboot boot "$IMG"
 # Host-side hard watchdog, independent of the check below: at T0+HARD, if the
 # phone still runs a 7.x kernel, reboot it (then force) no matter what the
@@ -36,6 +37,17 @@ while ((SECONDS-T0<200)); do
   $S 'uname -r' 2>/dev/null | grep -q '^7\.3' && { up=1; echo "$(date +%T) ssh up t=$((SECONDS-T0))"; break; }; sleep 3
 done
 if [ $up = 1 ]; then
+  if [ "${EARTEST:-0}" = 1 ]; then
+    ET=$L/eartest-now.txt
+    ( for i in $(seq 40); do $S 'pidof Hyprland >/dev/null && ls /run/user/$(id -u ml)/pipewire-0 >/dev/null' && break; ((SECONDS-T0>100)) && break; sleep 2; done
+      $S 'cat > /tmp/tone.raw; chmod 644 /tmp/tone.raw' < $L/tone-1k-10s.wav
+      for w in 1 2 3 4; do
+        st=$(date +%T); echo "TONE-PLAYING $st-" >> $ET
+        $S 'U=$(id -u ml); timeout 14 runuser -u ml -- env XDG_RUNTIME_DIR=/run/user/$U pw-play --format s16 --rate 48000 --channels 2 /tmp/tone.raw; echo rc=$?' > $L/p73-$TAG-tone$w.txt 2>&1
+        en=$(date +%T); sed -i "s/^TONE-PLAYING $st-\$/TONE $st-$en/" $ET
+        ((SECONDS-T0>150)) && break; sleep 7
+      done; echo "TONES DONE $(date +%T)" >> $ET ) & TJ=$!
+  fi
   IRQ='echo "== uptime $(cut -d" " -f1 /proc/uptime) dmesg_last=$(dmesg | tail -1 | cut -c1-14)"; grep -iE "mhi|ath12k|pci|msi|its" /proc/interrupts | tr -s " "; lspci -vvv -s 01:00.0 2>/dev/null | grep -A2 -E "MSI(-X)?:"; grep -E "gpio16 |gpio102 " /sys/kernel/debug/gpio | head -2; grep -E "unit:" /sys/kernel/debug/pwrseq 2>/dev/null; ls /sys/bus/platform/drivers/pci-pwrctrl-pwrseq/ 2>/dev/null | grep -c wifi; ls /sys/bus/pci/devices/0000:01:00.0/msi_irqs 2>/dev/null | tr "\n" " "; echo; for f in msi-map msi-map-mask interrupt-names; do p=$(ls -d /proc/device-tree/soc@0/pci@1c00000/$f 2>/dev/null); [ -n "$p" ] && { echo "$f:"; od -An -tx1 "$p" | head -3; }; done'
   for i in 1 2 3 4 5 6; do
     $S 'echo "uname $(uname -r) uptime $(cut -d" " -f1 /proc/uptime)"; systemctl list-timers --all --no-pager "dodge-deadline*"; dmesg | grep dodge-deadline' > $L/p73-$TAG-timers.txt 2>&1
@@ -53,8 +65,9 @@ if [ $up = 1 ]; then
   done
   # give ath12k/BT units time
   timeout 20 $SS 'echo "== late at uptime $(cut -d" " -f1 /proc/uptime)"; cat /sys/module/pcie_designware/parameters/dodge_ib_dump 2>&1; dmesg | grep -E "dodge-ib-atu|AER|aer|pcieport" | tail -40; for d in 00:00.0 01:00.0; do echo "== $d"; lspci -vvv -s $d 2>&1 | grep -E "Status:|DevSta|UESta|UEMsk|UESvrt|CESta|HeaderLog|RootSta|ErrorSrc|LnkSta|MSI|Address"; done' > $L/p73-$TAG-late.txt 2>&1
-  for i in $(seq 20); do $S 'ip link show wlan0 >/dev/null 2>&1 && systemctl is-active -q omamobile-bt' && break; ((SECONDS-T0>110)) && break; sleep 3; done
-  sleep 10
+  for i in $(seq 20); do $S 'ls /sys/class/net | grep -q ^wl && systemctl is-active -q omamobile-bt' && break; ((SECONDS-T0>110)) && break; sleep 3; done
+  [ -n "$TJ" ] && wait $TJ
+  sleep 3
   echo "$(date +%T) checks t=$((SECONDS-T0))"
   $S 'uname -r; echo txfail=$(dmesg | grep -cE "tx failed|Failed to initialize panel"); cat /sys/class/drm/card*-DSI-1/status /sys/class/drm/card*-DSI-1/dpms; ip -4 a show usb0 | grep -o "inet [0-9.]*"; cat /sys/class/input/*/name | tr "\n" ";"; echo; systemctl --failed --no-legend; echo hypr=$(pidof Hyprland); echo cap=$(cat /sys/class/power_supply/qcom-battmgr-bat/capacity 2>/dev/null)' > $L/p73-$TAG-health.txt 2>&1
   CT=$(( $(left) - 30 )); ((CT>90)) && CT=90
@@ -69,14 +82,16 @@ if [ $up = 1 ]; then
     journalctl -b --no-pager -o cat -u omamobile-wifi-pcie -u omamobile-wifi-ath12k -u omamobile-bt | grep -v "address set\|generated" | tail -20
     echo "== pci"; lspci -n 2>/dev/null | grep -i 17cb
     echo "== ath12k dmesg"; dmesg | grep -iE "ath12k|qrtr|mhi" | sed -E "s/([0-9a-f]{2}:){5}[0-9a-f]{2}/<mac>/gi" | tail -40
-    echo "== wlan"; ip -br link show wlan0 | sed -E "s/([0-9a-f]{2}:){5}[0-9a-f]{2}/<mac>/gi"
-    echo wlan_ipv4=$(ip -4 a show wlan0 2>/dev/null | grep -c inet)
-    iw dev wlan0 scan >/tmp/scan.txt 2>&1; echo scan_rc=$? bss=$(grep -c "^BSS" /tmp/scan.txt)
-    echo nm_wlan=$(nmcli -t -f GENERAL.STATE dev show wlan0 2>/dev/null)
+    WL=$(ls /sys/class/net | grep ^wl | head -1); echo "== wlan if=$WL"; ip -br link show $WL | sed -E "s/([0-9a-f]{2}:){5}[0-9a-f]{2}/<mac>/gi"
+    echo wlan_ipv4=$(ip -4 a show $WL 2>/dev/null | grep -c inet)
+    echo nm_wlan=$(nmcli -t -f GENERAL.STATE dev show $WL 2>/dev/null) autoconnect_active=$(nmcli -t -f TYPE,DEVICE c show --active | grep -c ":$WL")
+    gw=$(ip -4 route show default dev $WL | awk "{print \$3; exit}"); [ -n "$gw" ] && echo gw_ping=$(ping -c3 -W2 -I $WL $gw | grep -o "[0-9]* received") || echo gw_ping=nogw
+    iw dev $WL scan >/tmp/scan.txt 2>&1; echo scan_rc=$? bss=$(grep -c "^BSS" /tmp/scan.txt)
+    echo "== regdom"; iw reg get 2>&1 | grep -E "^global|^country|^phy" ; systemctl is-active set-wireless-regdom 2>/dev/null; journalctl -b -o cat -u set-wireless-regdom | tail -3; dmesg | grep -iE "regulatory|regdb|cfg80211" | tail -8
     echo "== bt"; timeout 5 btmgmt info 2>&1 | grep -E "^hci|current settings" | sed -E "s/([0-9a-f]{2}:){5}[0-9a-f]{2}/<addr>/gi"
     echo hci0_up=$(cat /sys/class/bluetooth/hci0/../uevent >/dev/null 2>&1 && echo present; timeout 3 hciconfig hci0 2>/dev/null | grep -c "UP RUNNING")
     timeout 5 bluetoothctl power on 2>&1 | tail -1
-    n=$(timeout 15 bluetoothctl --timeout 12 scan on 2>/dev/null | grep -c "NEW.*Device"); echo bt_scan_new_devices=$n
+    n=$(timeout 15 bluetoothctl --timeout 10 scan on 2>/dev/null | grep -c "NEW.*Device"); echo bt_scan_new_devices=$n
     echo "== bt dmesg"; dmesg | grep -iE "bluetooth|hci_uart|qca" | sed -E "s/([0-9a-f]{2}:){5}[0-9a-f]{2}/<addr>/gi" | tail -25
     uptime' > $L/p73-$TAG-check.txt 2>&1
   fi
