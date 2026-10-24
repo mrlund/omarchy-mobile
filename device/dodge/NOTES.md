@@ -1051,3 +1051,8 @@ Before the boot test:
 - **The module tree stays held** (`6.16.0-gb3ee311dab85.held`).
   Loading it, `msm` included, is what blacked the panel. `plymouth-start`
   stays masked.
+
+### 7.3 Wi-Fi BHI status (2026-10-24, boots 4-5)
+- The deadline on 7.x is now enforced on the phone (check never cancels; 220 s after kexec). Shown armed via `systemctl list-timers` at 7.3 uptime ~10 s.
+- The ath12k endpoint's MSI config matches 6.16, but no endpoint MSI vector ever fires on 7.3. Root port MSIs do fire. IOMMU group/type/msi region matches 6.16, with no PCIe SMMU faults. The pcie DT nodes match on msi-map/interrupts, and pcie-qcom needs no new property.
+- Next: a kexec-leftover control (6.16 via the same stage-1) and an ITS MAPD debug print for DevID 0x1401.
