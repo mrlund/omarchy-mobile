@@ -1,0 +1,39 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# dodge-setup-ui: the stock Omarchy Mobile display setup for the OnePlus 13,
+# plus the dodge overrides (shell.toml here). Run as the desktop user (not
+# root), from this directory or with it as $1. Idempotent.
+#
+# It does the display part of omamobile-setup-user (omamobile-shell): the
+# phone shell plugins, the phone bar profile and the scale-3 monitor, and
+# records the same omarchy-done markers, so a later full omamobile-setup-user
+# keeps them. Lock, power-key and keyboard steps are left out on purpose.
+# Backups: ~/.config/omarchy/shell.json.pre-dodge-ui,
+# ~/.config/hypr/monitors.lua.pre-dodge-ui. `--revert` puts them back.
+set -euo pipefail
+if [[ ${1:-} == --revert ]]; then SRC=$(cd "$(dirname "$0")" && pwd)
+else SRC=$(cd "${1:-$(dirname "$0")}" && pwd); fi
+[[ $(id -u) != 0 ]] || { echo "run as the desktop user" >&2; exit 1; }
+share=/usr/share/omamobile/shell
+cfg=~/.config/omarchy
+mon=~/.config/hypr/monitors.lua
+
+if [[ ${1:-} == --revert ]]; then
+  [[ -f $cfg/shell.json.pre-dodge-ui ]] && cp "$cfg/shell.json.pre-dodge-ui" "$cfg/shell.json"
+  [[ -f $mon.pre-dodge-ui ]] && cp "$mon.pre-dodge-ui" "$mon"
+  rm -f "$cfg/shell.toml"
+  echo "reverted; restart with: hyprctl reload; omarchy-restart-shell"; exit 0
+fi
+
+[[ -d $share/plugins ]] || { echo "omamobile-shell is not installed" >&2; exit 1; }
+[[ -f $cfg/shell.json.pre-dodge-ui ]] || cp "$cfg/shell.json" "$cfg/shell.json.pre-dodge-ui"
+[[ -f $mon.pre-dodge-ui ]] || cp "$mon" "$mon.pre-dodge-ui"
+
+mkdir -p "$cfg/plugins"
+for p in "$share"/plugins/omamobile.*; do ln -sfn "$p" "$cfg/plugins/$(basename "$p")"; done
+cp "$share/profile/shell.json" "$cfg/shell.json"
+sed -i 's/^local omarchy_monitor_scale = .*/local omarchy_monitor_scale = 3/' "$mon"
+install -m 644 "$SRC/shell.toml" "$cfg/shell.toml"
+omarchy-done mark omamobile-shell-profile
+omarchy-done mark omamobile-monitor-scale
+echo "done; apply with: hyprctl reload; omarchy-restart-shell"

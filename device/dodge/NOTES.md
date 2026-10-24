@@ -4,6 +4,63 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-24: cable-out cold start verified; display scale and bar vs stock (19:46-20:00 CEST)
+
+- **USB race fix verified (Martin, 19:46):** a cable-out cold start of
+  usbfix1 (boot 19:42). switch_root at 3.586 s (before: 61.7 s), 0 rescue,
+  "USB never configured" or panicking messages. The deadline was cancelled
+  at 80.4 s with dpms On, and the cable went in at about 102 s.
+- **Why the bar was hard to hit:** our phone never had the stock phone
+  setup (`omamobile-setup-user` from omamobile-shell; only Omarchy's
+  `first-run-user` marker existed). So dodge ran the desktop defaults:
+
+  | | dodge before | stock Omarchy Mobile (Pixel 1440x3120, ~512 ppi) | dodge now |
+  |---|---|---|---|
+  | Monitor scale | 2 (720x1584 logical) | 3 (480x1040) | 3 (480x1056) |
+  | Bar | desktop `omarchy.bar`, 26 lp = 52 px = 2.6 mm, ~12 widgets | `omamobile.bar` profile, max(44, size) lp, whole strip opens quick settings | `omamobile.bar`, 48 lp = 144 px = 7.2 mm |
+  | Bar side inset | desktop widgets right up to the edge (in the corners) | `spacing.huge` 18 lp | 22 lp = 66 px = 3.3 mm |
+  | Phone plugins (home, launcher, quick settings, ...) | none | linked | linked |
+
+  - Panel: 1440x3168, 6.82 in (stock getprop), so about 510 ppi
+    (20.1 px/mm). This is the same density as the Pixel, so stock's scale 3
+    fits; Android itself runs 640 dpi (scale 4).
+  - Hyprland reports 71x158 mm.
+  - The corner radius isn't published: the vendor DT only has touch grip
+    zones, and `sys.oplus.roundcorners` is empty. The 66 px inset keeps the
+    icons clear for an arc up to about 220 px.
+  - The camera punch-hole is in the middle of the top edge, where
+    `omamobile.bar` leaves the space empty.
+- **Change (repo, `device/dodge/desktop/`):**
+  - `shell.toml`: dodge-only overrides, `[bar] size-horizontal = 48` and
+    `[spacing] huge = 22`.
+  - `setup-ui`: the display part of stock `omamobile-setup-user`. It links
+    the plugins, seeds the stock phone `shell.json` profile, sets scale 3 in
+    `monitors.lua` and installs `shell.toml`. It sets the same omarchy-done
+    markers and keeps `.pre-dodge-ui` backups; `--revert` puts them back.
+  - Left out on purpose: the lock, PIN, power-key (`phone.lua`) and
+    keyboard steps. `phone.lua`'s power key locks the screen, and no PIN is
+    set yet.
+- **Applied on the phone** as ml (19:51), with `hyprctl reload` and
+  `omarchy-restart-shell`, no reboot. Result: scale 3, bar layer 480x48,
+  home and dock up, display On. The screenshots are on the host only.
+- **Pending Omarchy update (read-only check, temp dbpath; the system db is
+  untouched):** 77 packages (core 11, extra 59, omarchy 7). No linux
+  kernel, firmware or mkinitcpio, and hyprland itself is not upgraded.
+  Risky:
+  - `omarchy` and `omarchy-settings` 4.0.4 -> 4.5.0rc1 (edge release
+    candidate). `omamobile-omarchy` patches Omarchy and has no matching
+    update.
+  - `quickshell` 0.3.2 -> a git snapshot. It runs the bar and all phone
+    plugins.
+  - `mesa` 26.2.4 -> 26.2.5 with `llvm-libs` 23.1.3. These carry our
+    Adreno 830 GPU stack (it also fixes the Vulkan version mismatch).
+  - `systemd` 262 -> 262.1.
+  - `qt6-declarative`, `hyprtoolkit` 0.6 and `hyprland-guiutils`.
+  - `perl` 5.44 (perl modules need rebuilds).
+  - `polkit` 128 and `dbus`.
+  - Low: `linux-api-headers` 7.3 (headers only). Nothing is pinned in
+    `pacman.conf`.
+
 ## 2026-10-24: initramfs USB race fixed, usbfix1 is the flashed default (19:06-19:26 CEST)
 
 - **Problem:** the stage-2 initramfs (`device/dodge/initramfs/init`) did not
@@ -81,6 +138,7 @@ Attempts live in [dev-docs/](dev-docs/).
   - 16:1x CEST: the flashed s1 works.
   - 17:25: s1 cable-out cold start plus idle/wake.
   - 19:02: gpu1 cable-out cold start plus idle/wake, both fine.
+  - 19:46: usbfix1 cable-out cold start fine (no USB panic message).
 - **Phone deadline:**
   - `/root/dodge-deadline` (the campaign flag) stays as a safety net. On the
     flashed kernel it arms 220 s and is cancelled at 80 s on a clean display.
@@ -105,8 +163,8 @@ Attempts live in [dev-docs/](dev-docs/).
 
 **Open items:**
 - **USB console message ("USB never configured, panicking in 20 s"):**
-  FIXED 19:20 CEST (usbfix1, see the entry above). Pending: Martin's
-  cable-out cold start.
+  FIXED 19:20 CEST (usbfix1). VERIFIED by Martin's cable-out cold start at
+  19:46 CEST (switch_root at 3.6 s).
 - **Wi-Fi:** ping loss around screen off/on.
 - **Audio:** headset jack.
 - **Modem:** modem/IPA port.

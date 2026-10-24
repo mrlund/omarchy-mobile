@@ -61,3 +61,9 @@ start by Martin.
 
 Rollback: `tools/dodge-restore-73gpu1` (64a754b7), then
 `dodge-restore-73s1`, then `dodge-restore-616`.
+
+## Verified (19:46 CEST)
+
+Martin did a cable-out cold start of usbfix1 (boot at 19:42). It switched
+root at 3.586 s with no rescue, "USB never configured" or panic message, and
+the deadline was cancelled at 80.4 s.
