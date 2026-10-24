@@ -4,7 +4,7 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## 2026-10-24: Adreno 830 GPU trial gpu1 (17:17-17:5x CEST)
+## 2026-10-24: Adreno 830 GPU trial gpu1 (17:17-17:58 CEST)
 
 - 2026-10-24 17:25 Martin verified cable-out cold start + idle/wake on flashed 7.3
 - Details: [dev-docs/2026-10-24-gpu-a830.md](dev-docs/2026-10-24-gpu-a830.md).
@@ -15,8 +15,33 @@ Attempts live in [dev-docs/](dev-docs/).
   plus the OEM `gen80000_zap.mbn` from the OTA's vendor partition.
 - One-shot gpu1a: the GPU bound and the GMU firmware loaded (v5.1.25). The
   display stayed clean. An oops in `a6xx_rpmh_stop` (RSCC unmapped) and a
-  hung `systemctl reboot` followed. As of 17:44 CEST the phone was still stuck in shutdown and needs a hands-on forced reboot. Retry with gpu1b (0058 + `oops=panic`).
+  hung `systemctl reboot` followed. Martin force-restarted it at 17:46 CEST. Fixed in gpu1b (0058 + `oops=panic`).
 - Mesa 26.2.4 already knows chip id 0x44050000 (Adreno 830).
+- 17:46 CEST: Martin force-restarted the hung gpu1a. It landed on the flashed s1 (DSI On, txfail 0).
+- **Trial return can no longer hang in shutdown:** trial boots (7.x without
+  `dodge.flashed`) now run the 220 s deadline through
+  `/root/dodge-hard-reboot.sh` (sysrq s/u/b, no unit stops and no driver
+  `.shutdown`). The host trial script returns with the same helper and also
+  uses it in its watchdog. The flashed default keeps the graceful reboot.
+  The kernel fallbacks are `oops=panic panic=10`, `hung_task_panic=1`,
+  `softlockup_panic=1` and the systemd-fed Gunyah watchdog. `panic_on_warn`
+  stays off because of the existing DSI clk WARNs. Repo copies are in
+  `kernel/diag/msm-trace/`.
+- **gpu1b one-shot (17:52-17:55 CEST): GPU works.** The RSCC fix holds: no
+  oops, `oops=0`. The zap loaded with no zap or SCM errors, and the GPU came
+  up for rendering. EGL (GBM and Wayland) reports `freedreno` /
+  `Adreno (TM) 830`, OpenGL ES 3.2 / GL 4.6, Mesa 26.2.4. `glmark2-es2-wayland`
+  (400x400): build 2020 fps, shading 1930 fps, score 1974.
+- Runtime PM cycled cleanly: suspended while idle, active under load, then
+  suspended again 6 s later. devfreq moved across 160-1100 MHz (91
+  transitions). The display was clean: DSI connected/On, txfail 0, Hyprland
+  up. The hard-reboot return was back on the flashed s1 45 s later.
+- Hyprland holds renderD128 and maps libgallium. Aquamarine's mgpu
+  `CDRMRenderer` still logs "no matching devices" (this also happens on s1,
+  and is the multi-GPU blit path only).
+- `mesa-utils` and `glmark2` were installed on the phone via pacman.
+  `vulkan-freedreno` was skipped: it is 26.2.5 against mesa 26.2.4, a partial
+  upgrade.
 
 ## 2026-10-24: 7.3 is the flashed default kernel; 6.16 is the fallback (16:05-16:25 CEST)
 

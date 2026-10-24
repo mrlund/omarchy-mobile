@@ -25,8 +25,15 @@ fi
 [ -e /run/msm.oneshot.ko ] || [ -e /run/panel.oneshot.ko ] || [ -e /root/msm.oneshot.ko ] || \
   [ -e /root/panel.oneshot.ko ] || [ -e /root/dodge-deadline ] || exit 0
 systemctl stop dodge-deadline.timer dodge-deadline-check.timer 2>/dev/null
+# Trial boots (7.x without dodge.flashed) reboot through sysrq (dodge-hard-reboot.sh),
+# so a trial kernel stuck in shutdown cannot need hands; others shut down gracefully.
+if [ "$TRIAL" = 1 ] && [ -r /root/dodge-hard-reboot.sh ]; then
+  DLCMD='echo "dodge-deadline: deadline reached, hard reboot (trial)" > /dev/kmsg; exec /bin/sh /root/dodge-hard-reboot.sh deadline'
+else
+  DLCMD='echo "dodge-deadline: deadline reached, rebooting" > /dev/kmsg; sync; systemctl reboot; sleep 45; sync; systemctl reboot --force --force'
+fi
 systemd-run --no-block --unit=dodge-deadline $ON=$DL --timer-property=AccuracySec=1s --timer-property=DefaultDependencies=no \
-  /bin/sh -c 'echo "dodge-deadline: deadline reached, rebooting" > /dev/kmsg; sync; systemctl reboot; sleep 45; sync; systemctl reboot --force --force' \
+  /bin/sh -c "$DLCMD" \
   || { echo "dodge-deadline: ARM FAILED" > /dev/kmsg; exit 0; }
 systemd-run --no-block --unit=dodge-deadline-check $ON=$CK --timer-property=AccuracySec=1s --timer-property=DefaultDependencies=no \
   --setenv=FORCE_BAD=${FORCE_BAD:-0} /bin/sh /root/dodge-deadline-check.sh
