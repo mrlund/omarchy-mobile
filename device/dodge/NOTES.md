@@ -45,8 +45,21 @@ Attempts live in [dev-docs/](dev-docs/).
 - Phone: 7.3 dir `display/msm.ko` = no-DIAG + no-0026 build (`msm.ko.no0026`,
   md5 84106d31...). `msm.ko.qtb1` and `msm.ko.nodiag1` are kept. It's back on
   6.16.0-gbd9587d65.
-- Next: stage 2 on 7.3, battery (adsp-battery already runs) then audio (take
-  `omamobile-dodge-audio.service` out of skip-units), one change per boot.
+- Stage 2, first boot (11:34, `p73-audio1-*`, the only change was
+  `omamobile-dodge-audio.service` taken out of skip-units):
+  - Battery on 7.3 works: qcom-battmgr status/capacity/current/voltage read fine
+    (100 %, 4.444 V), and the gate runs on 7.3.
+  - Audio is partial. The card `OnePlus-dodge` registers (MultiMedia1 playback),
+    the headset jack input appears, and both aw882308 load 75 regs from the .bin
+    (SYSCTRL 0xd343, same as 6.16). But at 15.08 s there's
+    `qcom-apm gprsvc:service:2:1: CMD timeout for [1001021] opcode`, and after
+    that every stream start gives `aw882308 1-003x: start failed, SYSCTRL 0xd342`
+    with `ASoC error (-110)` at digital_mute (14 of them). On 6.16: 0.
+    Reading: the ADSP graph never starts, so there's no I2S BCLK and the amps
+    can't lock. Look at the APM/GPR graph open on 7.3 first, not the amp driver.
+  - skip-units restored (dodge-audio skipped again). Back on 6.16, display ok.
+- Next: compare the 6.16 and 7.3 q6apm/audioreach paths (topology load, the
+  opcode 0x01001021 command) for the APM timeout. One change per boot.
 
 ## 2026-10-24: resume here (11:13 CEST), 7.3 stage 1 re-done with the QTB fix, 0050 dropped
 
