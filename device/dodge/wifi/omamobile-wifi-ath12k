@@ -74,4 +74,8 @@ load qrtr-mhi || exit 1
 : > "$STAMP"
 log "loading ath12k"
 insmod "$D/ath12k.ko" || { log "ath12k insmod failed"; exit 1; }
+# 7.3 splits the PCI driver into ath12k_wifi7.ko; 6.16 has no such file.
+if [ -f "$D/ath12k_wifi7.ko" ]; then
+	insmod "$D/ath12k_wifi7.ko" || { log "ath12k_wifi7 insmod failed"; exit 1; }
+fi
 log "ath12k loaded"

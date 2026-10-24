@@ -4,6 +4,18 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-24: 7.3 Wi-Fi/BT boot tests (12:12 and 12:25 CEST)
+
+Two one-shot boots. Details are in dev-docs/2026-10-24-wifibt-73-boot.md.
+- **BT works on 7.3.** WCN7860 hci0 sets up over UART with the stock GANGES
+  firmware, bluetoothd comes up, and a scan sees devices.
+- **Wi-Fi does not.** The device reaches SBL over BHI, but the host never
+  sees it (90 s wait, then a pm error). The MHI MSI is the next suspect.
+  QMI and NM are never reached.
+- Display, touch, USB and speaker playback were the same on both boots.
+- New 7.3 rootfs pieces: the Wi-Fi/BT scripts now handle ath12k_wifi7.ko and
+  kpp.ko, and there is an aux_ucode.bin symlink.
+
 ## 2026-10-24: 7.3 Wi-Fi and Bluetooth ported (host only, 12:10 CEST), not boot-tested
 
 Patches `kernel-7.3/0036`-`0051` are on the local trial branch. They build

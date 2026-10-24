@@ -36,6 +36,8 @@ load() {
 	[ -e "/sys/module/$1" ]
 }
 
+# kpp is a module on 7.3 and built in on 6.16 (no file there).
+[ -f "$D/kpp.ko" ] && { load kpp || log "kpp failed to load"; }
 for m in rfkill ecc ecdh_generic bluetooth btqca btbcm hci_uart; do
 	load "$m" || { log "$m failed to load"; exit 1; }
 done
