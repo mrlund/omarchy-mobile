@@ -1151,3 +1151,23 @@ Before the boot test:
 - Boot 9 (13:18): a Gen2 trial (max-link-speed = <2>) trains Gen2 x2 but fails BHI the same way (-5 at 99 s, bhi IRQ 0), so link speed is ruled out. Reverted. Open: the lane width difference (x2 vs x1), the PHY tables, and the ITS mapping.
 - Boot 10 (13:32): the inbound-iATU / dropped-MSI theory is ruled out. Neither DT has dma-ranges on pcie@1c00000, and both kernels program no IB windows (the "8 ib" in the log is only the detected count). A read-only debug dump on 7.3 showed ib0-7 REGION_EN=0 at setup and after the BHI timeout (bypass, same as 6.16). The root port and endpoint AER after the timeout are clean (UESta/CESta clear, HeaderLog 0, no ERR received). The endpoint MSIs go to the GIC ITS (ITS-PCI-MSI) through the dma-iommu doorbell at IOVA 0xfffff000. msi-map DeviceIDs (0x1400/0x1401) match 6.16. Debug commit reverted locally. Round trip 194 s. Next: ITS MAPD/MAPTI for DeviceID 0x1401 and the SMMU mapping of the doorbell, then the PHY gen3x2 tables.
 - Host check (13:40): the sm8750 gen3x2 QMP PCIe PHY tables and cfg are identical in 6.16 and 7.3, so the PHY driver is ruled out. ITS sizing matches 6.16, RP and EP share one DMA iommu group on both kernels, and there are no PCIe SMMU faults on 7.3.
+
+## 7.3 hands-on test: rotation + mic (2026-10-24 14:40-14:43 CEST)
+
+One-shot `fastboot boot` of the default 7.3 chain image (0052 clean build, sha256 bc0a64f9…), battery gate OK (100%).
+Martin at the phone. Times are CEST.
+
+| Phase | Window | Result |
+|---|---|---|
+| BOOTING | 14:40:22 | desktop (Hyprland socket) up at t=47 s |
+| ROTATE | 14:41:11-14:42:00 | `hyprctl monitors` DSI-1 transform 0 → **3** at 14:41:52 (landscape), back to **0** at 14:41:59. Auto-rotate works on 7.3. |
+| RECORD | 14:41:51-14:42:04 | `pw-record` 12 s from the default source `alsa_input.platform-sound.HiFi__Mic__source` (vol 1.00, same as 6.16): 12.16 s, 48 kHz mono s16. Peak -5.6 dBFS, RMS -30.3 dBFS overall; speech segments about -23 to -28 dBFS, floor about -54 dBFS. |
+| PLAYBACK | 14:42:04-14:42:16 | `pw-play` through the speaker sink (vol 0.85): rc=0 |
+| Back | reboot sent t=115 s, 6.16.0-gbd9587d65 at 14:42:57 (t=155 s) | DSI connected/On, 0 tx failed, NM connected, battery 100% |
+
+Notes:
+- The mic works on 7.3 with the same UCM path as 6.16 (no 7.3-specific setup).
+- `monitor-sensor` started from an ssh/runuser shell gets `AccessDenied: Sensor claim not allowed` (polkit: not an active session), so its transitions were not logged.
+  Hyprland's own autorotate (inside the session) claims the sensor fine, as the transform change shows. For future logs, run monitor-sensor inside the session (e.g. `hyprctl dispatch exec`).
+- `hyprctl` from ssh needs `HYPRLAND_INSTANCE_SIGNATURE` set (taken from `/run/user/<uid>/hypr/`); without it the first poll loop printed nothing.
+- The recording stays on the host only (his voice); it is not in the repo.
