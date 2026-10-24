@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Wed, 21 Oct 2026 14:51:58 +0200
-Subject: [PATCH] arm64: dts: qcom: sm8750-oneplus-dodge: add rmtfs_mem (dodge
- not-applied/0002)
+Subject: [PATCH 20/66] arm64: dts: qcom: sm8750-oneplus-dodge: add rmtfs_mem
+ (dodge not-applied/0002)
 
 ---
  arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts | 14 ++++++++++++++
@@ -33,6 +33,3 @@ index f7d3286e5..db2103900 100644
  		/* Merged tz_reserved, xbl_sc, and qtee regions */
  		tz_merged_mem: tz-merged@d8000000 {
  			no-map;
--- 
-2.55.0
-

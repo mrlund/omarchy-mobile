@@ -1,8 +1,8 @@
-From 0fdc674118dd9b05fa4f061d4d08f712fb9a7568 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 13:55:40 +0200
-Subject: [PATCH 52/52] PCI: qcom: parse iommu-map with a 2-cell IOMMU specifier in
- config_sid
+Subject: [PATCH 60/66] PCI: qcom: parse iommu-map with a 2-cell IOMMU
+ specifier in config_sid
 
 qcom_pcie_config_sid_1_9_0() reads "iommu-map" as fixed 4-cell records
 {bdf, phandle, sid, len}. SM8750 now uses #iommu-cells = <2> on
@@ -116,6 +116,3 @@ index b58a607b7..eafb57120 100644
  		writel(val, bdf_to_sid_base + hash * sizeof(u32));
  	}
  
--- 
-2.56.0
-

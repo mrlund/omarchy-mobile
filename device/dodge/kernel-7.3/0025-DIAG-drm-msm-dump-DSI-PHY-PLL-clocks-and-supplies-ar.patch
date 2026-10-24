@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Wed, 21 Oct 2026 16:40:02 +0200
-Subject: [PATCH 25/27] DIAG drm/msm: dump DSI/PHY/PLL, clocks and supplies
+Subject: [PATCH 25/66] DIAG drm/msm: dump DSI/PHY/PLL, clocks and supplies
  around the first DCS (dodge, not for upstream)
 
 ---
@@ -166,6 +166,3 @@ index 060444eaa..1d6fb047d 100644
  	if (IS_ERR(mdss))
  		return PTR_ERR(mdss);
  
--- 
-2.55.0
-

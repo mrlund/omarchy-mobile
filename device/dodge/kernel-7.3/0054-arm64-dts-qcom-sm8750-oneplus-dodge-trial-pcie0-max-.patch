@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 24 Oct 2026 13:17:20 +0200
+Subject: [PATCH 54/66] arm64: dts: qcom: sm8750-oneplus-dodge: trial: pcie0
+ max-link-speed Gen2
+
+6.16 trains the WCN7860 link x1, 7.3 trains Gen3 x2 and MHI never
+completes BHI; num-lanes=1 does not train at all. Try Gen2 x2.
+Local trial commit.
+---
+ arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+index db2103900..babfd1d48 100644
+--- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
++++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+@@ -1092,6 +1092,13 @@ &pon_resin {
+ };
+ 
+ &pcie0 {
++	/*
++	 * Trial: 6.16 trains the WCN7860 link x1 (one lane drops out), 7.3
++	 * trains Gen3 x2 and BHI never completes. Try Gen2 in case a lane
++	 * is marginal at 8 GT/s.
++	 */
++	max-link-speed = <2>;
++
+ 	wake-gpios = <&tlmm 104 GPIO_ACTIVE_HIGH>;
+ 	perst-gpios = <&tlmm 102 GPIO_ACTIVE_LOW>;
+ 

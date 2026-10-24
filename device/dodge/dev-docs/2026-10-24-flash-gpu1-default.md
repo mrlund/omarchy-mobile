@@ -80,8 +80,15 @@ Host scripts (not in the repo): `logs/p73-flashgpu.sh`, `logs/p73-gpucheck.sh`
 and `logs/p73-gwarm.sh`. The checks are in `logs/p73-gflash1-check.txt` and
 `logs/p73-gwarm1-check.txt`.
 
+## Martin's check (19:02 CEST)
+
+The cable-out cold start plus idle/wake on the flashed gpu1 were both fine.
+
+He glimpsed "USB never configured, panicking in 20 s" on the console. That
+comes from the stage-2 initramfs USB rescue watchdog; analysis is in NOTES
+open items (parked, about 5 s margin before the panic on that boot).
+
 ## Not covered yet
 
-- Martin's cable-out cold start and idle/wake on the flashed gpu1.
 - A soak longer than 15 min.
 - Vulkan.

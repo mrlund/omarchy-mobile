@@ -1,7 +1,7 @@
-From eea78e4f50c6be2d8dde976be96ce5c3bb872ec2 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 11:00:57 +0200
-Subject: [PATCH 29/30] drm/msm/mdss: drop the SM8750 MDSS_GDSC keep-on (dodge
+Subject: [PATCH 29/66] drm/msm/mdss: drop the SM8750 MDSS_GDSC keep-on (dodge
  0050)
 
 Reverts the msm_mdss part of ba113bc96 (port of dodge 0050); the
@@ -76,6 +76,3 @@ index 1d6fb047d..ea32bbd42 100644
  	/* TODO: x1e8: Add reg_bus_bw with real value */
  	{ .compatible = "qcom,x1e80100-mdss", .data = &data_153k6 },
  	{}
--- 
-2.56.0
-

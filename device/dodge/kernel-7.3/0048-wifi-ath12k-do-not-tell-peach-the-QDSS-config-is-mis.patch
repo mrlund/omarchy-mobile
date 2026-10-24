@@ -1,7 +1,7 @@
-From 9679c54bf300a93d122dbc52c49bbe0eeb725a25 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 11:53:58 +0200
-Subject: [PATCH 48/51] wifi: ath12k: do not tell peach the QDSS config is
+Subject: [PATCH 48/66] wifi: ath12k: do not tell peach the QDSS config is
  missing
 
 With CNSS_QDSS_CFG_MISS in the host feature list, peach starts
@@ -41,6 +41,3 @@ index 4736a0feb..095a0bc1e 100644
  					   BIT(CNSS_AUX_UC_SUPPORT_V01),
  
  		.rfkill_pin = 0,
--- 
-2.56.0
-

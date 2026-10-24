@@ -1,7 +1,7 @@
-From f047dd8f472faac58a0e4ba4f8ee02d8769f08a4 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Mon, 19 Oct 2026 17:54:56 +0200
-Subject: [PATCH 47/51] wifi: ath12k: bring peach up in mission mode
+Subject: [PATCH 47/66] wifi: ath12k: bring peach up in mission mode
 
 Cold-boot mode 7 and mission mode 0 both time out after the
 firmware enters RDDM. The aux download is still rejected.
@@ -32,6 +32,3 @@ index 1080f4864..653f07eb8 100644
  			ret = ath12k_core_qmi_firmware_ready(ab);
  			if (!ret)
  				set_bit(ATH12K_FLAG_QMI_FW_READY_COMPLETE,
--- 
-2.56.0
-

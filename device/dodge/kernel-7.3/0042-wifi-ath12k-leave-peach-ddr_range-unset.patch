@@ -1,7 +1,7 @@
-From 37f53d19938086cfd69216268b8f966d84ce3fe6 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Mon, 19 Oct 2026 15:01:39 +0200
-Subject: [PATCH 42/51] wifi: ath12k: leave peach ddr_range unset
+Subject: [PATCH 42/66] wifi: ath12k: leave peach ddr_range unset
 
 Stock's combined window, start 0 size 0x68000000, reset the
 firmware before the memory acknowledgement, as the 36-bit
@@ -41,6 +41,3 @@ index 06fc14640..313139325 100644
  
  	ret = qmi_txn_init(&ab->qmi.handle, &txn,
  			   qmi_wlanfw_tme_lite_info_resp_msg_v01_ei, &resp);
--- 
-2.56.0
-

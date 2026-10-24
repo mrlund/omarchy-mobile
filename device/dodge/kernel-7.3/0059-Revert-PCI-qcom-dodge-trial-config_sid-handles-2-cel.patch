@@ -1,0 +1,112 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 24 Oct 2026 13:55:40 +0200
+Subject: [PATCH 59/66] Revert "PCI: qcom: dodge trial: config_sid handles
+ 2-cell iommu-map specifiers (+debug print)"
+
+This reverts commit cbbf1ca081d8724a02e522f6c4e5423fbf142385.
+---
+ drivers/pci/controller/dwc/pcie-qcom.c | 58 +++++++++-----------------
+ 1 file changed, 20 insertions(+), 38 deletions(-)
+
+diff --git a/drivers/pci/controller/dwc/pcie-qcom.c b/drivers/pci/controller/dwc/pcie-qcom.c
+index 339d74a2d..b58a607b7 100644
+--- a/drivers/pci/controller/dwc/pcie-qcom.c
++++ b/drivers/pci/controller/dwc/pcie-qcom.c
+@@ -1143,64 +1143,49 @@ static void qcom_pcie_deinit_2_7_0(struct qcom_pcie *pcie)
+ 
+ static int qcom_pcie_config_sid_1_9_0(struct qcom_pcie *pcie)
+ {
+-	/*
+-	 * iommu-map entries are <bdf &iommu sid... len>, where the IOMMU
+-	 * specifier has #iommu-cells cells (1 or 2). Only the first specifier
+-	 * cell (the SID) is used here.
+-	 */
++	/* iommu map structure */
++	struct {
++		u32 bdf;
++		u32 phandle;
++		u32 smmu_sid;
++		u32 smmu_sid_len;
++	} *map;
+ 	void __iomem *bdf_to_sid_base = pcie->parf + PARF_BDF_TO_SID_TABLE_N;
+ 	struct device *dev = pcie->pci->dev;
+ 	u8 qcom_pcie_crc8_table[CRC8_TABLE_SIZE];
+-	struct device_node *iommu_np;
+-	u32 iommu_cells = 1;
+-	int i, nr_map, stride, size = 0;
++	int i, nr_map, size = 0;
+ 	u32 smmu_sid_base;
+-	u32 *map;
+ 	u32 val;
+ 
+ 	of_get_property(dev->of_node, "iommu-map", &size);
+ 	if (!size)
+ 		return 0;
+ 
+-	map = kzalloc(size, GFP_KERNEL);
+-	if (!map)
+-		return -ENOMEM;
+-
+-	of_property_read_u32_array(dev->of_node, "iommu-map", map,
+-				   size / sizeof(u32));
+-
+-	iommu_np = of_find_node_by_phandle(map[1]);
+-	if (iommu_np) {
+-		of_property_read_u32(iommu_np, "#iommu-cells", &iommu_cells);
+-		of_node_put(iommu_np);
+-	}
+-	stride = 3 + iommu_cells;
+-	if ((size / sizeof(u32)) % stride) {
+-		dev_err(dev, "iommu-map: bad length %d for %u iommu cells\n",
+-			size, iommu_cells);
+-		kfree(map);
+-		return -EINVAL;
+-	}
+-	nr_map = size / sizeof(u32) / stride;
+-
+ 	/* Enable BDF to SID translation by disabling bypass mode (default) */
+ 	val = readl(pcie->parf + PARF_BDF_TO_SID_CFG);
+ 	val &= ~BDF_TO_SID_BYPASS;
+ 	writel(val, pcie->parf + PARF_BDF_TO_SID_CFG);
+ 
++	map = kzalloc(size, GFP_KERNEL);
++	if (!map)
++		return -ENOMEM;
++
++	of_property_read_u32_array(dev->of_node, "iommu-map", (u32 *)map,
++				   size / sizeof(u32));
++
++	nr_map = size / (sizeof(*map));
++
+ 	crc8_populate_msb(qcom_pcie_crc8_table, QCOM_PCIE_CRC8_POLYNOMIAL);
+ 
+ 	/* Registers need to be zero out first */
+ 	memset_io(bdf_to_sid_base, 0, CRC8_TABLE_SIZE * sizeof(u32));
+ 
+ 	/* Extract the SMMU SID base from the first entry of iommu-map */
+-	smmu_sid_base = map[2];
++	smmu_sid_base = map[0].smmu_sid;
+ 
+ 	/* Look for an available entry to hold the mapping */
+ 	for (i = 0; i < nr_map; i++) {
+-		u32 bdf = map[i * stride];
+-		u32 sid = map[i * stride + 2];
+-		__be16 bdf_be = cpu_to_be16(bdf);
++		__be16 bdf_be = cpu_to_be16(map[i].bdf);
+ 		u32 val;
+ 		u8 hash;
+ 
+@@ -1223,11 +1208,8 @@ static int qcom_pcie_config_sid_1_9_0(struct qcom_pcie *pcie)
+ 		}
+ 
+ 		/* BDF [31:16] | SID [15:8] | NEXT [7:0] */
+-		val = bdf << 16 | (sid - smmu_sid_base) << 8 | 0;
++		val = map[i].bdf << 16 | (map[i].smmu_sid - smmu_sid_base) << 8 | 0;
+ 		writel(val, bdf_to_sid_base + hash * sizeof(u32));
+-		dev_info(dev, "dodge: BDF_TO_SID[%u] bdf 0x%x sid 0x%x -> 0x%08x (cells %u)\n",
+-			 hash, bdf, sid, readl(bdf_to_sid_base + hash * sizeof(u32)),
+-			 iommu_cells);
+ 	}
+ 
+ 	kfree(map);

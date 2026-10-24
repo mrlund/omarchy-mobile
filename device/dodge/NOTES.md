@@ -4,6 +4,83 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## Current state (2026-10-24 19:10 CEST wrap-up)
+
+- **Default:** `boot_a` = `7.3.0-rc6-dodge-gpu1` (Adreno 830), image sha256
+  `64a754b70c2cf6aef71cd95fc31a1a9a8d108cbd2faf321fa42df45fb12ae120`
+  (`~/android/mainline/images/CANDIDATE-7.3-gpu1-boot_a.img`). Slot a is
+  active and marked successful.
+- **Rollback chain gpu1 -> s1 -> 6.16** (phone in fastboot; each writes
+  `boot_a` only and runs `set_active a`):
+  1. `tools/dodge-restore-73s1` restores
+     `DEFAULT-7.3-boot_a-483cc747.img` (s1).
+  2. `tools/dodge-restore-616` restores
+     `FALLBACK-6.16-boot_a-9940497e.img`.
+- **Kernel:** the local branch `trial/omamobile-dodge-port` at `f08f72d3e`,
+  on Derek's `2a7b29c24`. It is not pushed anywhere.
+  - Full series `kernel-7.3/0001`-`0066` (verified identical tree; see
+    `kernel-7.3/README.md`).
+  - Configs: `config-7.3.0-rc6-dodge-s1` and `config-7.3.0-rc6-dodge-gpu1`.
+  - Host bundle in `~/android/mainline/backups/`.
+- **Martin's verifications:**
+  - 16:1x CEST: the flashed s1 works.
+  - 17:25: s1 cable-out cold start plus idle/wake.
+  - 19:02: gpu1 cable-out cold start plus idle/wake, both fine.
+- **Phone deadline:**
+  - `/root/dodge-deadline` (the campaign flag) stays as a safety net. On the
+    flashed kernel it arms 220 s and is cancelled at 80 s on a clean display.
+  - No soak flag and no one-shot modules.
+  - Final scripts:
+    - `dodge-deadline-arm.sh` sha `eadd0aae...`
+    - `dodge-deadline-check.sh` sha `99d1c61f...`
+    - `dodge-hard-reboot.sh` sha `6c1bed1e...`
+  - Older copies are kept beside them as `.pre-*`.
+
+| Area | 6.16 (fallback) | 7.3 gpu1 (default) | Left |
+|---|---|---|---|
+| Display | OK | OK: 0 tx failed, 20 timed wakes on gpu1 match s1/6.16 (55 ms / 323 ms) | boot-time DSI clk WARNs; `systemd-backlight@` fails |
+| GPU | none (llvmpipe) | Adreno 830 (freedreno): eglinfo, Hyprland renders on it, glmark2 2083, runtime suspend at idle and screen-off | Vulkan (turnip version mismatch); soak longer than 15 min |
+| Touch / USB gadget | OK | OK | USB replug bug |
+| Audio | speaker + mic | speaker + mic | headset jack |
+| Bluetooth | OK | OK (powered, scans) | pairing / audio |
+| Wi-Fi | OK | OK (connects, stays up) | ping loss around screen off/on, cause open |
+| Sensors | OK | OK (accelerometer, rotation) | - |
+| Modem | MPSS up, no data | skipped | modem/IPA port |
+| Battery / idle | OK | OK, screen-off idle with GDSC off | s2idle not tried |
+
+**Open items:**
+- **USB console message ("USB never configured, panicking in 20 s"):**
+  parked by Martin at 19:03. I found the source but changed nothing.
+  - Source: the stage-2 initramfs `device/dodge/initramfs/init`, lines
+    263-283. It is a backgrounded rescue watchdog: if no UDC reaches
+    `configured` within 45 s, it prints that message, sleeps 20 s, then
+    `sysrq c` (panic, then `panic=10` reboots).
+  - It is cancelled only by `boot_arch`'s `kill -9 -1` before
+    `switch_root`. The main loop (lines 310-323) also waits for
+    `configured`, up to 60 s.
+  - So every cable-out boot waits about 60 s in the initramfs and races
+    the panic. Martin's 19:00 cold boot logged the message at 46.7 s,
+    mounted userdata at 61.7 s and switched root at 61.7 s; the panic was
+    due at about 66.7 s, a margin of about 5 s.
+  - A slow userdata mount (journal replay after a hard reset) could panic
+    a normal unplugged boot.
+  - Suggested fix (not done): don't require `configured` for `boot_arch`
+    when userdata is ready, or let the watchdog exit once
+    `/run/omamobile-userdata-ready` exists. It needs one warm-boot test.
+- **Wi-Fi:** ping loss around screen off/on.
+- **Audio:** headset jack.
+- **Modem:** modem/IPA port.
+- **USB:** the USB replug bug.
+- **Crash logs:** ramoops/pstore persistence (pstore was empty).
+- **Vulkan:** `vulkan-freedreno` 26.2.5 vs mesa 26.2.4, which needs a full
+  mesa upgrade.
+- **Soak:** a long soak longer than 15 min on gpu1.
+- **Kernel fork plus PR cleanup:** needs a gh login and Martin's go.
+- **Upstream candidates (not sent):**
+  - new 0060 (pcie-qcom 2-cell iommu-map)
+  - new 0061 (ath12k regd completion)
+  - GPU 0062-0066
+
 ## 2026-10-24: 7.3.0-rc6-dodge-gpu1 (Adreno 830) is the flashed default (18:42-18:56 CEST)
 
 Martin approved it at 18:42 CEST. Details: [dev-docs/2026-10-24-flash-gpu1-default.md](dev-docs/2026-10-24-flash-gpu1-default.md).
@@ -34,7 +111,7 @@ Martin approved it at 18:42 CEST. Details: [dev-docs/2026-10-24-flash-gpu1-defau
   - The only failed unit is `systemd-backlight@...dsi.0`, already failing on
     s1.
   - The idle screen-off (`idle-off`) is active as normal.
-- **Next:** Martin's cable-out cold start plus idle/wake on gpu1.
+- **19:02 CEST:** Martin's cable-out cold start plus idle/wake on gpu1 were both fine.
 
 ## 2026-10-24: Adreno 830 GPU trial gpu1 and candidate soak (17:17-18:25 CEST)
 

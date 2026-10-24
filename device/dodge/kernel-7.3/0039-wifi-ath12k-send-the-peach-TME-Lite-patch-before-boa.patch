@@ -1,7 +1,7 @@
-From bb2901e9d14c5a83f8b76ae8b451890be905fb0c Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 17 Oct 2026 18:27:11 +0200
-Subject: [PATCH 39/51] wifi: ath12k: send the peach TME-Lite patch before
+Subject: [PATCH 39/66] wifi: ath12k: send the peach TME-Lite patch before
  board data
 
 The OnePlus 13s mainline port of this PCI id (17cb:110e) says the
@@ -421,6 +421,3 @@ index 6da10f3cb..7d16324be 100644
  };
  
  static inline void ath12k_qmi_set_event_block(struct ath12k_qmi *qmi, bool block)
--- 
-2.56.0
-

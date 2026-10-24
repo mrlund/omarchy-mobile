@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Wed, 21 Oct 2026 16:45:41 +0200
-Subject: [PATCH 26/27] drm/msm: keep the bootloader splash identity-mapped in
+Subject: [PATCH 26/66] drm/msm: keep the bootloader splash identity-mapped in
  the display domain (dodge)
 
 ---
@@ -99,6 +99,3 @@ index 8915662fb..7425a2b9d 100644
  
  static inline void msm_mmu_set_fault_handler(struct msm_mmu *mmu, void *arg,
  		int (*handler)(void *arg, unsigned long iova, int flags, void *data))
--- 
-2.55.0
-

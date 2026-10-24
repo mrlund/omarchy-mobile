@@ -1,7 +1,7 @@
-From 113fb210010791cc45958f0e892567896f213ab1 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 11:49:42 +0200
-Subject: [PATCH 38/51] Revert "wifi: ath12k: mark PCI 0x110e as a TME firmware
+Subject: [PATCH 38/66] Revert "wifi: ath12k: mark PCI 0x110e as a TME firmware
  image"
 
 This reverts commit b5809da62. The flag only told MHI to send the
@@ -29,6 +29,3 @@ index 3b29052fc..ee87f00bc 100644
  	mhi_ctrl->runtime_get = ath12k_mhi_op_runtime_get;
  	mhi_ctrl->runtime_put = ath12k_mhi_op_runtime_put;
  	mhi_ctrl->status_cb = ath12k_mhi_op_status_cb;
--- 
-2.56.0
-

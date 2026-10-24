@@ -1,7 +1,7 @@
-From c8b2ae98e594f3910db0a6f69699a1f259fa00e6 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 11:14:40 +0200
-Subject: [PATCH 33/34] Revert "DIAG drm/msm: dump DSI/PHY/PLL, clocks and
+Subject: [PATCH 33/66] Revert "DIAG drm/msm: dump DSI/PHY/PLL, clocks and
  supplies around the first DCS (dodge, not for upstream)"
 
 This reverts commit 206e7f2140dd3b9afe3342b23771cf159acc1df6.
@@ -167,6 +167,3 @@ index 1a65e9c8f..79f8e40b7 100644
  	if (IS_ERR(mdss))
  		return PTR_ERR(mdss);
  
--- 
-2.56.0
-

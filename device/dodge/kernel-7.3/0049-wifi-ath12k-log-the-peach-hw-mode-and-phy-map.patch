@@ -1,7 +1,7 @@
-From b2a02c16f2e93f0c96443b76fd473d87d8d277dd Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 15:14:47 +0200
-Subject: [PATCH 49/51] wifi: ath12k: log the peach hw mode and phy map
+Subject: [PATCH 49/66] wifi: ath12k: log the peach hw mode and phy map
 
 Logs the chosen hw mode and phy map for PCI id 0x110e.
 
@@ -31,6 +31,3 @@ index d5160af60..3c5eb8d88 100644
  
  	if (soc->wmi_ab.preferred_hw_mode == WMI_HOST_HW_MODE_MAX)
  		return -EINVAL;
--- 
-2.56.0
-

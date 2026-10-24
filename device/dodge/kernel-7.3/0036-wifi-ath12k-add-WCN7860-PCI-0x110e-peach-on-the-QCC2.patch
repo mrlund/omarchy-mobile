@@ -1,7 +1,7 @@
-From 8a7497c586e7728d36763863df1233e367965a9c Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 11:48:12 +0200
-Subject: [PATCH 36/51] wifi: ath12k: add WCN7860 (PCI 0x110e, peach) on the
+Subject: [PATCH 36/66] wifi: ath12k: add WCN7860 (PCI 0x110e, peach) on the
  QCC2072 HAL
 
 WCN7860 reports SOC hw version 2 like WCN7850, but its UMAC register
@@ -195,6 +195,3 @@ index 6c96b52de..760fe6216 100644
  	default:
  		dev_err(&pdev->dev, "Unknown Wi-Fi 7 PCI device found: 0x%x\n",
  			pci_dev->device);
--- 
-2.56.0
-

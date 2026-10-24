@@ -1,7 +1,7 @@
-From 11e5c9d146b36e65084b3f2bd47965705d52f641 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 17:21:21 +0200
-Subject: [PATCH 54/58] arm64: dts: qcom: sm8750: add
+Subject: [PATCH 62/66] arm64: dts: qcom: sm8750: add
  gpucc/gxclkctl/adreno-smmu
 
 Backport of ROCKNIX SM8750 patch 0033 (from upstream gpucc DT series),
@@ -104,6 +104,3 @@ index dd738d13d..17ecda532 100644
  		apps_smmu: iommu@15000000 {
  			compatible = "qcom,sm8750-smmu-500", "qcom,smmu-500", "arm,mmu-500";
  			reg = <0x0 0x15000000 0x0 0x100000>;
--- 
-2.56.0
-

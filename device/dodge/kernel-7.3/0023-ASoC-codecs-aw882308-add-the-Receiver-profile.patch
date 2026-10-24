@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 12:51:27 +0200
-Subject: [PATCH] ASoC: codecs: aw882308: add the Receiver profile
+Subject: [PATCH 23/66] ASoC: codecs: aw882308: add the Receiver profile
 
 On the OnePlus 13 the top speaker doubles as the earpiece, using the
 stock Receiver tuning. Add an "Amp Profile" control (Speaker/Receiver)
@@ -149,6 +149,3 @@ index 06d993c5d..78e7861c6 100644
  	aw882308_stop(aw);
  
  	/* Start at the quietest allowed level above mute. */
--- 
-2.55.0
-

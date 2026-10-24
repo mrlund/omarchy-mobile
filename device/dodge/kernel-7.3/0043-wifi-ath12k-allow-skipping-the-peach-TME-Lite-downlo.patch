@@ -1,7 +1,7 @@
-From cfeb1fd441cdbaefacd17a9626ae316eb65d4cd0 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Mon, 19 Oct 2026 15:09:35 +0200
-Subject: [PATCH 43/51] wifi: ath12k: allow skipping the peach TME-Lite
+Subject: [PATCH 43/66] wifi: ath12k: allow skipping the peach TME-Lite
  download
 
 The firmware resets about 200 ms after the board file whether
@@ -57,6 +57,3 @@ index 313139325..72f41f4ad 100644
  				ath12k_qmi_process_coldboot_calibration(ab);
  				break;
  			}
--- 
-2.56.0
-

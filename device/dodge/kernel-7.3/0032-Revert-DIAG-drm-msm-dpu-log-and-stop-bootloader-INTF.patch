@@ -1,7 +1,7 @@
-From b34615157cf622d982857cf24d4e7e2a5479fded Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 11:14:40 +0200
-Subject: [PATCH 32/34] Revert "DIAG drm/msm/dpu: log (and stop) bootloader
+Subject: [PATCH 32/66] Revert "DIAG drm/msm/dpu: log (and stop) bootloader
  INTF autorefresh at DPU init (dodge)"
 
 This reverts commit a6e9a5fac51f12d719def7e207a1b518e4e56617.
@@ -83,6 +83,3 @@ index 416bb40d5..da3556eb6 100644
  	dpu_kms->hw_mdp = dpu_hw_mdptop_init(dev,
  					     dpu_kms->catalog->mdp,
  					     dpu_kms->mmio,
--- 
-2.56.0
-

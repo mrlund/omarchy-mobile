@@ -1,7 +1,7 @@
-From 836554dc9f96913357e72485181172673adbe536 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Mon, 19 Oct 2026 17:34:37 +0200
-Subject: [PATCH 46/51] wifi: ath12k: record the peach firmware crash
+Subject: [PATCH 46/66] wifi: ath12k: record the peach firmware crash
 
 The BDF response says HW_XPA is set, matching stock. The
 firmware enters RDDM and the dump asserts in the aux MAC
@@ -105,6 +105,3 @@ index d84e8257b..b372a44b0 100644
  #define QMI_WLANFW_M3_INFO_REQ_MSG_V01_MAX_MSG_LEN	18
  #define QMI_WLANFW_M3_INFO_REQ_V01		0x003C
  
--- 
-2.56.0
-

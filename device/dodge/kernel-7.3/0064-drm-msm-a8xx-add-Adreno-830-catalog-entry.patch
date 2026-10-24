@@ -1,7 +1,7 @@
-From 72dc8ee46cd160323a544fc972f8cb60e7b73e04 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 17:21:22 +0200
-Subject: [PATCH 56/58] drm/msm/a8xx: add Adreno 830 catalog entry
+Subject: [PATCH 64/66] drm/msm/a8xx: add Adreno 830 catalog entry
 
 Backport of ROCKNIX SM8750 patch 0049 (Teguh Sobirin). chip id 0x44050000,
 firmware gen80000_{sqe,gmu,aqe}. The GX GDSC and GXPD-vote fixes (ROCKNIX
@@ -348,6 +348,3 @@ index 114a40f79..c096e171f 100644
  static inline int adreno_is_a840(struct adreno_gpu *gpu)
  {
  	return gpu->info->chip_ids[0] == 0x44050a01;
--- 
-2.56.0
-

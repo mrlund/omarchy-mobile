@@ -1,7 +1,7 @@
-From 69b4a39718e707c50be35539b377705023613dff Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 17 Oct 2026 19:46:13 +0200
-Subject: [PATCH 40/51] wifi: ath12k: send the peach host DMA window
+Subject: [PATCH 40/66] wifi: ath12k: send the peach host DMA window
 
 Stock CNSS puts the stage-1 aperture in the host-capability
 ddr_range before the TME-Lite download. The element had no
@@ -118,6 +118,3 @@ index 4e8ea6e6f..6bda429da 100644
  	}
  
  	if (test_bit(ATH12K_FLAG_FIXED_MEM_REGION, &ab->dev_flags)) {
--- 
-2.56.0
-

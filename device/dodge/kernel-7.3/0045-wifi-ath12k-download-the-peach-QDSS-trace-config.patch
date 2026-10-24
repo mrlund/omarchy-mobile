@@ -1,7 +1,7 @@
-From 67199f8f77d0a4e2c79fb57d909b456a5182f02e Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Mon, 19 Oct 2026 17:15:23 +0200
-Subject: [PATCH 45/51] wifi: ath12k: download the peach QDSS trace config
+Subject: [PATCH 45/66] wifi: ath12k: download the peach QDSS trace config
 
 Stock sends qdss_trace_config_v2.cfg after the PHY ucode.
 The firmware answers that download with QMI error 90 and
@@ -268,6 +268,3 @@ index 7d16324be..d84e8257b 100644
  /* Peach (PCI 17cb:110e) needs this before board data. Stock cnss sends
   * tmel_peach_20.elf here. Without it the secured PHY init faults and the
   * later WLAN mode request times out.
--- 
-2.56.0
-

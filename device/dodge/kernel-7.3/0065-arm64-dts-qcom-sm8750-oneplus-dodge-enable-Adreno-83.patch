@@ -1,7 +1,7 @@
-From 25b1d4118468952b9216901217a47c9d8ada8151 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 17:21:22 +0200
-Subject: [PATCH 57/58] arm64: dts: qcom: sm8750-oneplus-dodge: enable Adreno
+Subject: [PATCH 65/66] arm64: dts: qcom: sm8750-oneplus-dodge: enable Adreno
  830 GPU
 
 Zap shader from the stock (OEM-signed) firmware, installed on the phone
@@ -29,6 +29,3 @@ index db2103900..dd2c51069 100644
  &i2c3 {
  	status = "okay";
  
--- 
-2.56.0
-

@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Wed, 21 Oct 2026 14:51:13 +0200
-Subject: [PATCH] drm/panel: aa569: drop dsc_slice_per_pkt for 7.3
+Subject: [PATCH 18/66] drm/panel: aa569: drop dsc_slice_per_pkt for 7.3
 
 7.3 has no mipi_dsi_device::dsc_slice_per_pkt; one slice per packet is
 the default without MIPI_DSI_MODE_DSC_ALL_SLICES_IN_PKT.
@@ -22,6 +22,3 @@ index 2888762f1..a641f825e 100644
  	ctx->dsc.slice_count = 2;
  	ctx->dsc.convert_rgb = true;
  	ctx->dsc.bits_per_component = 10;
--- 
-2.55.0
-

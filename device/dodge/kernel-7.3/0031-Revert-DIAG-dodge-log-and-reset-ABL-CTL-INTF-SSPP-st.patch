@@ -1,7 +1,7 @@
-From 6744afdd77fdb3568bf0c89ef289645de14bb2ba Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 11:14:40 +0200
-Subject: [PATCH 31/34] Revert "DIAG dodge: log and reset ABL CTL/INTF/SSPP
+Subject: [PATCH 31/66] Revert "DIAG dodge: log and reset ABL CTL/INTF/SSPP
  state at DPU init"
 
 This reverts commit f756aa0914d6be38523e3f47124b8cf323d43d30.
@@ -85,6 +85,3 @@ index d3fe091b8..416bb40d5 100644
  	for (int i = 0; i < ARRAY_SIZE(dpu_kms->rm.hw_intf); i++) {
  		struct dpu_hw_intf *intf = dpu_kms->rm.hw_intf[i];
  
--- 
-2.56.0
-

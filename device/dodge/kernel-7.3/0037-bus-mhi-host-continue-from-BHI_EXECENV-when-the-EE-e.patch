@@ -1,7 +1,7 @@
-From bd652695340f245cc65caf91e4fd52107713185d Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 17 Oct 2026 18:09:15 +0200
-Subject: [PATCH 37/51] bus: mhi: host: continue from BHI_EXECENV when the EE
+Subject: [PATCH 37/66] bus: mhi: host: continue from BHI_EXECENV when the EE
  event is lost
 
 Peach (PCI 17cb:110e) sets BHI_EXECENV to SBL, and later AMSS, before
@@ -106,6 +106,3 @@ index ced83fbb1..4f752983b 100644
  			mhi_pm_mission_mode_transition(mhi_cntrl);
  			break;
  		case DEV_ST_TRANSITION_FP:
--- 
-2.56.0
-

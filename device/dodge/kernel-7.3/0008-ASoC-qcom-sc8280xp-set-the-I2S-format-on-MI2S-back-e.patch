@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 11:56:34 +0200
-Subject: [PATCH] ASoC: qcom: sc8280xp: set the I2S format on MI2S back ends
+Subject: [PATCH 08/66] ASoC: qcom: sc8280xp: set the I2S format on MI2S back
+ ends
 
 MI2S codecs such as speaker amplifiers are clock consumers; set the
 runtime format to I2S with the codec as consumer so the q6 I2S DAI
@@ -28,6 +29,3 @@ index 4d48e1012..cf6f640d1 100644
  	case DISPLAY_PORT_RX_0:
  		/* DISPLAY_PORT dai ids are not contiguous */
  		dp_pcm_id = 0;
--- 
-2.55.0
-

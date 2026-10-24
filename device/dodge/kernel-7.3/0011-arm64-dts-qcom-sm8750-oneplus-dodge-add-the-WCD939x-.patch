@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 12:27:19 +0200
-Subject: [PATCH] arm64: dts: qcom: sm8750-oneplus-dodge: add the WCD939x and
- microphones
+Subject: [PATCH 11/66] arm64: dts: qcom: sm8750-oneplus-dodge: add the WCD939x
+ and microphones
 
 The OnePlus 13 has a WCD939x on the RX and TX SoundWire masters (reset
 on GPIO 101, supplies as on stock). Its built-in microphones are analog
@@ -127,6 +127,3 @@ index 1ae0e7358..c15b55dfe 100644
  	/* Secondary MI2S to the speaker amplifiers; data1 is their input. */
  	i2s1_active: i2s1-active-state {
  		sck-pins {
--- 
-2.55.0
-

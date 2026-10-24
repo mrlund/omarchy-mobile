@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 17 Oct 2026 15:13:00 +0200
-Subject: [PATCH] arm64: dts: qcom: sm8750-oneplus-dodge: enable the WCN PMU
+Subject: [PATCH 03/66] arm64: dts: qcom: sm8750-oneplus-dodge: enable the WCN
+ PMU
 
 The node already has the WCN7850 rail list, including vddio1p2, and
 those regulators exist on the phone. Point it at qcom,wcn7850-pmu
@@ -40,6 +41,3 @@ index 1ce5fb07c..cd8ce9ba2 100644
  
  		clocks = <&rpmhcc RPMH_RF_CLK1>;
  
--- 
-2.55.0
-

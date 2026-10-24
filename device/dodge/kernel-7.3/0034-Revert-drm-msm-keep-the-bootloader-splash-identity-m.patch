@@ -1,7 +1,7 @@
-From e21d5aaed292c798bf620c2263cabae99e9968cf Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 11:22:44 +0200
-Subject: [PATCH 34/34] Revert "drm/msm: keep the bootloader splash
+Subject: [PATCH 34/66] Revert "drm/msm: keep the bootloader splash
  identity-mapped in the display domain (dodge)"
 
 This reverts commit ef11554223e1951cd1c8af8775e6a74212d0c992.
@@ -100,6 +100,3 @@ index 7425a2b9d..8915662fb 100644
  
  static inline void msm_mmu_set_fault_handler(struct msm_mmu *mmu, void *arg,
  		int (*handler)(void *arg, unsigned long iova, int flags, void *data))
--- 
-2.56.0
-

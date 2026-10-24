@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 12:01:59 +0200
-Subject: [PATCH] ASoC: qcom: sc8280xp: no headset jack on MI2S links
+Subject: [PATCH 10/66] ASoC: qcom: sc8280xp: no headset jack on MI2S links
 
 MI2S links on these boards drive speaker amplifiers; do not create
 Headphone Jack / Mic Jack controls for them.
@@ -25,6 +25,3 @@ index cf6f640d1..da0f9f714 100644
  	case DISPLAY_PORT_RX_0:
  		/* DISPLAY_PORT dai ids are not contiguous */
  		dp_pcm_id = 0;
--- 
-2.55.0
-

@@ -1,0 +1,111 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 24 Oct 2026 13:36:52 +0200
+Subject: [PATCH 57/66] Revert "PCI: dwc: dodge trial debug: dump inbound iATU
+ regions (read-only)"
+
+This reverts commit 2e89cc0961a9e0a2e8cc355b6279cae703bd1996.
+---
+ .../pci/controller/dwc/pcie-designware-host.c |  2 -
+ drivers/pci/controller/dwc/pcie-designware.c  | 41 -------------------
+ drivers/pci/controller/dwc/pcie-designware.h  |  1 -
+ 3 files changed, 44 deletions(-)
+
+diff --git a/drivers/pci/controller/dwc/pcie-designware-host.c b/drivers/pci/controller/dwc/pcie-designware-host.c
+index 31ac6a6f9..f5a38e6fd 100644
+--- a/drivers/pci/controller/dwc/pcie-designware-host.c
++++ b/drivers/pci/controller/dwc/pcie-designware-host.c
+@@ -1033,8 +1033,6 @@ static int dw_pcie_iatu_setup(struct dw_pcie_rp *pp)
+ 		}
+ 	}
+ 
+-	dw_pcie_dodge_dump_ib_atu(pci, "setup");
+-
+ 	return 0;
+ }
+ 
+diff --git a/drivers/pci/controller/dwc/pcie-designware.c b/drivers/pci/controller/dwc/pcie-designware.c
+index 368029e5d..593388f29 100644
+--- a/drivers/pci/controller/dwc/pcie-designware.c
++++ b/drivers/pci/controller/dwc/pcie-designware.c
+@@ -15,8 +15,6 @@
+ #include <linux/dma/edma.h>
+ #include <linux/gpio/consumer.h>
+ #include <linux/ioport.h>
+-#include <linux/moduleparam.h>
+-#include <linux/sysfs.h>
+ #include <linux/of.h>
+ #include <linux/of_address.h>
+ #include <linux/pcie-dwc.h>
+@@ -612,7 +610,6 @@ static inline void dw_pcie_writel_atu_ib(struct dw_pcie *pci, u32 index, u32 reg
+ int dw_pcie_prog_inbound_atu(struct dw_pcie *pci, int index, int type,
+ 			     u64 parent_bus_addr, u64 pci_addr, u64 size)
+ {
+-	dev_info(pci->dev, "dodge-ib-atu prog ib%d type=%d\n", index, type);
+ 	u64 limit_addr = pci_addr + size - 1;
+ 	u32 retries, val;
+ 
+@@ -704,8 +701,6 @@ int dw_pcie_prog_ep_inbound_atu(struct dw_pcie *pci, u8 func_no, int index,
+ 
+ void dw_pcie_disable_atu(struct dw_pcie *pci, u32 dir, int index)
+ {
+-	if (dir == PCIE_ATU_REGION_DIR_IB)
+-		dev_info(pci->dev, "dodge-ib-atu disable ib%d\n", index);
+ 	dw_pcie_writel_atu(pci, dir, index, PCIE_ATU_REGION_CTRL2, 0);
+ }
+ 
+@@ -936,42 +931,6 @@ static void dw_pcie_link_set_max_link_width(struct dw_pcie *pci, u32 num_lanes)
+ 	dw_pcie_writel_dbi(pci, cap + PCI_EXP_LNKCAP, lnkcap);
+ }
+ 
+-/* dodge trial debug: read-only dump of the inbound iATU regions */
+-static struct dw_pcie *dodge_dbg_pci;
+-
+-void dw_pcie_dodge_dump_ib_atu(struct dw_pcie *pci, const char *when)
+-{
+-	int i;
+-
+-	if (!pci)
+-		return;
+-	dodge_dbg_pci = pci;
+-	for (i = 0; i < pci->num_ib_windows; i++)
+-		dev_info(pci->dev,
+-			 "dodge-ib-atu %s: ib%d ctrl1=%08x ctrl2=%08x base=%08x:%08x limit=%08x:%08x target=%08x:%08x\n",
+-			 when, i,
+-			 dw_pcie_readl_atu(pci, PCIE_ATU_REGION_DIR_IB, i, PCIE_ATU_REGION_CTRL1),
+-			 dw_pcie_readl_atu(pci, PCIE_ATU_REGION_DIR_IB, i, PCIE_ATU_REGION_CTRL2),
+-			 dw_pcie_readl_atu(pci, PCIE_ATU_REGION_DIR_IB, i, PCIE_ATU_UPPER_BASE),
+-			 dw_pcie_readl_atu(pci, PCIE_ATU_REGION_DIR_IB, i, PCIE_ATU_LOWER_BASE),
+-			 dw_pcie_readl_atu(pci, PCIE_ATU_REGION_DIR_IB, i, PCIE_ATU_UPPER_LIMIT),
+-			 dw_pcie_readl_atu(pci, PCIE_ATU_REGION_DIR_IB, i, PCIE_ATU_LIMIT),
+-			 dw_pcie_readl_atu(pci, PCIE_ATU_REGION_DIR_IB, i, PCIE_ATU_UPPER_TARGET),
+-			 dw_pcie_readl_atu(pci, PCIE_ATU_REGION_DIR_IB, i, PCIE_ATU_LOWER_TARGET));
+-}
+-
+-/* cat /sys/module/pcie_designware/parameters/dodge_ib_dump -> dump to dmesg */
+-static int dodge_ib_dump_get(char *buf, const struct kernel_param *kp)
+-{
+-	dw_pcie_dodge_dump_ib_atu(dodge_dbg_pci, "late");
+-	return sysfs_emit(buf, "%d\n", dodge_dbg_pci ? 1 : 0);
+-}
+-
+-static const struct kernel_param_ops dodge_ib_dump_ops = {
+-	.get = dodge_ib_dump_get,
+-};
+-module_param_cb(dodge_ib_dump, &dodge_ib_dump_ops, NULL, 0444);
+-
+ void dw_pcie_iatu_detect(struct dw_pcie *pci)
+ {
+ 	int max_region, ob, ib;
+diff --git a/drivers/pci/controller/dwc/pcie-designware.h b/drivers/pci/controller/dwc/pcie-designware.h
+index 0871d9244..0735ae940 100644
+--- a/drivers/pci/controller/dwc/pcie-designware.h
++++ b/drivers/pci/controller/dwc/pcie-designware.h
+@@ -632,7 +632,6 @@ void dw_pcie_hide_unsupported_l1ss(struct dw_pcie *pci);
+ void dw_pcie_program_t_power_on(struct dw_pcie *pci, u32 t_power_on);
+ void dw_pcie_setup(struct dw_pcie *pci);
+ void dw_pcie_iatu_detect(struct dw_pcie *pci);
+-void dw_pcie_dodge_dump_ib_atu(struct dw_pcie *pci, const char *when);
+ int dw_pcie_edma_detect(struct dw_pcie *pci);
+ void dw_pcie_edma_remove(struct dw_pcie *pci);
+ resource_size_t dw_pcie_parent_bus_offset(struct dw_pcie *pci,

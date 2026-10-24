@@ -1,7 +1,7 @@
-From 5a702eac6c9c9a8face42870010e064b4af30232 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 16:21:49 +0200
-Subject: [PATCH 51/51] Bluetooth: qca: add WCN7860 support
+Subject: [PATCH 51/66] Bluetooth: qca: add WCN7860 support
 
 WCN7860 (peach, the Wi-Fi/BT combo on SM8750 phones) is a WCN7850
 derivative on UART. Its rampatch is an ELF image (gngbtfwXX.mbn) and
@@ -281,6 +281,3 @@ index 7089e9b63..379433217 100644
  	{ /* sentinel */ }
  };
  MODULE_DEVICE_TABLE(of, qca_bluetooth_of_match);
--- 
-2.56.0
-

@@ -1,7 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 16:23:04 +0200
-Subject: [PATCH] arm64: dts: qcom: sm8750-oneplus-dodge: enable Bluetooth
+Subject: [PATCH 14/66] arm64: dts: qcom: sm8750-oneplus-dodge: enable
+ Bluetooth
 
 The Bluetooth half of the WCN7860 sits on QUP UART14, as on stock
 (qcom,msm-geni-serial-hs at 0x898000 with the BT wake byte). Use the
@@ -32,6 +33,3 @@ index b103e010a..c3eec2bc2 100644
  	};
  };
  
--- 
-2.55.0
-

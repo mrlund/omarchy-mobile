@@ -1,7 +1,7 @@
-From 0111eb4d21f0ef4ae0d5dca6af585df8469924a0 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 11:01:05 +0200
-Subject: [PATCH 30/30] drm/msm/mdss: sm8750: read the display QTB once on
+Subject: [PATCH 30/66] drm/msm/mdss: sm8750: read the display QTB once on
  every MDSS enable
 
 On the OnePlus 13 (SM8750) a warm reboot often comes up with a black
@@ -151,6 +151,3 @@ index ea32bbd42..1a65e9c8f 100644
  	/* TODO: x1e8: Add reg_bus_bw with real value */
  	{ .compatible = "qcom,x1e80100-mdss", .data = &data_153k6 },
  	{}
--- 
-2.56.0
-

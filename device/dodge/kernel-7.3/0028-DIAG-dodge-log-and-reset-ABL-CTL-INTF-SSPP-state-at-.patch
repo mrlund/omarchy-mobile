@@ -1,7 +1,8 @@
-From f756aa0914d6be38523e3f47124b8cf323d43d30 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Thu, 22 Oct 2026 10:30:56 +0200
-Subject: [PATCH] DIAG dodge: log and reset ABL CTL/INTF/SSPP state at DPU init
+Subject: [PATCH 28/66] DIAG dodge: log and reset ABL CTL/INTF/SSPP state at
+ DPU init
 
 ---
  drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c | 58 +++++++++++++++++++++++++
@@ -83,6 +84,3 @@ index 416bb40d5..d3fe091b8 100644
  	for (int i = 0; i < ARRAY_SIZE(dpu_kms->rm.hw_intf); i++) {
  		struct dpu_hw_intf *intf = dpu_kms->rm.hw_intf[i];
  
--- 
-2.55.0
-

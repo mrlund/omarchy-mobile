@@ -1,8 +1,8 @@
-From e571a0d86442d1dbea34faa1efa058d9a91e7969 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 11:40:31 +0200
-Subject: [PATCH] ASoC: codecs: aw882308: unmute from trigger, after BCLK is
- running
+Subject: [PATCH 35/66] ASoC: codecs: aw882308: unmute from trigger, after BCLK
+ is running
 
 On 7.3 q6apm-lpass-dais starts the back-end graph in .trigger, no
 longer in .prepare. The amplifier start in .mute_stream ran at the end
@@ -30,6 +30,3 @@ index 78e7861c6..4be9d3221 100644
  };
  
  static struct snd_soc_dai_driver aw882308_dai = {
--- 
-2.56.0
-

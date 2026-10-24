@@ -1,7 +1,7 @@
-From 20cead8243690d6c035ad584d6f74f857701710c Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 11:54:59 +0200
-Subject: [PATCH 50/51] Revert "wifi: ath12k: no rfkill GPIO on peach"
+Subject: [PATCH 50/66] Revert "wifi: ath12k: no rfkill GPIO on peach"
 
 This reverts commit 2499c421ac05fc8b5d802d6fc14cbfd085e9bce8.
 
@@ -30,6 +30,3 @@ index 3e742dbed..3b457474f 100644
  	for (i = 0; i < ab->num_radios; i++) {
  		ar = ab->pdevs[i].ar;
  
--- 
-2.56.0
-

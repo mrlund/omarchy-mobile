@@ -1,7 +1,7 @@
-From f08f72d3ebe2fadf91357ca841066bd1fa84b282 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 17:38:41 +0200
-Subject: [PATCH 58/58] arm64: dts: qcom: sm8750: cover the A830 RSCC in the
+Subject: [PATCH 66/66] arm64: dts: qcom: sm8750: cover the A830 RSCC in the
  GPU register range
 
 a6xx_gmu_init() maps the A8xx RSCC at GPU base + 0x50000, but the GPU
@@ -25,6 +25,3 @@ index d3d93ec87..edbd926a2 100644
  			      <0x0 0x03d9e000 0x0 0x2000>,
  			      <0x0 0x03d61000 0x0 0x800>;
  			reg-names = "kgsl_3d0_reg_memory",
--- 
-2.56.0
-

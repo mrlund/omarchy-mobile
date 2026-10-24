@@ -1,7 +1,7 @@
-From 8686b841219253ef9cc6eb2dec1c1093faa24903 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 17 Oct 2026 19:48:10 +0200
-Subject: [PATCH 41/51] wifi: ath12k: do not advertise the full peach DMA
+Subject: [PATCH 41/66] wifi: ath12k: do not advertise the full peach DMA
  aperture
 
 Sending ddr_range 0 size 0x1000000000 made the firmware reset
@@ -59,6 +59,3 @@ index 6bda429da..06fc14640 100644
  
  	if (ab->hw_params->qmi_cnss_feature_bitmap) {
  		req.feature_list_valid = 1;
--- 
-2.56.0
-

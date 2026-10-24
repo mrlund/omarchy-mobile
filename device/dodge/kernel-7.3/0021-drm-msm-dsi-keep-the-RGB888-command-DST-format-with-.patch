@@ -1,8 +1,8 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Wed, 21 Oct 2026 15:32:18 +0200
-Subject: [PATCH] drm/msm/dsi: keep the RGB888 command DST format with DSC
- (dodge workaround)
+Subject: [PATCH 21/66] drm/msm/dsi: keep the RGB888 command DST format with
+ DSC (dodge workaround)
 
 The 6.16 base had no RGB101010 case in dsi_get_cmd_fmt() and fell back
 to RGB888. 7.3 programs CMD_DST_FORMAT_RGB101010 for the AA569 panel
@@ -33,6 +33,3 @@ index b292dfd26..5e5c33021 100644
  		dsi_write(msm_host, REG_DSI_CMD_CFG0, data);
  
  		data = DSI_CMD_CFG1_WR_MEM_START(MIPI_DCS_WRITE_MEMORY_START) |
--- 
-2.55.0
-

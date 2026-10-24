@@ -1,7 +1,7 @@
-From 48a7eef53cbfbb0442aec1d17c9b1d28ed3e589b Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Mon, 19 Oct 2026 16:57:11 +0200
-Subject: [PATCH 44/51] wifi: ath12k: download the peach PHY ucode as its M3
+Subject: [PATCH 44/66] wifi: ath12k: download the peach PHY ucode as its M3
 
 Stock sends phy_ucode20.elf as the M3 image. The PHY download is
 accepted.
@@ -102,6 +102,3 @@ index 72f41f4ad..1d97614b3 100644
  		if (ret) {
  			ath12k_err(ab, "failed to load m3 firmware: %d\n", ret);
  			return ret;
--- 
-2.56.0
-
