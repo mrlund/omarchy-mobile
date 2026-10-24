@@ -4,6 +4,66 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-24: 7.3 wake timing, 30 cycles on 7.3 and on 6.16 (15:09-15:21 CEST)
+
+**regfix1 "76 s: no Hyprland, no speaker" (journal re-read):** the
+phone clock was about 80 s behind the host until NTP synced at 14:55:05, so
+the journal times before that do not line up with the host log. Using kernel
+uptime instead: 7.3 ssh answered unusually early (the "late" capture ran at
+11 s of 7.3 uptime), so the audio-silence check ran at about 12-15 s, before
+the user PipeWire (started about 20 s) and Hyprland (`Welcome to Hyprland`,
+pid 2642, at about 17 s; `Started Main service for Hyprland` right after).
+"no target node available" is therefore just a check that came too early.
+The empty `hypr=` at host t=76 (about 45-50 s uptime) is not explained by
+timing: the journal has no exit, restart, coredump, `ANOM_ABEND` or user-unit
+stop for Hyprland up to the end of the capture, and no second `Welcome`.
+Every other 7.3 boot had `pidof Hyprland` = the `Welcome` pid. So it was
+most likely a bad `pidof` sample, not a compositor exit, but that is
+unproven. The soak monitor now logs `pidof Hyprland` every 30 s, and in
+soak2 it stayed on one pid (2593) for the whole run.
+
+**Wake timing:** `kernel/diag/msm-trace/wake-timing.sh` (phone side, read-only) does CYC screen
+off/on cycles with `omarchy-brightness-display` as ml. The screen is off for
+2 s, or 10-20 s on every 3rd cycle. Per wake it records:
+- ms until DSI dpms reads On
+- ms until the first new frame (encoder-0 `vsync` counter in msm debugfs,
+  plus the `msm` DPU irq count)
+- whether MDSS went `suspended` -> `active`. That means `msm_mdss_enable()`
+  ran, which is where 7.3/0030 does the QTB read; the read itself is not
+  logged.
+
+A wake slower than 2 s, or with no frame within 10 s, dumps at once: dmesg
+tail, DSI status/dpms, MDSS runtime PM, GDSC, encoder/crtc debugfs status,
+DRM state, Hyprland pid, and the state again 3 s later. It reads no
+registers (and never mmss_noc). `p73-soak.sh` runs it with `MODE=wake`.
+The monitor now does 3 pings per check and logs the Hyprland pid, and it
+saves a dmesg tail before any forced reboot.
+
+| Run | Wakes | dpms On | first frame | GDSC off before wake | slow (>2 s) | tx failed |
+|---|---|---|---|---|---|---|
+| 6.16 (flashed), 15:09-15:13 | 30 | 55-56 ms | 322-333 ms | 30/30 (`resumed` 30/30) | 0 | 0 |
+| 7.3 soak2 (one-shot), 15:15-15:19 | 30 | 55-56 ms | 322-335 ms | 30/30 (`resumed` 30/30) | 0 | 0 |
+
+- **soak2** (gated, 840 s flag consumed at boot, fastboot boot 15:14:36, back on
+  6.16 at 15:20:34, 7.3 for 325 s): first check t=53 s with DSI On,
+  0 tx failed. The host monitor made 8 of 8 checks OK. Final check:
+  tf=0, fd=0, dpms On. dmesg had nothing new after boot: 74 error/warn
+  lines and the same 8 WARNING/Call trace lines from msm load.
+- **The soak1 cyc9 late wake did not come back:** 0 slow wakes in 30 on 7.3,
+  and 7.3 timing matches 6.16 to the millisecond. A real wake on this
+  kernel takes about 55 ms to dpms On and about 325 ms to the first frame,
+  so "still Off 4 s after on" was not slow hardware. It was most likely a
+  missed or failed `omarchy-brightness-display on` (the Hyprland dispatch),
+  not the display pipeline. soak1 only checked once at +4 s and had no
+  dump, so this cannot be proven. Count so far: 1 in 40 wakes on 7.3, 0 in
+  30 on 6.16. Since it is not reproduced and not 7.3-specific, there is no
+  root-cause work and no consult. If it shows again, wake-timing.sh will
+  dump it.
+- Wi-Fi during soak2 (3 pings per check): NM connected at all 10 checks.
+  Pings were 3/3 except during the off/on cycles: 0/3 once (with the screen
+  on), then 1/3 and 2/3. This is the same pattern as soak1 and not yet
+  explained (power save?). 6.16 is not measured this way yet.
+
 ## 2026-10-24: 7.3 regulatory-wait fix (0053) and first long 7.3 soak (14:53-15:05 CEST)
 
 **0053, ath12k regd-update completion (boot regfix1, 14:54:04-14:55:53 CEST, t=109 s):**
@@ -60,16 +120,16 @@ from `rbt.sh` (pass at 100% capacity). All boots today passed through it.
 - Back on 6.16.0-gbd9587d65: DSI connected/On, 0 tx failed, Hyprland
   running, Wi-Fi connected, battery 100%.
 
-### Parity: 6.16 (flashed) vs 7.3 (one-shot only), updated 15:05 CEST
+### Parity: 6.16 (flashed) vs 7.3 (one-shot only), updated 15:22 CEST
 
 | Area | 6.16 | 7.3 | Left on 7.3 |
 |---|---|---|---|
-| Display | OK (warm-boot fix, off/on, idle) | OK: DSI On, 0 tx failed; 10 off/on cycles with GDSC off + 150 s idle in a 6 min soak | one late wake (cyc9) to repeat; boot-time DSI PLL/clk WARNs; systemd-backlight unit fails |
+| Display | OK (warm-boot fix, off/on, idle); 30 wakes: 55 ms to dpms On, 322-333 ms to first frame | OK: DSI On, 0 tx failed; 40 off/on cycles with GDSC off + 150 s idle; 30 timed wakes match 6.16 (55 ms / 322-335 ms) | 1 late wake in 40 (soak1, not reproduced); boot-time DSI PLL/clk WARNs; systemd-backlight unit fails |
 | Touch | OK | OK (touchpanel) | gesture/soak test |
 | USB gadget/SSH | OK | OK | none |
 | Audio | speaker + mic OK | speaker OK (ear test); mic OK (hands-on record + playback, same UCM) | headset jack |
 | Bluetooth | OK | OK: hci0 powered, scan finds devices | pairing/audio |
-| Wi-Fi | OK | OK with 0052 + 0053: autoconnect, DHCP, ping, scan, no regulatory timeout, stays connected over a 6 min soak | ping misses during soak (power-save?) |
+| Wi-Fi | OK | OK with 0052 + 0053: autoconnect, DHCP, ping, scan, no regulatory timeout, stays connected over two soaks | ping loss during screen off/on cycles (0-2 of 3 at some checks), cause open |
 | Sensors | OK (libssc) | OK: hands-on rotation, Hyprland transform 0 -> 3 -> 0 | monitor-sensor from ssh is not authorized (polkit), log inside the session |
 | Modem | MPSS up, ModemManager blocked (no IPA/net port) | skipped | port the modem stack |
 | Battery | OK (battmgr) | OK: capacity reads, adsp-battery active | charge/discharge over time |

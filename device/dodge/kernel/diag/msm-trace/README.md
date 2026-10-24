@@ -29,3 +29,4 @@ Rule learned the hard way: any MDP/DSI MMIO read must check the GDSC **and** the
 - `0018-r21k-kick-on-hang.patch` (r21k, on top of 0017): on the first DSI DMA -110 only, one mdp_hf_qtb SWID_LOW read, a 10 ms wait for the stuck DMA to complete, else DSI sw reset and one memory-DMA re-trigger of the same command; then the r17 FIFO fallback as before.
 - `0019-r21s-stop-splash-clears-vig1.patch` (r21s, on top of 0018: reverts the r21k kick): dodge_stop_splash also writes VIG1 SRC0 = 0 and flushes VIG1 (CTL0 flush bit 1).
 
+- `wake-timing.sh [CYC]` (phone, root, read-only): screen off/on cycles timed per wake. It reports ms to dpms On and ms to the first frame (encoder-0 vsync in debugfs), plus whether MDSS resumed (that is where the 7.3/0030 QTB read runs). A wake slower than 2 s dumps the state at once. `p73-soak.sh` runs it with `MODE=wake`; the soak monitor does 3 pings per check and logs the Hyprland pid.
