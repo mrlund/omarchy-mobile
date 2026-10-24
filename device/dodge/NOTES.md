@@ -4,6 +4,38 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-24: 7.3.0-rc6-dodge-gpu1 (Adreno 830) is the flashed default (18:42-18:56 CEST)
+
+Martin approved it at 18:42 CEST. Details: [dev-docs/2026-10-24-flash-gpu1-default.md](dev-docs/2026-10-24-flash-gpu1-default.md).
+
+- **Default now:** `boot_a` holds
+  `~/android/mainline/images/CANDIDATE-7.3-gpu1-boot_a.img`, sha256
+  `64a754b70c2cf6aef71cd95fc31a1a9a8d108cbd2faf321fa42df45fb12ae120`.
+  - It is the 6.16 stage 1 kexecing `7.3.0-rc6-dodge-gpu1`, with cmdline word
+    `dodge.flashed`.
+  - Its module tree and overlay are `7.3.0-rc6-dodge-gpu1`.
+  - Flashed at 18:44 CEST, then `set_active a`. Slot a is marked successful.
+- **Before the flash:** the read-back of `boot_a` matched
+  `DEFAULT-7.3-boot_a-483cc747.img` (s1) exactly.
+- **Rollback chain gpu1 -> s1 -> 6.16** (phone in fastboot):
+  1. `tools/dodge-restore-73s1` restores
+     `DEFAULT-7.3-boot_a-483cc747.img`, sha256 `483cc747...98dd`.
+  2. `tools/dodge-restore-616` restores
+     `FALLBACK-6.16-boot_a-9940497e.img`.
+
+  Both write `boot_a` only and run `set_active a`. `once` boots the image
+  one-shot. The s1 and 6.16 module trees stay installed.
+- **First boot and gated warm reboot, both clean:**
+  - trial=0, deadline cancelled at 80-81 s, txfail 0.
+  - GPU bound and runtime-suspended at idle. `eglinfo`: Adreno (TM) 830
+    (freedreno). `hyprctl systeminfo`: `qcom,adreno-44050000`, and Hyprland
+    accumulates GPU time on renderD128.
+  - Touch, USB, Wi-Fi, BT, speaker and accelerometer OK. 0 oopses.
+  - The only failed unit is `systemd-backlight@...dsi.0`, already failing on
+    s1.
+  - The idle screen-off (`idle-off`) is active as normal.
+- **Next:** Martin's cable-out cold start plus idle/wake on gpu1.
+
 ## 2026-10-24: Adreno 830 GPU trial gpu1 and candidate soak (17:17-18:25 CEST)
 
 - 2026-10-24 17:25 Martin verified cable-out cold start + idle/wake on flashed 7.3
@@ -85,7 +117,7 @@ Attempts live in [dev-docs/](dev-docs/).
 
 Martin approved it at 16:01 CEST. Details: [dev-docs/2026-10-24-flash-7.3-default.md](dev-docs/2026-10-24-flash-7.3-default.md).
 
-- **Default now:** `boot_a` holds the 7.3 chain (6.16 stage 1 kexecs
+- **Default now** (superseded 18:44 CEST by gpu1, see above; this image is the s1 rollback): `boot_a` holds the 7.3 chain (6.16 stage 1 kexecs
   7.3.0-rc6-dodge-s1, cmdline word `dodge.flashed`), sha256
   `483cc7478a14e68246615566d3f843f21fd0a18faa5f63bb12e2f4d4c47998dd`
   (`~/android/mainline/images/DEFAULT-7.3-boot_a-483cc747.img`). Slot a is

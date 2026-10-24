@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# dodge-restore-73s1: put the 7.3.0-rc6-dodge-s1 boot chain back on boot_a
+# (the default from 2026-10-24 16:05 until 7.3.0-rc6-dodge-gpu1 replaced it at
+# 18:4x CEST). Rollback chain: gpu1 -> s1 (this tool) -> 6.16 (dodge-restore-616).
+#   tools/dodge-restore-73s1          flash boot_a, set_active a, reboot
+#   tools/dodge-restore-73s1 once     one-shot: fastboot boot (nothing written)
+#   tools/dodge-restore-73s1 print    print the commands only
+# The phone must be in fastboot. Only boot_a is written; slot a is set active.
+# The s1 module tree and overlay stay on the phone, so nothing else changes.
+set -euo pipefail
+IMG="${IMG:-$HOME/android/mainline/images/DEFAULT-7.3-boot_a-483cc747.img}"
+SHA=483cc7478a14e68246615566d3f843f21fd0a18faa5f63bb12e2f4d4c47998dd
+mode="${1:-flash}"
+if [[ $mode == print ]]; then
+  echo "fastboot flash boot_a $IMG && fastboot set_active a && fastboot reboot"
+  echo "fastboot boot $IMG"; exit 0
+fi
+[[ -f $IMG ]] || { echo "missing $IMG" >&2; exit 1; }
+echo "$SHA  $IMG" | sha256sum -c --quiet || { echo "s1 image sha256 mismatch" >&2; exit 1; }
+[[ $(stat -c %s "$IMG") == 100663296 ]] || { echo "s1 image is not 96 MiB" >&2; exit 1; }
+fastboot devices | grep -q fastboot || { echo "phone is not in fastboot" >&2; exit 1; }
+case "$mode" in
+  once)  fastboot boot "$IMG" ;;
+  flash) fastboot flash boot_a "$IMG" && fastboot set_active a && fastboot reboot ;;
+  *) echo "usage: $0 [flash|once|print]" >&2; exit 2 ;;
+esac
