@@ -8,3 +8,4 @@ omamobile-rmtfs.service
 omamobile-tqftpserv.service
 omamobile-modem.service
 omamobile-mm-netport.service
+omamobile-dodge-audio.service

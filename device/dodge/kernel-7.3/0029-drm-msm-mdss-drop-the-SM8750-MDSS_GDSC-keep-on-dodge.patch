@@ -1,0 +1,81 @@
+From eea78e4f50c6be2d8dde976be96ce5c3bb872ec2 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 24 Oct 2026 11:00:57 +0200
+Subject: [PATCH 29/30] drm/msm/mdss: drop the SM8750 MDSS_GDSC keep-on (dodge
+ 0050)
+
+Reverts the msm_mdss part of ba113bc96 (port of dodge 0050); the
+remoteproc only_adsp switch from that commit stays.
+
+The keep-on was a workaround for "cmd dma tx failed" on the first
+display enable after an MDSS_GDSC collapse. That is the same stalled
+display fetch as the warm-boot display drop, fixed at the root by the
+QTB read (dodge 0054, next commit). On 6.16 the drop is dodge 0055,
+verified on the phone with the GDSC collapsing in screen-off.
+
+Signed-off-by: Martin Lund <mrlund@hotmail.com>
+---
+ drivers/gpu/drm/msm/msm_mdss.c | 19 +------------------
+ 1 file changed, 1 insertion(+), 18 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/msm_mdss.c b/drivers/gpu/drm/msm/msm_mdss.c
+index 1d6fb047d..ea32bbd42 100644
+--- a/drivers/gpu/drm/msm/msm_mdss.c
++++ b/drivers/gpu/drm/msm/msm_mdss.c
+@@ -14,7 +14,6 @@
+ #include <linux/irqchip/chained_irq.h>
+ #include <linux/of_platform.h>
+ #include <linux/platform_device.h>
+-#include <linux/pm_domain.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/reset.h>
+ 
+@@ -28,14 +27,6 @@
+ 
+ struct msm_mdss_data {
+ 	u32 reg_bus_bw;
+-	/*
+-	 * Keep the MDSS power domain on while MDSS is runtime suspended.
+-	 * FIXME: on SM8750, collapsing MDSS_GDSC after a display session
+-	 * leaves DSI command DMA dead on the next enable (cmd dma tx
+-	 * timeout, no DSI error, no SMMU fault). The lost state is outside
+-	 * the DSI/PHY/MDSS/DPU register space; drop this once found.
+-	 */
+-	bool keep_gdsc_on;
+ };
+ 
+ struct msm_mdss {
+@@ -445,9 +436,6 @@ static struct msm_mdss *msm_mdss_init(struct platform_device *pdev, bool is_mdp5
+ 
+ 	pm_runtime_enable(&pdev->dev);
+ 
+-	if (mdss_data->keep_gdsc_on)
+-		dev_pm_genpd_rpm_always_on(&pdev->dev, true);
+-
+ 	return msm_mdss;
+ }
+ 
+@@ -540,11 +528,6 @@ static const struct msm_mdss_data data_57k = {
+ 	.reg_bus_bw = 57000,
+ };
+ 
+-static const struct msm_mdss_data data_57k_keep_gdsc = {
+-	.reg_bus_bw = 57000,
+-	.keep_gdsc_on = true,
+-};
+-
+ static const struct msm_mdss_data data_74k = {
+ 	.reg_bus_bw = 74000,
+ };
+@@ -586,7 +569,7 @@ static const struct of_device_id mdss_dt_match[] = {
+ 	{ .compatible = "qcom,sm8450-mdss", .data = &data_74k },
+ 	{ .compatible = "qcom,sm8550-mdss", .data = &data_57k },
+ 	{ .compatible = "qcom,sm8650-mdss", .data = &data_57k },
+-	{ .compatible = "qcom,sm8750-mdss", .data = &data_57k_keep_gdsc },
++	{ .compatible = "qcom,sm8750-mdss", .data = &data_57k },
+ 	/* TODO: x1e8: Add reg_bus_bw with real value */
+ 	{ .compatible = "qcom,x1e80100-mdss", .data = &data_153k6 },
+ 	{}
+-- 
+2.56.0
+
