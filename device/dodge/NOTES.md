@@ -4,17 +4,72 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
-## Current state (2026-10-24 19:10 CEST wrap-up)
+## 2026-10-24: initramfs USB race fixed, usbfix1 is the flashed default (19:06-19:26 CEST)
 
-- **Default:** `boot_a` = `7.3.0-rc6-dodge-gpu1` (Adreno 830), image sha256
-  `64a754b70c2cf6aef71cd95fc31a1a9a8d108cbd2faf321fa42df45fb12ae120`
-  (`~/android/mainline/images/CANDIDATE-7.3-gpu1-boot_a.img`). Slot a is
-  active and marked successful.
-- **Rollback chain gpu1 -> s1 -> 6.16** (phone in fastboot; each writes
-  `boot_a` only and runs `set_active a`):
-  1. `tools/dodge-restore-73s1` restores
+- **Problem:** the stage-2 initramfs (`device/dodge/initramfs/init`) did not
+  `switch_root` until a USB host had configured the gadget (main loop, up to
+  60 s). A backgrounded watchdog panicked at 45 s + 20 s if the UDC never
+  reached `configured`. So every cable-out boot sat about 60 s in the
+  initramfs and raced the panic: Martin's 19:00 cold start printed "USB never
+  configured, panicking in 20 s" at 46.7 s and switched root at 61.7 s,
+  about 5 s before the panic.
+- **Fix (init only; kernel, dtb and cmdline unchanged):**
+  - The main loop leaves for Arch as soon as `/run/omamobile-userdata-ready`
+    exists. It no longer waits for USB. The gadget and `usb0` are set up in
+    the initramfs and stay bound across `switch_root`, so USB networking and
+    ssh still come up in Arch (verified).
+  - The watchdog is now a rescue timer only for a boot stuck before
+    `switch_root`. It exits as soon as the UDC is configured. A missing USB
+    host by itself never panics: the timer fires only if there is no Arch
+    root yet and no USB (45 s; 90 s with `omamobile.userdata-rw` and no
+    `omamobile.initramfs`; 120 s while a root mount is in progress via
+    `/run/omamobile-root-pending`). It re-checks USB before `sysrq c`, and
+    `boot_arch`'s `kill -9 -1` still ends it before `switch_root`.
+  - The test-only cmdline flag `omamobile.test-nousb` leaves the gadget
+    unbound, to simulate "USB never configured".
+- **Images** (stage-2 initramfs `initramfs-usbfix1.cpio.lz4`, sha256
+  `b10dc1dcb235b114051d746a157f43b5ef8a85eadd7b9a60c023e897b1cc45c9`,
+  a reproducible repack; the unchanged tree repacks to the old `401bedce...`):
+  - Default `DEFAULT-7.3-gpu1-usbfix1-boot_a.img`, sha256
+    `ef049091d515cf953f6c3cf79420b41a2588ed05a0a553f64b4bf455c22653af`.
+    Same stage-1 cpio as gpu1 except `initrd`; same Image, dtb and
+    `dodge.flashed` cmdline.
+  - Test-only `nousbtest` image `a28f0876...` (no `dodge.flashed`, adds
+    `omamobile.test-nousb`). It is never flashed.
+- **Tests:**
+  - Cabled one-shot (19:11): switch_root at 3.65 s (before: 3.69-3.75 s
+    cabled). UDC configured, usb0 up, ssh, DSI on with 0 tx failed,
+    Hyprland, GPU bound, Wi-Fi connected with 0 % ping loss.
+  - "USB never configured" one-shot (19:14): gadget unbound, switch_root at
+    13.6 s, no rescue or panic message. Display, GPU and Wi-Fi up. The 13.6 s
+    is the existing 10 s wait for `usb0` (no NCM link without a bound
+    gadget), so it applies to this test only. The trial deadline then
+    hard-rebooted back to boot_a as designed.
+  - Flash (19:20-19:23): `boot_a` only, `set_active a`. switch_root at
+    3.60 s, deadline cancelled at 80 s (dpms On), Hyprland, GPU, UDC
+    configured.
+  - Gated warm reboot (19:23-19:26): switch_root at 3.61 s, no
+    rescue/panic message, deadline cancelled at 80.7 s, DSI On, Hyprland,
+    GPU, usb0 up, Wi-Fi connected. Only the known `systemd-backlight@`
+    failure.
+- **Before vs after, cable-out:** about 61.7 s to switch_root with a panic
+  margin of about 5 s, versus an expected about 3.6 s with no USB-only
+  panic. Pending: one cable-out cold start by Martin to confirm.
+
+## Current state (2026-10-24 19:05 CEST wrap-up, updated 19:26 CEST)
+
+- **Default:** `boot_a` = `7.3.0-rc6-dodge-gpu1` with the usbfix1 initramfs,
+  image sha256
+  `ef049091d515cf953f6c3cf79420b41a2588ed05a0a553f64b4bf455c22653af`
+  (`~/android/mainline/images/DEFAULT-7.3-gpu1-usbfix1-boot_a.img`). Slot a
+  is active.
+- **Rollback chain usbfix1 -> gpu1 -> s1 -> 6.16** (phone in fastboot; each
+  writes `boot_a` only and runs `set_active a`):
+  1. `tools/dodge-restore-73gpu1` restores
+     `ROLLBACK-7.3-gpu1-boot_a-64a754b7.img` (gpu1, old initramfs).
+  2. `tools/dodge-restore-73s1` restores
      `DEFAULT-7.3-boot_a-483cc747.img` (s1).
-  2. `tools/dodge-restore-616` restores
+  3. `tools/dodge-restore-616` restores
      `FALLBACK-6.16-boot_a-9940497e.img`.
 - **Kernel:** the local branch `trial/omamobile-dodge-port` at `f08f72d3e`,
   on Derek's `2a7b29c24`. It is not pushed anywhere.
@@ -50,23 +105,8 @@ Attempts live in [dev-docs/](dev-docs/).
 
 **Open items:**
 - **USB console message ("USB never configured, panicking in 20 s"):**
-  parked by Martin at 19:03. I found the source but changed nothing.
-  - Source: the stage-2 initramfs `device/dodge/initramfs/init`, lines
-    263-283. It is a backgrounded rescue watchdog: if no UDC reaches
-    `configured` within 45 s, it prints that message, sleeps 20 s, then
-    `sysrq c` (panic, then `panic=10` reboots).
-  - It is cancelled only by `boot_arch`'s `kill -9 -1` before
-    `switch_root`. The main loop (lines 310-323) also waits for
-    `configured`, up to 60 s.
-  - So every cable-out boot waits about 60 s in the initramfs and races
-    the panic. Martin's 19:00 cold boot logged the message at 46.7 s,
-    mounted userdata at 61.7 s and switched root at 61.7 s; the panic was
-    due at about 66.7 s, a margin of about 5 s.
-  - A slow userdata mount (journal replay after a hard reset) could panic
-    a normal unplugged boot.
-  - Suggested fix (not done): don't require `configured` for `boot_arch`
-    when userdata is ready, or let the watchdog exit once
-    `/run/omamobile-userdata-ready` exists. It needs one warm-boot test.
+  FIXED 19:20 CEST (usbfix1, see the entry above). Pending: Martin's
+  cable-out cold start.
 - **Wi-Fi:** ping loss around screen off/on.
 - **Audio:** headset jack.
 - **Modem:** modem/IPA port.

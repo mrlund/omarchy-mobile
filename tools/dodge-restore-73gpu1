@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# dodge-restore-73gpu1: put the 7.3.0-rc6-dodge-gpu1 boot chain (old stage-2
+# initramfs, before the 2026-10-24 USB-race fix) back on boot_a.
+# Rollback chain: usbfix1 -> gpu1 (this tool) -> s1 (dodge-restore-73s1)
+#   -> 6.16 (dodge-restore-616).
+#   tools/dodge-restore-73gpu1          flash boot_a, set_active a, reboot
+#   tools/dodge-restore-73gpu1 once     one-shot: fastboot boot (nothing written)
+#   tools/dodge-restore-73gpu1 print    print the commands only
+# The phone must be in fastboot. Only boot_a is written; slot a is set active.
+set -euo pipefail
+IMG="${IMG:-$HOME/android/mainline/images/ROLLBACK-7.3-gpu1-boot_a-64a754b7.img}"
+SHA=64a754b70c2cf6aef71cd95fc31a1a9a8d108cbd2faf321fa42df45fb12ae120
+mode="${1:-flash}"
+if [[ $mode == print ]]; then
+  echo "fastboot flash boot_a $IMG && fastboot set_active a && fastboot reboot"
+  echo "fastboot boot $IMG"; exit 0
+fi
+[[ -f $IMG ]] || { echo "missing $IMG" >&2; exit 1; }
+echo "$SHA  $IMG" | sha256sum -c --quiet || { echo "gpu1 image sha256 mismatch" >&2; exit 1; }
+[[ $(stat -c %s "$IMG") == 60305408 ]] || { echo "gpu1 image is not 60305408 bytes" >&2; exit 1; }
+fastboot devices | grep -q fastboot || { echo "phone is not in fastboot" >&2; exit 1; }
+case "$mode" in
+  once)  fastboot boot "$IMG" ;;
+  flash) fastboot flash boot_a "$IMG" && fastboot set_active a && fastboot reboot ;;
+  *) echo "usage: $0 [flash|once|print]" >&2; exit 2 ;;
+esac

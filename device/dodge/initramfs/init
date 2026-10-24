@@ -124,7 +124,10 @@ while [ "$i" -lt 30 ]; do
   i=$((i + 1))
   sleep 1
 done
-if [ -n "$udc" ]; then
+if [ -n "$udc" ] && grep -q omamobile.test-nousb /proc/cmdline; then
+  # Test only: leave the gadget unbound, as if no host ever configures it.
+  say "test-nousb: USB gadget NOT bound (test cmdline)"
+elif [ -n "$udc" ]; then
   echo "$udc" > $g/UDC && say "USB gadget up on $udc"
 else
   say "no USB device controller found"
@@ -260,23 +263,41 @@ grep -q omamobile.ufs-probe /proc/cmdline && (
 
 say "ready"
 
-# If the host never configures the gadget, panic so panic=10 reboots
-# into OxygenOS. There is no watchdog to do it on this DTB.
+# Rescue: panic (panic=10 reboots) only when the phone is stuck in this
+# ramdisk with nobody able to reach it. Without the Arch root it panics
+# if no USB host configured the gadget in 45 s, as before. With
+# omamobile.userdata-rw it fires only if the root is not reached in
+# 90 s (or a root mount hangs for 120 s) and USB is not configured
+# either. A missing USB host alone never panics a root boot: boot_arch
+# switches as soon as userdata is ready and its kill -9 -1 ends this.
 (
-  i=0
-  while [ "$i" -lt 45 ]; do
+  limit=45
+  if grep -q 'omamobile.userdata-rw' /proc/cmdline &&
+     ! grep -q 'omamobile.initramfs' /proc/cmdline; then
+    limit=90
+  fi
+  t=0
+  p=0
+  while :; do
     grep -qx configured /sys/class/udc/*/state 2>/dev/null && exit 0
-    i=$((i + 1))
+    if [ -e /run/omamobile-root-pending ]; then
+      p=$((p + 1))
+      [ "$p" -ge 120 ] && break
+    else
+      t=$((t + 1))
+      [ "$t" -ge "$limit" ] && break
+    fi
     sleep 1
   done
   {
     echo
-    echo "=== USB never configured; dmesg follows ==="
+    echo "=== no Arch root and USB never configured; dmesg follows ==="
     dmesg | grep -iE 'dwc3|phy|usb|udc|clk|error|fail' | tail -30
-    echo "omamobile: USB never configured, panicking in 20 s"
+    echo "omamobile: rescue: no root and no USB host, panicking in 20 s"
   } > $SCREEN
-  echo "omamobile: USB never configured, panicking in 20 s" > /dev/kmsg
+  echo "omamobile: rescue: no root and no USB host, panicking in 20 s" > /dev/kmsg
   sleep 20
+  grep -qx configured /sys/class/udc/*/state 2>/dev/null && exit 0
   sync
   echo 1 > /proc/sys/kernel/sysrq
   echo c > /proc/sysrq-trigger
@@ -292,8 +313,15 @@ boot_arch() {
   dev=/dev/$dev
   [ -b "$dev" ] || { say "arch: $dev is missing"; return 0; }
   mkdir -p /newroot
-  mount -t ext4 -o rw,relatime "$dev" /newroot || { say "arch: cannot mount $dev"; return 0; }
+  # The rescue timer pauses while the root mounts (journal replay can be slow).
+  : > /run/omamobile-root-pending
+  mount -t ext4 -o rw,relatime "$dev" /newroot || {
+    rm -f /run/omamobile-root-pending
+    say "arch: cannot mount $dev"
+    return 0
+  }
   if [ ! -x /newroot/usr/lib/systemd/systemd ]; then
+    rm -f /run/omamobile-root-pending
     say "arch: no systemd on $dev"
     umount /newroot
     return 0
@@ -311,10 +339,10 @@ if grep -q 'omamobile.userdata-rw' /proc/cmdline &&
    ! grep -q 'omamobile.initramfs' /proc/cmdline; then
   i=0
   while [ "$i" -lt 60 ]; do
-    if [ -e /run/omamobile-userdata-ready ] &&
-       grep -qx configured /sys/class/udc/*/state 2>/dev/null; then
-      break
-    fi
+    # Only the root gates the switch. The gadget and usb0 set up above
+    # stay bound across switch_root, so a host can still configure USB
+    # later in Arch.
+    [ -e /run/omamobile-userdata-ready ] && break
     [ -e /run/omamobile-userdata-stay ] && break
     i=$((i + 1))
     sleep 1
