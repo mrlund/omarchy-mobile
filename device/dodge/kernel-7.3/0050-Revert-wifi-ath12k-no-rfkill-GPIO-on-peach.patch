@@ -1,0 +1,35 @@
+From 20cead8243690d6c035ad584d6f74f857701710c Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 24 Oct 2026 11:54:59 +0200
+Subject: [PATCH 50/51] Revert "wifi: ath12k: no rfkill GPIO on peach"
+
+This reverts commit 2499c421ac05fc8b5d802d6fc14cbfd085e9bce8.
+
+Obsolete on 7.3: the WCN7860 entry (cloned from QCC2072) has
+rfkill_pin = 0, and ath12k_mac_rfkill_config() returns -EOPNOTSUPP
+for that, which ath12k_core_qmi_firmware_ready() ignores.
+---
+ drivers/net/wireless/ath/ath12k/core.c | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/core.c b/drivers/net/wireless/ath/ath12k/core.c
+index 3e742dbed..3b457474f 100644
+--- a/drivers/net/wireless/ath/ath12k/core.c
++++ b/drivers/net/wireless/ath/ath12k/core.c
+@@ -83,13 +83,6 @@ static int ath12k_core_rfkill_config(struct ath12k_base *ab)
+ 	if (ath12k_acpi_get_disable_rfkill(ab))
+ 		return 0;
+ 
+-	/* Peach borrows the WCN7850 parameters, whose rfkill GPIO 48
+-	 * is not wired on this module: the firmware then reports the
+-	 * radio hard-blocked. Stock has no Wi-Fi rfkill switch.
+-	 */
+-	if (ab->id.device == 0x110e)
+-		return 0;
+-
+ 	for (i = 0; i < ab->num_radios; i++) {
+ 		ar = ab->pdevs[i].ar;
+ 
+-- 
+2.56.0
+

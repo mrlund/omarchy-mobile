@@ -1,0 +1,426 @@
+From bb2901e9d14c5a83f8b76ae8b451890be905fb0c Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 17 Oct 2026 18:27:11 +0200
+Subject: [PATCH 39/51] wifi: ath12k: send the peach TME-Lite patch before
+ board data
+
+The OnePlus 13s mainline port of this PCI id (17cb:110e) says the
+WLAN mode timeout is the secured PHY init faulting because the
+host never handed over tmel_peach_20.elf. Stock cnss does that
+QMI transfer after target capabilities. Peach also keeps its M3
+inside amss, and that port calibrates with WLAN mode 7 before
+mission mode.
+
+On this phone the TME-Lite request is rejected (result 1, err 83).
+The firmware then resets, and both mode 0 and mode 7 time out.
+The stock board ELF was sent after the upstream board-2.bin was
+moved aside. There is still no wlan interface.
+
+Co-Authored-By: Grok 4.7 <noreply@x.ai>
+
+7.3 port: upstream added the aux ucode QMI messages (0x005A) right where
+this adds the TME-Lite ones, and moved enum ath12k_firmware_mode from
+core.h to qmi.h as ath12k_qmi_firmware_mode. COLD_BOOT (7) now sits
+there next to OFF (4).
+
+(cherry picked from commit e78532108, reworked for 7.3)
+---
+ drivers/net/wireless/ath/ath12k/qmi.c | 218 +++++++++++++++++++++++++-
+ drivers/net/wireless/ath/ath12k/qmi.h |  37 +++++
+ 2 files changed, 252 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.c b/drivers/net/wireless/ath/ath12k/qmi.c
+index 280e50a1f..4e8ea6e6f 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.c
++++ b/drivers/net/wireless/ath/ath12k/qmi.c
+@@ -11,6 +11,7 @@
+ #include "debug.h"
+ #include <linux/of.h>
+ #include <linux/firmware.h>
++#include <linux/dma-mapping.h>
+ #include <linux/of_address.h>
+ #include <linux/ioport.h>
+ #include <linux/of_reserved_mem.h>
+@@ -1660,6 +1661,59 @@ static const struct qmi_elem_info qmi_wlanfw_m3_info_resp_msg_v01_ei[] = {
+ 	},
+ };
+ 
++static const struct qmi_elem_info qmi_wlanfw_tme_lite_info_req_msg_v01_ei[] = {
++	{
++		.data_type	= QMI_SIGNED_4_BYTE_ENUM,
++		.elem_len	= 1,
++		.elem_size	= sizeof(enum qmi_wlanfw_tme_lite_file_type_v01),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x01,
++		.offset		= offsetof(struct qmi_wlanfw_tme_lite_info_req_msg_v01,
++					   tme_file),
++	},
++	{
++		.data_type	= QMI_UNSIGNED_8_BYTE,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u64),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x02,
++		.offset		= offsetof(struct qmi_wlanfw_tme_lite_info_req_msg_v01,
++					   addr),
++	},
++	{
++		.data_type	= QMI_UNSIGNED_4_BYTE,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u32),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x03,
++		.offset		= offsetof(struct qmi_wlanfw_tme_lite_info_req_msg_v01,
++					   size),
++	},
++	{
++		.data_type	= QMI_EOTI,
++		.array_type	= NO_ARRAY,
++		.tlv_type	= QMI_COMMON_TLV_TYPE,
++	},
++};
++
++static const struct qmi_elem_info qmi_wlanfw_tme_lite_info_resp_msg_v01_ei[] = {
++	{
++		.data_type	= QMI_STRUCT,
++		.elem_len	= 1,
++		.elem_size	= sizeof(struct qmi_response_type_v01),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x02,
++		.offset		= offsetof(struct qmi_wlanfw_tme_lite_info_resp_msg_v01,
++					   resp),
++		.ei_array	= qmi_response_type_v01_ei,
++	},
++	{
++		.data_type	= QMI_EOTI,
++		.array_type	= NO_ARRAY,
++		.tlv_type	= QMI_COMMON_TLV_TYPE,
++	},
++};
++
+ static const struct qmi_elem_info qmi_wlanfw_aux_uc_info_req_msg_v01_ei[] = {
+ 	{
+ 		.data_type	= QMI_UNSIGNED_8_BYTE,
+@@ -2058,6 +2112,13 @@ static const struct qmi_elem_info qmi_wlanfw_fw_ready_ind_msg_v01_ei[] = {
+ 	},
+ };
+ 
++static const struct qmi_elem_info qmi_wlanfw_cold_boot_cal_done_ind_msg_v01_ei[] = {
++	{
++		.data_type = QMI_EOTI,
++		.array_type = NO_ARRAY,
++	},
++};
++
+ static const struct qmi_elem_info qmi_wlanfw_wlan_ini_req_msg_v01_ei[] = {
+ 	{
+ 		.data_type	= QMI_OPT_FLAG,
+@@ -2254,7 +2315,11 @@ int ath12k_qmi_host_cap_send(struct ath12k_base *ab)
+ 	req.bdf_support_valid = 1;
+ 	req.bdf_support = 1;
+ 
+-	if (ab->hw_params->fw.m3_loader == ath12k_m3_fw_loader_driver) {
++	/* Peach carries its PHY M3 inside amss. Advertising a host M3
++	 * and then not providing one faults the secured init.
++	 */
++	if (ab->hw_params->fw.m3_loader == ath12k_m3_fw_loader_driver &&
++	    ab->id.device != 0x110e) {
+ 		req.m3_support_valid = 1;
+ 		req.m3_support = 1;
+ 		req.m3_cache_support_valid = 1;
+@@ -3101,6 +3166,7 @@ int ath12k_qmi_load_bdf_qmi(struct ath12k_base *ab,
+ 		else
+ 			type = ATH12K_QMI_BDF_TYPE_BIN;
+ 
++		ath12k_info(ab, "qmi board data len %zu type %d\n", bd.len, type);
+ 		break;
+ 	case ATH12K_QMI_BDF_TYPE_REGDB:
+ 		ret = ath12k_core_fetch_regdb(ab, &bd);
+@@ -3263,7 +3329,12 @@ int ath12k_qmi_wlanfw_m3_info_send(struct ath12k_base *ab)
+ 	struct qmi_txn txn;
+ 	int ret = 0;
+ 
+-	if (ab->hw_params->fw.m3_loader == ath12k_m3_fw_loader_driver) {
++	/* Same as host_cap: peach's M3 is already in amss. A separate
++	 * m3.bin is the WCN7850 image and the firmware faults on it.
++	 * Leave addr and size zero.
++	 */
++	if (ab->hw_params->fw.m3_loader == ath12k_m3_fw_loader_driver &&
++	    ab->id.device != 0x110e) {
+ 		ret = ath12k_qmi_m3_load(ab);
+ 		if (ret) {
+ 			ath12k_err(ab, "failed to load m3 firmware: %d\n", ret);
+@@ -3789,6 +3860,79 @@ int ath12k_qmi_event_mem_request(struct ath12k_qmi *qmi)
+ 	return ret;
+ }
+ 
++/* Peach needs the TME-Lite ELF in DMA memory, then its physical
++ * address over QMI, after target capabilities and before board data.
++ * Stock cnss does this in cnss_fw_mem_ready_hdlr. The OnePlus 13s
++ * mainline port (pagani) ties a missing send to the set-mode timeout.
++ */
++static int ath12k_qmi_tme_lite_info_send(struct ath12k_base *ab)
++{
++	struct qmi_wlanfw_tme_lite_info_req_msg_v01 req = {};
++	struct qmi_wlanfw_tme_lite_info_resp_msg_v01 resp = {};
++	const struct firmware *fw;
++	struct qmi_txn txn;
++	dma_addr_t paddr;
++	void *vaddr;
++	int ret;
++
++	if (ab->id.device != 0x110e)
++		return 0;
++
++	fw = ath12k_core_firmware_request(ab, "tmel_peach_20.elf");
++	if (IS_ERR(fw)) {
++		ret = PTR_ERR(fw);
++		ath12k_err(ab, "failed to load tmel_peach_20.elf: %d\n", ret);
++		return ret;
++	}
++
++	vaddr = dmam_alloc_coherent(ab->dev, fw->size, &paddr, GFP_KERNEL);
++	if (!vaddr) {
++		ret = -ENOMEM;
++		goto release_fw;
++	}
++	memcpy(vaddr, fw->data, fw->size);
++
++	req.tme_file = WLANFW_TME_LITE_PATCH_FILE_V01;
++	req.addr = paddr;
++	req.size = fw->size;
++
++	ret = qmi_txn_init(&ab->qmi.handle, &txn,
++			   qmi_wlanfw_tme_lite_info_resp_msg_v01_ei, &resp);
++	if (ret < 0)
++		goto release_fw;
++
++	ret = qmi_send_request(&ab->qmi.handle, NULL, &txn,
++			       QMI_WLANFW_TME_LITE_INFO_REQ_V01,
++			       QMI_WLANFW_TME_LITE_INFO_REQ_MSG_V01_MAX_MSG_LEN,
++			       qmi_wlanfw_tme_lite_info_req_msg_v01_ei, &req);
++	if (ret < 0) {
++		qmi_txn_cancel(&txn);
++		ath12k_warn(ab, "qmi failed to send TME-Lite info request: %d\n",
++			    ret);
++		goto release_fw;
++	}
++
++	ret = qmi_txn_wait(&txn, msecs_to_jiffies(ATH12K_QMI_WLANFW_TIMEOUT_MS));
++	if (ret < 0) {
++		ath12k_warn(ab, "qmi failed TME-Lite info request: %d\n", ret);
++		goto release_fw;
++	}
++
++	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
++		ath12k_warn(ab, "qmi TME-Lite info request failed, result: %d err: %d\n",
++			    resp.resp.result, resp.resp.error);
++		ret = -EINVAL;
++		goto release_fw;
++	}
++
++	ath12k_info(ab, "qmi tme-lite info sent, %zu bytes\n", fw->size);
++	ret = 0;
++
++release_fw:
++	release_firmware(fw);
++	return ret;
++}
++
+ /* clang stack usage explodes if this is inlined */
+ static noinline_for_stack
+ int ath12k_qmi_event_load_bdf(struct ath12k_qmi *qmi)
+@@ -3803,10 +3947,18 @@ int ath12k_qmi_event_load_bdf(struct ath12k_qmi *qmi)
+ 		return ret;
+ 	}
+ 
++	ret = ath12k_qmi_tme_lite_info_send(ab);
++	if (ret < 0)
++		ath12k_warn(ab, "qmi tme-lite info send failed: %d\n", ret);
++
+ 	ret = ath12k_qmi_load_bdf_qmi(ab, ATH12K_QMI_BDF_TYPE_REGDB);
+ 	if (ret < 0) {
+ 		ath12k_warn(ab, "qmi failed to load regdb file:%d\n", ret);
+-		return ret;
++		/* Peach has no upstream regdb in board-2.bin. Keep going
++		 * so the stock board.bin is still sent.
++		 */
++		if (ab->id.device != 0x110e)
++			return ret;
+ 	}
+ 
+ 	ret = ath12k_qmi_load_bdf_qmi(ab, ATH12K_QMI_BDF_TYPE_ELF);
+@@ -3907,6 +4059,54 @@ static void ath12k_qmi_msg_fw_ready_cb(struct qmi_handle *qmi_hdl,
+ 	ath12k_qmi_driver_event_post(qmi, ATH12K_QMI_EVENT_FW_READY, NULL);
+ }
+ 
++static void ath12k_qmi_msg_cold_boot_cal_done_cb(struct qmi_handle *qmi_hdl,
++						 struct sockaddr_qrtr *sq,
++						 struct qmi_txn *txn,
++						 const void *decoded)
++{
++	struct ath12k_qmi *qmi = container_of(qmi_hdl, struct ath12k_qmi, handle);
++	struct ath12k_base *ab = qmi->ab;
++
++	ab->qmi.cal_done = 1;
++	wake_up(&ab->qmi.cold_boot_waitq);
++	ath12k_info(ab, "qmi cold boot calibration done\n");
++}
++
++/* Peach faults in mission mode unless it has calibrated first. Stock
++ * cnss and the OnePlus 13s mainline port send mode 7, wait for the
++ * calibration-done indication, then mode OFF so the firmware restarts.
++ * The next FW_READY is the mission-mode start.
++ */
++static int ath12k_qmi_process_coldboot_calibration(struct ath12k_base *ab)
++{
++	long time_left;
++	int ret;
++
++	ret = ath12k_qmi_wlanfw_mode_send(ab, ATH12K_QMI_FIRMWARE_MODE_COLD_BOOT);
++	if (ret < 0) {
++		ath12k_warn(ab, "qmi failed to send cold boot mode: %d\n", ret);
++		return ret;
++	}
++
++	time_left = wait_event_timeout(ab->qmi.cold_boot_waitq,
++				       ab->qmi.cal_done == 1,
++				       ATH12K_COLD_BOOT_FW_RESET_DELAY);
++	if (time_left <= 0) {
++		ath12k_warn(ab, "qmi coldboot calibration timed out\n");
++		return -ETIMEDOUT;
++	}
++
++	ret = ath12k_qmi_wlanfw_mode_send(ab, ATH12K_QMI_FIRMWARE_MODE_OFF);
++	if (ret < 0 && ret != -ENETRESET) {
++		ath12k_warn(ab, "qmi failed to send off mode after coldboot: %d\n",
++			    ret);
++		return ret;
++	}
++
++	ath12k_info(ab, "qmi coldboot calibration restart requested\n");
++	return 0;
++}
++
+ static const struct qmi_msg_handler ath12k_qmi_msg_handlers[] = {
+ 	{
+ 		.type = QMI_INDICATION,
+@@ -3929,6 +4129,13 @@ static const struct qmi_msg_handler ath12k_qmi_msg_handlers[] = {
+ 		.decoded_size = sizeof(struct qmi_wlanfw_fw_ready_ind_msg_v01),
+ 		.fn = ath12k_qmi_msg_fw_ready_cb,
+ 	},
++	{
++		.type = QMI_INDICATION,
++		.msg_id = QMI_WLFW_COLD_BOOT_CAL_DONE_IND_V01,
++		.ei = qmi_wlanfw_cold_boot_cal_done_ind_msg_v01_ei,
++		.decoded_size = sizeof(struct qmi_wlanfw_cold_boot_cal_done_ind_msg_v01),
++		.fn = ath12k_qmi_msg_cold_boot_cal_done_cb,
++	},
+ 
+ 	/* end of list */
+ 	{},
+@@ -4039,6 +4246,10 @@ static void ath12k_qmi_driver_event_work(struct work_struct *work)
+ 
+ 			clear_bit(ATH12K_FLAG_CRASH_FLUSH,
+ 				  &ab->dev_flags);
++			if (ab->id.device == 0x110e && ab->qmi.cal_done == 0) {
++				ath12k_qmi_process_coldboot_calibration(ab);
++				break;
++			}
+ 			ret = ath12k_core_qmi_firmware_ready(ab);
+ 			if (!ret)
+ 				set_bit(ATH12K_FLAG_QMI_FW_READY_COMPLETE,
+@@ -4086,6 +4297,7 @@ int ath12k_qmi_init_service(struct ath12k_base *ab)
+ 
+ 	INIT_LIST_HEAD(&ab->qmi.event_list);
+ 	spin_lock_init(&ab->qmi.event_lock);
++	init_waitqueue_head(&ab->qmi.cold_boot_waitq);
+ 	INIT_WORK(&ab->qmi.event_work, ath12k_qmi_driver_event_work);
+ 
+ 	ret = qmi_add_lookup(&ab->qmi.handle, QMI_SERVICE_ID_WLFW,
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.h b/drivers/net/wireless/ath/ath12k/qmi.h
+index 6da10f3cb..7d16324be 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.h
++++ b/drivers/net/wireless/ath/ath12k/qmi.h
+@@ -8,6 +8,7 @@
+ #define ATH12K_QMI_H
+ 
+ #include <linux/mutex.h>
++#include <linux/wait.h>
+ #include <linux/soc/qcom/qmi.h>
+ 
+ #define ATH12K_HOST_VERSION_STRING		"WIN"
+@@ -30,6 +31,8 @@
+ #define QMI_WLFW_REQUEST_MEM_IND_V01		0x0035
+ #define QMI_WLFW_FW_MEM_READY_IND_V01		0x0037
+ #define QMI_WLFW_FW_READY_IND_V01		0x0038
++#define QMI_WLFW_COLD_BOOT_CAL_DONE_IND_V01	0x003E
++#define ATH12K_COLD_BOOT_FW_RESET_DELAY		(60 * HZ)
+ 
+ #define QMI_WLANFW_MAX_DATA_SIZE_V01		6144
+ 
+@@ -142,6 +145,7 @@ struct ath12k_qmi {
+ 	u32 target_mem_mode;
+ 	bool target_mem_delayed;
+ 	u8 cal_done;
++	wait_queue_head_t cold_boot_waitq;
+ 
+ 	/* protected with struct ath12k_qmi::event_lock */
+ 	bool block_event;
+@@ -374,6 +378,10 @@ struct qmi_wlanfw_fw_ready_ind_msg_v01 {
+ 	char placeholder;
+ };
+ 
++struct qmi_wlanfw_cold_boot_cal_done_ind_msg_v01 {
++	char placeholder;
++};
++
+ #define QMI_WLANFW_CAP_REQ_MSG_V01_MAX_LEN	0
+ #define QMI_WLANFW_CAP_REQ_V01			0x0024
+ 
+@@ -526,6 +534,32 @@ struct qmi_wlanfw_m3_info_resp_msg_v01 {
+ 	struct qmi_response_type_v01 resp;
+ };
+ 
++/* Peach (PCI 17cb:110e) needs this before board data. Stock cnss sends
++ * tmel_peach_20.elf here. Without it the secured PHY init faults and the
++ * later WLAN mode request times out.
++ */
++#define QMI_WLANFW_TME_LITE_INFO_REQ_MSG_V01_MAX_MSG_LEN	25
++#define QMI_WLANFW_TME_LITE_INFO_RESP_MSG_V01_MAX_MSG_LEN	7
++#define QMI_WLANFW_TME_LITE_INFO_REQ_V01		0x005B
++#define QMI_WLANFW_TME_LITE_INFO_RESP_V01		0x005B
++
++enum qmi_wlanfw_tme_lite_file_type_v01 {
++	WLANFW_TME_LITE_PATCH_FILE_V01 = 0,
++	WLANFW_TME_LITE_OEM_FUSE_FILE_V01 = 1,
++	WLANFW_TME_LITE_RPR_FILE_V01 = 2,
++	WLANFW_TME_LITE_DPR_FILE_V01 = 3,
++};
++
++struct qmi_wlanfw_tme_lite_info_req_msg_v01 {
++	enum qmi_wlanfw_tme_lite_file_type_v01 tme_file;
++	u64 addr;
++	u32 size;
++};
++
++struct qmi_wlanfw_tme_lite_info_resp_msg_v01 {
++	struct qmi_response_type_v01 resp;
++};
++
+ #define QMI_WLANFW_AUX_UC_INFO_REQ_MSG_V01_MAX_MSG_LEN	18
+ #define QMI_WLANFW_AUX_UC_INFO_REQ_V01	0x005A
+ 
+@@ -610,6 +644,9 @@ enum ath12k_qmi_firmware_mode {
+ 
+ 	/* firmware offline; values 2-3 reserved by firmware ABI */
+ 	ATH12K_QMI_FIRMWARE_MODE_OFF = 4,
++
++	/* peach cold-boot calibration */
++	ATH12K_QMI_FIRMWARE_MODE_COLD_BOOT = 7,
+ };
+ 
+ static inline void ath12k_qmi_set_event_block(struct ath12k_qmi *qmi, bool block)
+-- 
+2.56.0
+

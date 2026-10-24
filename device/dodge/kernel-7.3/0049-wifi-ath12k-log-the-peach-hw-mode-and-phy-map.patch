@@ -1,0 +1,36 @@
+From b2a02c16f2e93f0c96443b76fd473d87d8d277dd Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 15:14:47 +0200
+Subject: [PATCH 49/51] wifi: ath12k: log the peach hw mode and phy map
+
+Logs the chosen hw mode and phy map for PCI id 0x110e.
+
+7.3 port: of 6.16 commit 4723d8b39 (single-phy hw mode and
+channel-list fixes) only this log is left. Those fixes were a backport
+of the upstream QCC2072 series, which 7.3 has: the <= preferred-mode
+pick, single-pdev caps parsing and ATH12K_WMI_MAX_NUM_CHAN_PER_CMD 58.
+
+(cherry picked from commit 4723d8b39, log only)
+---
+ drivers/net/wireless/ath/ath12k/wmi.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/net/wireless/ath/ath12k/wmi.c b/drivers/net/wireless/ath/ath12k/wmi.c
+index d5160af60..3c5eb8d88 100644
+--- a/drivers/net/wireless/ath/ath12k/wmi.c
++++ b/drivers/net/wireless/ath/ath12k/wmi.c
+@@ -4755,6 +4755,11 @@ static int ath12k_wmi_hw_mode_caps(struct ath12k_base *soc,
+ 
+ 	ath12k_dbg(soc, ATH12K_DBG_WMI, "num hw modes %u preferred_hw_mode %d\n",
+ 		   svc_ext_info->num_hw_modes, soc->wmi_ab.preferred_hw_mode);
++	if (soc->id.device == 0x110e)
++		ath12k_info(soc, "wmi %u hw modes, preferred %d, phy map 0x%x\n",
++			    svc_ext_info->num_hw_modes,
++			    soc->wmi_ab.preferred_hw_mode,
++			    le32_to_cpu(svc_rdy_ext->pref_hw_mode_caps.phy_id_map));
+ 
+ 	if (soc->wmi_ab.preferred_hw_mode == WMI_HOST_HW_MODE_MAX)
+ 		return -EINVAL;
+-- 
+2.56.0
+

@@ -19,6 +19,8 @@ A backup of the local branch `trial/omamobile-dodge-port` in
 - `0029`-`0030` (2026-10-24): drop the 0050 GDSC keep-on, port the 0054 QTB read.
 - `0031`-`0034` (2026-10-24): revert the DIAG commits (0025, 0027, 0028) and 0026 (splash identity map); none is needed.
 - `0035` (2026-10-24): aw882308 unmutes from trigger; on 7.3 AudioReach starts the BE graph (BCLK) in trigger, not prepare.
+- `0036`-`0050` (2026-10-24): Wi-Fi (peach, WCN7860, PCI 0x110e). 0036 adds WCN7860 to the 7.3 wifi7 driver as a clone of the native QCC2072 entry (replaces 6.16 0006/0007/0038-0042). 0037 reworks the MHI lost-EE fix onto 7.3's two-ELF boot.c. 0038 and 0050 revert two older commits that 7.3 makes obsolete (the TME flag, and the rfkill skip). 0039-0049 are the 6.16 QMI bring-up, with the 6.16 aux-ucode code replaced by upstream's. Not boot-tested yet.
+- `0051` (2026-10-24): Bluetooth qca WCN7860 (hci_uart, built in). Not boot-tested yet.
 - `0025`-`0028`: display-drop work. 0025, 0027 and 0028 are DIAG (not for
   upstream); 0026 keeps the splash identity-mapped in msm's IOMMU domain.
   See `dev-docs/2026-10-21-display-drop.md`.
@@ -34,7 +36,7 @@ Config: `config-7.3.0-rc6-dodge-s1` = `../kernel/config-6.16.0-gbd9587d65`
 → olddefconfig on 7.3, then `omamobile-generic-73.config` (the generic part
 of `kernel/configs/omamobile.config`), then `../kernel/generic-2026-10-21.config`,
 then `dodge-73-extra.config` (Gunyah watchdog, panic on lockup, legacy
-iptables, ATH12K off).
+iptables, ATH12K=m).
 
 ```sh
 make O=../out-omamobile-73 ARCH=arm64 LLVM=1 KERNELRELEASE=7.3.0-rc6-dodge-s1 \
