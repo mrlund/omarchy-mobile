@@ -4,6 +4,30 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-24: 7.3 is the flashed default kernel; 6.16 is the fallback (16:05-16:25 CEST)
+
+Martin approved it at 16:01 CEST. Details: [dev-docs/2026-10-24-flash-7.3-default.md](dev-docs/2026-10-24-flash-7.3-default.md).
+
+- **Default now:** `boot_a` holds the 7.3 chain (6.16 stage 1 kexecs
+  7.3.0-rc6-dodge-s1, cmdline word `dodge.flashed`), sha256
+  `483cc7478a14e68246615566d3f843f21fd0a18faa5f63bb12e2f4d4c47998dd`
+  (`~/android/mainline/images/DEFAULT-7.3-boot_a-483cc747.img`). Slot a is
+  active and marked successful by `dodge-boot-success`.
+- **Fallback:** `~/android/mainline/images/FALLBACK-6.16-boot_a-9940497e.img`
+  (sha256 `9940497e...af4`, the boot_a read back on the phone before the flash).
+- **Restore 6.16** (phone in fastboot): `tools/dodge-restore-616`, i.e.
+  `fastboot flash boot_a ~/android/mainline/images/FALLBACK-6.16-boot_a-9940497e.img && fastboot set_active a && fastboot reboot`.
+  One-shot only: `fastboot boot ~/android/mainline/images/FALLBACK-6.16-boot_a-9940497e.img`.
+- **Deadline:** trial is now "7.x without `dodge.flashed` on the cmdline"
+  (all one-shot trial images), not "any 7.x". Trials keep the hard 220 s
+  deadline; the flashed 7.3 cancels it at 80 s on a clean display, like 6.16.
+- **Trial scripts:** one-shot 7.3 trials still arm and never cancel, but a
+  "back to 6.16" reboot now lands on the flashed 7.3. Host scripts that wait
+  for `uname 6.16` must wait for the flashed 7.3 (cmdline `dodge.flashed`), or
+  boot the fallback one-shot. To trial 6.16 now, `fastboot boot` the fallback.
+- First boot and one warm reboot: see the dev-doc. Next is Martin's
+  cable-out cold start.
+
 ## 2026-10-24: 7.3 wake timing, 30 cycles on 7.3 and on 6.16 (15:09-15:21 CEST)
 
 **regfix1 "76 s: no Hyprland, no speaker" (journal re-read):** the
@@ -135,8 +159,8 @@ from `rbt.sh` (pass at 100% capacity). All boots today passed through it.
 | Battery | OK (battmgr) | OK: capacity reads, adsp-battery active | charge/discharge over time |
 | Suspend/idle | screen-off idle + GDSC OK; no system suspend | screen-off idle + GDSC OK (6 min soak) | longer soak; s2idle not tried on either |
 
-7.3 still runs only as a one-shot (`fastboot boot`). Flashing it is
-Martin's call.
+7.3 ran only as a one-shot until 16:11 CEST; it is now the flashed default
+(see the 16:05 entry), with 6.16 as the fallback.
 
 ## 2026-10-24: 7.3 hands-on test: rotation, mic, playback (14:40-14:43 CEST)
 
@@ -203,8 +227,8 @@ One-shot boot 14 (14:07:27 CEST, back on 6.16 at t=111 s, display healthy):
 | Battery | OK (battmgr) | OK: capacity reads, adsp-battery active | charge/discharge over time |
 | Suspend/idle | screen-off idle + GDSC OK; no system suspend | screen idle OK in short boots | long idle; s2idle not tried on either |
 
-7.3 still runs only as a one-shot (`fastboot boot`). Flashing it is
-Martin's call.
+7.3 ran only as a one-shot until 16:11 CEST; it is now the flashed default
+(see the 16:05 entry), with 6.16 as the fallback.
 
 ## 2026-10-24: 7.3 clean-build check and speaker ear test (13:59-14:03 CEST)
 
