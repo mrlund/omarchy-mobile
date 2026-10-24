@@ -41,7 +41,13 @@ lock". Details: [dev-docs/2026-10-24-stock-lock-keys-osk.md](dev-docs/2026-10-24
 - **`--revert`** tested both ways (20:18-20:21). It refuses while the session
   is locked; unlock with the PIN first, then run it.
 - **Open:**
-  - the next boot (lock-on-start, then the deadline cancelled with dpms Off)
+  - ~~the next boot~~ verified 20:22 CEST (gated warm reboot, gpu1):
+    - Hyprland's user service was up at 18 s, and lock-on-start locked at 20.8 s (`secure=true`).
+    - At 81.1 s: "dodge-deadline: clean (dpms Off (blanked by lock, Hyprland
+      up)), reboot cancelled". No reboot by 272 s, still locked, dpms Off.
+    - boot_a was already successful. GPU, Wi-Fi and USB were up; ssh worked over USB and Wi-Fi.
+    - Only the known boot-time "DSI PLL(0) lock failed" lines and the
+      systemd-backlight unit failure. The `.pre-lock` script was not needed.
   - Omarchy's other system install steps were not run (theme, browser
     policy, faillock limit, ssh tweaks, x86 hardware fixes); review them
   - Martin's hands-on check of the real power key and touch
