@@ -52,6 +52,7 @@ if [ $up = 1 ]; then
     echo "$o" >> $L/p73-$TAG-irq.txt; sleep 12
   done
   # give ath12k/BT units time
+  timeout 20 $SS 'echo "== late at uptime $(cut -d" " -f1 /proc/uptime)"; cat /sys/module/pcie_designware/parameters/dodge_ib_dump 2>&1; dmesg | grep -E "dodge-ib-atu|AER|aer|pcieport" | tail -40; for d in 00:00.0 01:00.0; do echo "== $d"; lspci -vvv -s $d 2>&1 | grep -E "Status:|DevSta|UESta|UEMsk|UESvrt|CESta|HeaderLog|RootSta|ErrorSrc|LnkSta|MSI|Address"; done' > $L/p73-$TAG-late.txt 2>&1
   for i in $(seq 20); do $S 'ip link show wlan0 >/dev/null 2>&1 && systemctl is-active -q omamobile-bt' && break; ((SECONDS-T0>110)) && break; sleep 3; done
   sleep 10
   echo "$(date +%T) checks t=$((SECONDS-T0))"
