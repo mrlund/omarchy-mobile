@@ -4,6 +4,49 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-25: rebased onto Derek's main (15:08-15:15 CET)
+
+- **What:** `oneplus13-dodge` rebased onto `derekross/omarchy-mobile`
+  `main` at `ac8a2d2` (116 new commits since our base `da6aa3e`). Martin
+  chose a rebase; the branch is not shared. The old head `c49bb9e` is kept
+  locally as `backup/oneplus13-dodge-pre-sync-20261025-1508`. **Every
+  commit sha in this file older than this entry is the pre-rebase one**;
+  find the new commit by its subject.
+- **Derek's side, short:** one shared `initramfs/init` for the Pixels
+  (simplefb trigger, storage-guard allowlist and USB product string from
+  the descriptor, a last guard check before handover, the never-run
+  udhcpd dropped); `bin/omamobile` checks `BOOT_IMAGES`, checks every
+  image before flashing, pins the fastboot serial, merges
+  `device/<codename>/kernel.config` and judges `push` by boot-id;
+  `build-rootfs` takes board packages from the descriptor; `install-phone`
+  refuses staged descriptors and other devices' images; `phone-ssh` can
+  share one connection (opt-in, `OMAMOBILE_SSH_SHARE=1`; the default is
+  unchanged); felix, oriole, tegu, flame, cheetah work; libcamera, mesa
+  (Mali-G78/G715), shell, omarchy and telephony packages; PR and kernel-PR
+  CI gates; review lessons and plan docs.
+- **Conflicts:** none. All 256 commits applied and none became empty, so
+  none were dropped. Only three files changed on both sides: `AGENTS.md`
+  (our dodge pointer sits above Derek's rewritten rules), `bin/omamobile`
+  (our Magisk su capture merged beside Derek's flash and serial changes;
+  it uses adb, Derek's serial pin is fastboot) and `tools/install-phone`
+  (our signing key line; Derek's refusals are elsewhere). The rebased
+  tree is identical to a plain merge of the two heads. Derek's shared
+  init is not ours: dodge boots `device/dodge/initramfs/init`.
+- **Checks (no phone):** `bash -n`/`sh -n` pass on `bin/omamobile`,
+  `install-phone`, `phone-ssh`, the `dodge-*` tools, the dodge init,
+  `ufs.sh` and `deadline` (shellcheck is not installed). `device/dodge`
+  and the `dodge-*` tools are byte-identical to before the rebase. The
+  default stage-2 initramfs (`tools/dodge-try initramfs`) differs from
+  usbfix1 only in our own changes: `reboot-to` (clang 23.1.3, same source),
+  the new `usr/bin/omamobile-deadline` and the init's deadline block
+  (inert without `omamobile.deadline=`). `tools/dodge-fsck build` packs
+  (61026304 bytes) and passes its dtb, stage-1 list and `.config` checks
+  against the reference. The sha changed only because stage 2 was staged
+  again (new file mtimes).
+- **Phone:** no boot is needed for the rebase. Nothing dodge boots
+  changed. The default image with the deadline hook has not been booted
+  yet; that hook was booted only in the fsck image.
+
 ## 2026-10-25: offline e2fsck of the rootfs, error flag cleared; fork pushed (10:29-10:47 CET)
 
 - **Fork push:** Martin pushed `omamobile-dodge` (`0d65e1509`) to
