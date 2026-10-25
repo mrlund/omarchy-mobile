@@ -1,0 +1,109 @@
+From 4d20021dc2e1ef4fa2f11ac7843c50ecf1485cc8 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Mon, 19 Oct 2026 17:34:37 +0200
+Subject: [PATCH 37/41] wifi: ath12k: record the peach firmware crash
+
+The BDF response says HW_XPA is set, matching stock. The
+firmware enters RDDM and the dump asserts in the aux MAC
+wakeup. Advertising host aux support does not change
+fw_caps, and the aux download is still rejected.
+
+(Ported from the dodge v6.16 bring-up tree.)
+
+7.3 port: upstream's aux path (ath12k_qmi_aux_uc_load) replaces the
+6.16 aux send that this touched, so the fw_caps log is dropped. The
+host feature-list BIT(6) hunk is dropped too: 7.3 sends
+hw_params->qmi_cnss_feature_bitmap, which already has
+CNSS_AUX_UC_SUPPORT_V01 for the WCN7860 entry.
+
+Signed-off-by: Martin Lund <mrlund@hotmail.com>
+---
+ drivers/net/wireless/ath/ath12k/core.c |  1 +
+ drivers/net/wireless/ath/ath12k/mhi.c  |  1 +
+ drivers/net/wireless/ath/ath12k/qmi.c  | 23 +++++++++++++++++++++++
+ drivers/net/wireless/ath/ath12k/qmi.h  |  5 +++++
+ 4 files changed, 30 insertions(+)
+
+diff --git a/drivers/net/wireless/ath/ath12k/core.c b/drivers/net/wireless/ath/ath12k/core.c
+index 262a20453..3b457474f 100644
+--- a/drivers/net/wireless/ath/ath12k/core.c
++++ b/drivers/net/wireless/ath/ath12k/core.c
+@@ -1666,6 +1666,7 @@ static void ath12k_core_reset(struct work_struct *work)
+ 
+ 	if (!(test_bit(ATH12K_FLAG_QMI_FW_READY_COMPLETE, &ab->dev_flags))) {
+ 		ath12k_warn(ab, "ignore reset dev flags 0x%lx\n", ab->dev_flags);
++		ath12k_coredump_collect(ab);
+ 		return;
+ 	}
+ 
+diff --git a/drivers/net/wireless/ath/ath12k/mhi.c b/drivers/net/wireless/ath/ath12k/mhi.c
+index ee87f00bc..7d3a2acb6 100644
+--- a/drivers/net/wireless/ath/ath12k/mhi.c
++++ b/drivers/net/wireless/ath/ath12k/mhi.c
+@@ -155,6 +155,7 @@ static void ath12k_mhi_op_status_cb(struct mhi_controller *mhi_cntrl,
+ 			break;
+ 		}
+ 
++		ath12k_info(ab, "firmware entered RDDM\n");
+ 		if (!(test_bit(ATH12K_FLAG_UNREGISTERING, &ab->dev_flags))) {
+ 			set_bit(ATH12K_FLAG_CRASH_FLUSH, &ab->dev_flags);
+ 			set_bit(ATH12K_FLAG_RECOVERY, &ab->dev_flags);
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.c b/drivers/net/wireless/ath/ath12k/qmi.c
+index 61184cd5e..1080f4864 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.c
++++ b/drivers/net/wireless/ath/ath12k/qmi.c
+@@ -1646,6 +1646,24 @@ static const struct qmi_elem_info qmi_wlanfw_bdf_download_resp_msg_v01_ei[] = {
+ 					   resp),
+ 		.ei_array	= qmi_response_type_v01_ei,
+ 	},
++	{
++		.data_type	= QMI_OPT_FLAG,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u8),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x10,
++		.offset		= offsetof(struct qmi_wlanfw_bdf_download_resp_msg_v01,
++					   host_bdf_data_valid),
++	},
++	{
++		.data_type	= QMI_UNSIGNED_8_BYTE,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u64),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x10,
++		.offset		= offsetof(struct qmi_wlanfw_bdf_download_resp_msg_v01,
++					   host_bdf_data),
++	},
+ 	{
+ 		.data_type	= QMI_EOTI,
+ 		.array_type	= NO_ARRAY,
+@@ -3163,6 +3181,11 @@ static int ath12k_qmi_load_file_target_mem(struct ath12k_base *ab,
+ 			goto out;
+ 		}
+ 
++		if (resp.host_bdf_data_valid)
++			ath12k_info(ab, "qmi host bdf data 0x%llx xpa %u\n",
++				    resp.host_bdf_data,
++				    !!(resp.host_bdf_data & QMI_WLFW_HW_XPA_V01));
++
+ 		if (type == ATH12K_QMI_FILE_TYPE_EEPROM) {
+ 			remaining = 0;
+ 		} else {
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.h b/drivers/net/wireless/ath/ath12k/qmi.h
+index d84e8257b..b372a44b0 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.h
++++ b/drivers/net/wireless/ath/ath12k/qmi.h
+@@ -520,8 +520,13 @@ struct qmi_wlanfw_bdf_download_req_msg_v01 {
+ 
+ struct qmi_wlanfw_bdf_download_resp_msg_v01 {
+ 	struct qmi_response_type_v01 resp;
++	u8 host_bdf_data_valid;
++	u64 host_bdf_data;
+ };
+ 
++/* Bit in the BDF download response. Stock logs it as HW_XPA. */
++#define QMI_WLFW_HW_XPA_V01 1
++
+ #define QMI_WLANFW_M3_INFO_REQ_MSG_V01_MAX_MSG_LEN	18
+ #define QMI_WLANFW_M3_INFO_REQ_V01		0x003C
+ 

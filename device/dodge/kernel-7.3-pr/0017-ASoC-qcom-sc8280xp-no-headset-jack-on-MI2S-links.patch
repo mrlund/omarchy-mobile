@@ -1,0 +1,29 @@
+From 7501dfb00ad6dd0faf44eb23f65ebc93e284b876 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Tue, 20 Oct 2026 12:01:59 +0200
+Subject: [PATCH 17/41] ASoC: qcom: sc8280xp: no headset jack on MI2S links
+
+MI2S links on these boards drive speaker amplifiers; do not create
+Headphone Jack / Mic Jack controls for them.
+
+Co-Authored-By: Grok <noreply@x.ai>
+
+Signed-off-by: Martin Lund <mrlund@hotmail.com>
+---
+ sound/soc/qcom/sc8280xp.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/sound/soc/qcom/sc8280xp.c b/sound/soc/qcom/sc8280xp.c
+index cf6f640d1..da0f9f714 100644
+--- a/sound/soc/qcom/sc8280xp.c
++++ b/sound/soc/qcom/sc8280xp.c
+@@ -199,7 +199,8 @@ static int sc8280xp_snd_init(struct snd_soc_pcm_runtime *rtd)
+ 		snd_soc_runtime_set_dai_fmt(rtd, SND_SOC_DAIFMT_I2S |
+ 					    SND_SOC_DAIFMT_NB_NF |
+ 					    SND_SOC_DAIFMT_BC_FC);
+-		break;
++		/* No headset behind an MI2S amplifier link. */
++		return 0;
+ 	case DISPLAY_PORT_RX_0:
+ 		/* DISPLAY_PORT dai ids are not contiguous */
+ 		dp_pcm_id = 0;

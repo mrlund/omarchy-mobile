@@ -1,0 +1,39 @@
+From 1f56246242236f718bf09d8908f108a9fc9954be Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Wed, 21 Oct 2026 14:51:58 +0200
+Subject: [PATCH 23/41] arm64: dts: qcom: sm8750-oneplus-dodge: add rmtfs_mem
+
+Stock allocates a 4 MiB rmtfs buffer (client-id 1) at boot. Mainline
+needs a fixed carve-out for rmtfs, so reserve one at the same place
+SM8650 uses, just below tz_merged. It is plain System RAM on stock.
+
+Signed-off-by: Martin Lund <mrlund@hotmail.com>
+---
+ arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+index f7d3286e5..db2103900 100644
+--- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
++++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+@@ -443,6 +443,20 @@ hwfence_shbuf: hwfence-shbuf@d4e23000 {
+ 			reg = <0x00 0xd4e23000 0x00 0x2dd000>;
+ 		};
+ 
++		/*
++		 * Stock allocates a 4 MiB rmtfs buffer (client-id 1) at boot. Upstream
++		 * needs a fixed carve-out; this is the same place SM8650 uses, just
++		 * below tz_merged, and it is plain System RAM on stock and here.
++		 */
++		rmtfs_mem: rmtfs@d7c00000 {
++			compatible = "qcom,rmtfs-mem";
++			reg = <0x00 0xd7c00000 0x00 0x400000>;
++			no-map;
++
++			qcom,client-id = <1>;
++			qcom,vmid = <QCOM_SCM_VMID_MSS_MSA>;
++		};
++
+ 		/* Merged tz_reserved, xbl_sc, and qtee regions */
+ 		tz_merged_mem: tz-merged@d8000000 {
+ 			no-map;

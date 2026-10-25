@@ -1,0 +1,272 @@
+From 1e909059841df5ee8a0c4f0250c44a3bf604f30c Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Mon, 19 Oct 2026 17:15:23 +0200
+Subject: [PATCH 36/41] wifi: ath12k: download the peach QDSS trace config
+
+Stock sends qdss_trace_config_v2.cfg after the PHY ucode.
+The firmware answers that download with QMI error 90 and
+still resets on the same interval as before.
+
+(Ported from the dodge v6.16 bring-up tree.)
+
+7.3 port: conflict only because upstream's aux_uc QMI structs now sit
+where the 6.16 aux patch put its own; those lines are dropped.
+
+Signed-off-by: Martin Lund <mrlund@hotmail.com>
+---
+ drivers/net/wireless/ath/ath12k/qmi.c | 204 +++++++++++++++++++++++++-
+ drivers/net/wireless/ath/ath12k/qmi.h |  19 +++
+ 2 files changed, 222 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.c b/drivers/net/wireless/ath/ath12k/qmi.c
+index 1d97614b3..61184cd5e 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.c
++++ b/drivers/net/wireless/ath/ath12k/qmi.c
+@@ -3581,6 +3581,204 @@ int ath12k_qmi_wlanfw_aux_uc_info_send(struct ath12k_base *ab)
+ 	return ret;
+ }
+ 
++static const struct qmi_elem_info qmi_wlanfw_qdss_cfg_req_msg_v01_ei[] = {
++	{
++		.data_type	= QMI_OPT_FLAG,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u8),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x10,
++		.offset		= offsetof(struct qmi_wlanfw_qdss_trace_config_download_req_msg_v01,
++					   total_size_valid),
++	},
++	{
++		.data_type	= QMI_UNSIGNED_4_BYTE,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u32),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x10,
++		.offset		= offsetof(struct qmi_wlanfw_qdss_trace_config_download_req_msg_v01,
++					   total_size),
++	},
++	{
++		.data_type	= QMI_OPT_FLAG,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u8),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x11,
++		.offset		= offsetof(struct qmi_wlanfw_qdss_trace_config_download_req_msg_v01,
++					   seg_id_valid),
++	},
++	{
++		.data_type	= QMI_UNSIGNED_4_BYTE,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u32),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x11,
++		.offset		= offsetof(struct qmi_wlanfw_qdss_trace_config_download_req_msg_v01,
++					   seg_id),
++	},
++	{
++		.data_type	= QMI_OPT_FLAG,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u8),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x12,
++		.offset		= offsetof(struct qmi_wlanfw_qdss_trace_config_download_req_msg_v01,
++					   data_valid),
++	},
++	{
++		.data_type	= QMI_DATA_LEN,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u16),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x12,
++		.offset		= offsetof(struct qmi_wlanfw_qdss_trace_config_download_req_msg_v01,
++					   data_len),
++	},
++	{
++		.data_type	= QMI_UNSIGNED_1_BYTE,
++		.elem_len	= QMI_WLANFW_MAX_DATA_SIZE_V01,
++		.elem_size	= sizeof(u8),
++		.array_type	= VAR_LEN_ARRAY,
++		.tlv_type	= 0x12,
++		.offset		= offsetof(struct qmi_wlanfw_qdss_trace_config_download_req_msg_v01,
++					   data),
++	},
++	{
++		.data_type	= QMI_OPT_FLAG,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u8),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x13,
++		.offset		= offsetof(struct qmi_wlanfw_qdss_trace_config_download_req_msg_v01,
++					   end_valid),
++	},
++	{
++		.data_type	= QMI_UNSIGNED_1_BYTE,
++		.elem_len	= 1,
++		.elem_size	= sizeof(u8),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x13,
++		.offset		= offsetof(struct qmi_wlanfw_qdss_trace_config_download_req_msg_v01,
++					   end),
++	},
++	{
++		.data_type	= QMI_EOTI,
++		.array_type	= NO_ARRAY,
++		.tlv_type	= QMI_COMMON_TLV_TYPE,
++	},
++};
++
++static const struct qmi_elem_info qmi_wlanfw_qdss_cfg_resp_msg_v01_ei[] = {
++	{
++		.data_type	= QMI_STRUCT,
++		.elem_len	= 1,
++		.elem_size	= sizeof(struct qmi_response_type_v01),
++		.array_type	= NO_ARRAY,
++		.tlv_type	= 0x02,
++		.offset		= offsetof(struct qmi_wlanfw_qdss_trace_config_download_resp_msg_v01,
++					   resp),
++		.ei_array	= qmi_response_type_v01_ei,
++	},
++	{
++		.data_type	= QMI_EOTI,
++		.array_type	= NO_ARRAY,
++		.tlv_type	= QMI_COMMON_TLV_TYPE,
++	},
++};
++
++/* Stock sends this after PHY ucode. A missing file is not fatal there. */
++static int ath12k_qmi_qdss_cfg_send(struct ath12k_base *ab)
++{
++	struct qmi_wlanfw_qdss_trace_config_download_req_msg_v01 *req;
++	struct qmi_wlanfw_qdss_trace_config_download_resp_msg_v01 resp = {};
++	const struct firmware *fw;
++	const u8 *tmp;
++	struct qmi_txn txn;
++	u32 remaining;
++	int ret;
++
++	if (ab->id.device != 0x110e)
++		return 0;
++
++	fw = ath12k_core_firmware_request(ab, "qdss_trace_config_v2.cfg");
++	if (IS_ERR(fw)) {
++		ath12k_warn(ab, "qmi qdss config missing: %ld\n", PTR_ERR(fw));
++		return 0;
++	}
++
++	req = kzalloc(sizeof(*req), GFP_KERNEL);
++	if (!req) {
++		release_firmware(fw);
++		return -ENOMEM;
++	}
++
++	tmp = fw->data;
++	remaining = fw->size;
++	ath12k_info(ab, "qmi qdss config len %zu\n", fw->size);
++
++	while (remaining) {
++		req->total_size_valid = 1;
++		req->total_size = remaining;
++		req->seg_id_valid = 1;
++		req->data_valid = 1;
++		req->end_valid = 1;
++		req->end = 0;
++
++		if (remaining > QMI_WLANFW_MAX_DATA_SIZE_V01)
++			req->data_len = QMI_WLANFW_MAX_DATA_SIZE_V01;
++		else {
++			req->data_len = remaining;
++			req->end = 1;
++		}
++
++		memcpy(req->data, tmp, req->data_len);
++
++		ret = qmi_txn_init(&ab->qmi.handle, &txn,
++				   qmi_wlanfw_qdss_cfg_resp_msg_v01_ei, &resp);
++		if (ret < 0)
++			goto out;
++
++		ret = qmi_send_request(&ab->qmi.handle, NULL, &txn,
++				       QMI_WLANFW_QDSS_TRACE_CONFIG_DOWNLOAD_REQ_V01,
++				       QMI_WLANFW_QDSS_TRACE_CONFIG_DOWNLOAD_REQ_MSG_V01_MAX_LEN,
++				       qmi_wlanfw_qdss_cfg_req_msg_v01_ei, req);
++		if (ret < 0) {
++			qmi_txn_cancel(&txn);
++			ath12k_warn(ab, "qmi failed to send qdss config, err = %d\n",
++				    ret);
++			goto out;
++		}
++
++		ret = qmi_txn_wait(&txn,
++				   msecs_to_jiffies(ATH12K_QMI_WLANFW_TIMEOUT_MS));
++		if (ret < 0) {
++			ath12k_warn(ab, "qmi qdss config request timed out: %d\n",
++				    ret);
++			goto out;
++		}
++
++		if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
++			ath12k_warn(ab, "qmi qdss config failed, result: %d, err: %d\n",
++				    resp.resp.result, resp.resp.error);
++			ret = -EINVAL;
++			goto out;
++		}
++
++		remaining -= req->data_len;
++		tmp += req->data_len;
++		req->seg_id++;
++	}
++
++	ath12k_info(ab, "qmi qdss config sent\n");
++	ret = 0;
++out:
++	kfree(req);
++	release_firmware(fw);
++	return ret;
++}
++
+ static int ath12k_qmi_wlanfw_mode_send(struct ath12k_base *ab,
+ 				       enum ath12k_qmi_firmware_mode mode)
+ {
+@@ -4075,7 +4273,11 @@ int ath12k_qmi_event_load_bdf(struct ath12k_qmi *qmi)
+ 		}
+ 	}
+ 
+-	return ret;
++	ret = ath12k_qmi_qdss_cfg_send(ab);
++	if (ret < 0)
++		ath12k_warn(ab, "qmi qdss config send failed: %d\n", ret);
++
++	return 0;
+ }
+ 
+ static void ath12k_qmi_msg_mem_request_cb(struct qmi_handle *qmi_hdl,
+diff --git a/drivers/net/wireless/ath/ath12k/qmi.h b/drivers/net/wireless/ath/ath12k/qmi.h
+index 7d16324be..d84e8257b 100644
+--- a/drivers/net/wireless/ath/ath12k/qmi.h
++++ b/drivers/net/wireless/ath/ath12k/qmi.h
+@@ -534,6 +534,25 @@ struct qmi_wlanfw_m3_info_resp_msg_v01 {
+ 	struct qmi_response_type_v01 resp;
+ };
+ 
++#define QMI_WLANFW_QDSS_TRACE_CONFIG_DOWNLOAD_REQ_V01		0x0044
++#define QMI_WLANFW_QDSS_TRACE_CONFIG_DOWNLOAD_REQ_MSG_V01_MAX_LEN 6167
++#define QMI_WLANFW_QDSS_TRACE_CONFIG_DOWNLOAD_RESP_MSG_V01_MAX_LEN 7
++struct qmi_wlanfw_qdss_trace_config_download_req_msg_v01 {
++	u8 total_size_valid;
++	u32 total_size;
++	u8 seg_id_valid;
++	u32 seg_id;
++	u8 data_valid;
++	u32 data_len;
++	u8 data[QMI_WLANFW_MAX_DATA_SIZE_V01];
++	u8 end_valid;
++	u8 end;
++};
++
++struct qmi_wlanfw_qdss_trace_config_download_resp_msg_v01 {
++	struct qmi_response_type_v01 resp;
++};
++
+ /* Peach (PCI 17cb:110e) needs this before board data. Stock cnss sends
+  * tmel_peach_20.elf here. Without it the secured PHY init faults and the
+  * later WLAN mode request times out.

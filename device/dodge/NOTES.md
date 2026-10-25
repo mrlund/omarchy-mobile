@@ -4,6 +4,22 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-25: PR branch omamobile-dodge built locally (09:04-09:40 CET)
+
+- Derek's `omamobile` moved 2a7b29c24 -> 97a6b87a8 (41 commits, all Google
+  Tensor/Samsung). None of our SM8750/A830/PCIe/ath12k work is in it.
+- New local branch `omamobile-dodge` (fa412839e, 41 commits) on 97a6b87a8:
+  zero conflicts. 5 generic (a) commits first, 36 dodge (b) commits after.
+  DIAG/trial/revert pairs and two debug log calls dropped; fixups squashed;
+  PREREQ split into dts/config/panel/touch. Messages cleaned, Signed-off-by
+  added. The old 6.16-era `omamobile-dodge` branch was renamed to
+  `backup/omamobile-dodge-20261023`. Trial branch untouched, fresh bundle
+  `backups/trial-omamobile-dodge-port-f08f72d3e-20261025-0905.bundle`.
+- The dts tree equals the trial and the dtb is byte-identical to gpu1. Full
+  build OK. checkpatch status, commit list and remaining work:
+  [kernel-7.3/README.md](kernel-7.3/README.md) "PR branch omamobile-dodge";
+  patches in [kernel-7.3-pr/](kernel-7.3-pr/). Not pushed, not boot-tested.
+
 ## 2026-10-25: Chromium hung (no keyring), blurry icons, SDDM login staged (07:40-08:20 CET)
 
 Details: [dev-docs/2026-10-25-keyring-chromium.md](dev-docs/2026-10-25-keyring-chromium.md).
