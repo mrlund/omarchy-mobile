@@ -4,6 +4,28 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-25: PR branch pr1: authorship, Assisted-by, bindings, trial image (09:15-09:45 CET)
+
+- `omamobile-dodge` is now `0d65e1509`, 45 commits (local only). Details and the
+  commit list: [kernel-7.3/README.md](kernel-7.3/README.md) "PR branch
+  omamobile-dodge"; patches in [kernel-7.3-pr/](kernel-7.3-pr/).
+- Authorship: GPU+GMU nodes and the A830 catalog back to Teguh Sobirin
+  (ROCKNIX), the dodge dts/config/panel/touch to index986 (sm8750-mainline),
+  each with `Link:` and a `[mrlund: ...]` note. `Co-Authored-By: Grok`
+  replaced by `Assisted-by: Grok` (Documentation/process/coding-assistants.rst).
+  only_adsp kept as "Bring-up workaround, not for upstream".
+- New DT binding patches for adreno-44050000, adreno-gmu-830.1,
+  awinic,aw882308 and qcom,wcn7860-bt; dt_binding_check clean, mtp dtbs_check
+  clean. Style pass on dts, panel, aw882308 and syna_tcm2 (errors gone).
+- Per-commit build of all 45: OK. Full build `7.3.0-rc6-dodge-pr1` OK; dtb
+  byte-identical to gpu1.
+- Trial image (not flashed, not booted): `TRIAL-7.3-pr1-boot_a.img`, sha256
+  `51768a3ff8d50d978eb612fa9b16f19f02afac967423bd94adef5ef9c577f0e6`
+  (AVB-footer copy `TRIAL-7.3-pr1-boot_a-avb.img`, sha256
+  `6ed67d387b719f97c68fe9560a04b068db6ad155c14e155f6917265ad77700f4`).
+  Cmdline: gpu1 trial line plus `hung_task_panic=1 softlockup_panic=1`, no
+  `dodge.flashed`. Modules staged in `~/android/mainline/stage-73-pr1/`.
+
 ## 2026-10-25: PR branch omamobile-dodge built locally (09:04-09:40 CET)
 
 - Derek's `omamobile` moved 2a7b29c24 -> 97a6b87a8 (41 commits, all Google

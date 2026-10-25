@@ -87,121 +87,133 @@ fastboot boot ~/android/mainline/out-dodge-chain-73/images/boot-chain.img
 
 Results: `../dev-docs/2026-10-21-kernel-7.3-stage1.md`.
 
-## PR branch omamobile-dodge (2026-10-25)
+## PR branch omamobile-dodge (2026-10-25, pr1)
 
 Local branch `omamobile-dodge` in `wt-omamobile` (not pushed anywhere), the
 clean form of `trial/omamobile-dodge-port` (f08f72d3e, kept untouched) for a
 later PR to Derek. Patches: [../kernel-7.3-pr/](../kernel-7.3-pr/).
 
 - Base: Derek's `omamobile` at `97a6b87a8` ("Input: synaptics-tcm: Enable
-  analog supply before digital supply"), 41 commits past 2a7b29c24. All 41 are
-  Google Tensor/Samsung (gs101/gs201/zuma: clk, pinctrl, UFS, PMIC, SPI,
-  watchdog, panthor, synaptics_tcm). Nothing we carry is in it (no SM8750 GPU
-  nodes, no A830 catalog, no PCIe iommu-map fix, no ath12k, no sm8750 dts).
-  Replay had zero conflicts.
-- HEAD: `fa412839e`, 41 commits. Author and Signed-off-by: Martin Lund.
-- Classification: (a) generic upstream-Linux candidates, self-contained and
-  first; (b) dodge for Derek, on top of (a).
+  analog supply before digital supply"), 41 commits past 2a7b29c24, all
+  Google Tensor/Samsung. Nothing we carry is in it. Replay had zero conflicts.
+- HEAD: `0d65e1509`, 45 commits: the 41 of the first cut plus 4
+  DT binding patches (3-6). Classes: (a) generic upstream candidates first,
+  (b) dodge for Derek on top.
 
-| # | class | subject | from trial |
-|---|---|---|---|
-| 1 `8b1ad529d` | a | PCI: qcom: parse iommu-map with a 2-cell IOMMU specifier in config_sid | 0060 |
-| 2 `5ae997e76` | a | wifi: ath12k: complete regd_update_completed when a country change is rejected | 0061 |
-| 3 `79cd16072` | a | arm64: dts: qcom: sm8750: add gpucc/gxclkctl/adreno-smmu | 0062 |
-| 4 `5e0b51c2a` | a | arm64: dts: qcom: sm8750: add Adreno 830 GPU and GMU nodes | 0063+0066 |
-| 5 `a3c3519ba` | a | drm/msm/adreno: add the Adreno 830 catalog entry | 0064 |
-| 6 `59c6441a1` | b | arm64: dts: qcom: add the OnePlus 13 | 0001 (dts) |
-| 7 `145846799` | b | arm64: configs: add an sm8750.config fragment for the OnePlus 13 | 0001 (config) |
-| 8 `1ee19e5f2` | b | drm/panel: add the AA569 DSC command-mode panel of the OnePlus 13 | 0001 (panel)+0018+0016 |
-| 9 `1c1546f28` | b | Input: add a Synaptics TCM2 SPI touchscreen driver | 0001 (touch)+0017 |
-| 10 `0df813618` | b | arm64: dts: qcom: sm8750-oneplus-dodge: add ABL board ids | 0002 |
-| 11 `bdbf39920` | b | arm64: dts: qcom: sm8750-oneplus-dodge: enable the WCN PMU | 0003 |
-| 12 `d78ccb11e` | b | wifi: ath12k: keep peach DMA inside the low 256 MiB | 0005 |
-| 13 `39bda7042` | b | arm64: dts: qcom: sm8750-oneplus-dodge: enable the speaker amplifier bus | 0006 |
-| 14 `86e4875b6` | b | arm64: dts: qcom: sm8750-oneplus-dodge: add the speaker amplifiers | 0007 |
-| 15 `d7696fbf2` | b | ASoC: qcom: sc8280xp: set the I2S format on MI2S back ends | 0008 |
-| 16 `8e4b6238e` | b | arm64: dts: qcom: sm8750-oneplus-dodge: add the sound card | 0009 |
-| 17 `7501dfb00` | b | ASoC: qcom: sc8280xp: no headset jack on MI2S links | 0010 |
-| 18 `196a4328d` | b | arm64: dts: qcom: sm8750-oneplus-dodge: add the WCD939x and microphones | 0011 |
-| 19 `8df57b7c3` | b | arm64: dts: qcom: sm8750-oneplus-dodge: add the USB-C headset path | 0012 |
-| 20 `b1748d623` | b | arm64: dts: qcom: sm8750-oneplus-dodge: enable Bluetooth | 0014 |
-| 21 `a594124c7` | b | arm64: dts: qcom: sm8750-oneplus-dodge: set the panel VCI rail to 3.0 V | 0015 |
-| 22 `4a097fe32` | b | remoteproc: qcom: pas: add an only_adsp bring-up switch | 0019+0029 |
-| 23 `1f5624624` | b | arm64: dts: qcom: sm8750-oneplus-dodge: add rmtfs_mem | 0020 |
-| 24 `f0cec0959` | b | drm/msm/dsi: keep the RGB888 command DST format with DSC | 0021 |
-| 25 `8dd6e626b` | b | ASoC: codecs: add a bring-up driver for Awinic 0x2308 amplifiers | 0022+0035 |
-| 26 `a0e62c945` | b | ASoC: codecs: aw882308: add the Receiver profile | 0023 |
-| 27 `b7dceced4` | b | drm/msm/mdss: sm8750: read the display QTB once on every MDSS enable | 0030 |
-| 28 `8db48c3e9` | b | wifi: ath12k: add WCN7860 (PCI 0x110e, peach) on the QCC2072 HAL | 0036 |
-| 29 `b29ce0917` | b | bus: mhi: host: continue from BHI_EXECENV when the EE event is lost | 0037 |
-| 30 `1e666fe58` | b | wifi: ath12k: send the peach TME-Lite patch before board data | 0039 |
-| 31 `6f55ba8bb` | b | wifi: ath12k: send the peach host DMA window | 0040 |
-| 32 `d176e9048` | b | wifi: ath12k: do not advertise the full peach DMA aperture | 0041 |
-| 33 `1d6ef7ac9` | b | wifi: ath12k: leave peach ddr_range unset | 0042 |
-| 34 `38e57ae7f` | b | wifi: ath12k: allow skipping the peach TME-Lite download | 0043 |
-| 35 `4afc174df` | b | wifi: ath12k: download the peach PHY ucode as its M3 | 0044 |
-| 36 `1e9090598` | b | wifi: ath12k: download the peach QDSS trace config | 0045 |
-| 37 `4d20021dc` | b | wifi: ath12k: record the peach firmware crash | 0046 |
-| 38 `ac08c3d21` | b | wifi: ath12k: bring peach up in mission mode | 0047 |
-| 39 `65f486f96` | b | wifi: ath12k: do not tell peach the QDSS config is missing | 0048 |
-| 40 `8a75d465a` | b | Bluetooth: qca: add WCN7860 support | 0051 |
-| 41 `fa412839e` | b | arm64: dts: qcom: sm8750-oneplus-dodge: enable Adreno 830 GPU | 0065 |
+| # | class | author | subject | from trial |
+|---|---|---|---|---|
+| 1 `8b1ad529d` | a | Martin Lund | PCI: qcom: parse iommu-map with a 2-cell IOMMU specifier in config_sid | 0060 |
+| 2 `5ae997e76` | a | Martin Lund | wifi: ath12k: complete regd_update_completed when a country change is rejected | 0061 |
+| 3 `a3ed0c7fa` | a | Martin Lund | dt-bindings: display/msm/gpu: add the Adreno 830 (0x44050000) | new |
+| 4 `0b51ef18b` | a | Martin Lund | dt-bindings: display/msm/gmu: add the Adreno 830 GMU | new |
+| 5 `e89ab834e` | a | Martin Lund | ASoC: dt-bindings: add the Awinic AW882308 amplifier | new |
+| 6 `9c103c665` | a | Martin Lund | dt-bindings: net: bluetooth: qcom: add WCN7860 | new |
+| 7 `099b16bf9` | a | Martin Lund | arm64: dts: qcom: sm8750: add gpucc/gxclkctl/adreno-smmu | 0062 |
+| 8 `5abff4386` | a | Teguh Sobirin | arm64: dts: qcom: sm8750: add Adreno 830 GPU and GMU nodes | 0063+0066 |
+| 9 `079a91716` | a | Teguh Sobirin | drm/msm/adreno: add the Adreno 830 catalog entry | 0064 |
+| 10 `3c270a815` | b | index986 | arm64: dts: qcom: add the OnePlus 13 | 0001 (dts) |
+| 11 `4bda89670` | b | index986 | arm64: configs: add an sm8750.config fragment for the OnePlus 13 | 0001 (config) |
+| 12 `e8446f58b` | b | index986 | drm/panel: add the AA569 DSC command-mode panel of the OnePlus 13 | 0001 (panel)+0018+0016 |
+| 13 `e2d0bf36e` | b | index986 | Input: add a Synaptics TCM2 SPI touchscreen driver | 0001 (touch)+0017 |
+| 14 `11c604814` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: add ABL board ids | 0002 |
+| 15 `40c8ebdc6` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: enable the WCN PMU | 0003 |
+| 16 `acceb2f1a` | b | Martin Lund | wifi: ath12k: keep peach DMA inside the low 256 MiB | 0005 |
+| 17 `00016ede1` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: enable the speaker amplifier bus | 0006 |
+| 18 `b37e70c38` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: add the speaker amplifiers | 0007 |
+| 19 `ac2502bee` | b | Martin Lund | ASoC: qcom: sc8280xp: set the I2S format on MI2S back ends | 0008 |
+| 20 `89c5b5ed4` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: add the sound card | 0009 |
+| 21 `3bcb5c8bd` | b | Martin Lund | ASoC: qcom: sc8280xp: no headset jack on MI2S links | 0010 |
+| 22 `93aaeeccf` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: add the WCD939x and microphones | 0011 |
+| 23 `a833520fd` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: add the USB-C headset path | 0012 |
+| 24 `e490e0d10` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: enable Bluetooth | 0014 |
+| 25 `e42581b9c` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: set the panel VCI rail to 3.0 V | 0015 |
+| 26 `465e0236a` | b | Martin Lund | remoteproc: qcom: pas: only_adsp bring-up workaround (not for upstream) | 0019+0029 |
+| 27 `9e04d4333` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: add rmtfs_mem | 0020 |
+| 28 `2272daffa` | b | Martin Lund | drm/msm/dsi: keep the RGB888 command DST format with DSC | 0021 |
+| 29 `05cb79c53` | b | Martin Lund | ASoC: codecs: add a bring-up driver for Awinic 0x2308 amplifiers | 0022+0035 |
+| 30 `2e4c1b1ea` | b | Martin Lund | ASoC: codecs: aw882308: add the Receiver profile | 0023 |
+| 31 `685961088` | b | Martin Lund | drm/msm/mdss: sm8750: read the display QTB once on every MDSS enable | 0030 |
+| 32 `e30929700` | b | Martin Lund | wifi: ath12k: add WCN7860 (PCI 0x110e, peach) on the QCC2072 HAL | 0036 |
+| 33 `f9179bc2c` | b | Martin Lund | bus: mhi: host: continue from BHI_EXECENV when the EE event is lost | 0037 |
+| 34 `1e4310be3` | b | Martin Lund | wifi: ath12k: send the peach TME-Lite patch before board data | 0039 |
+| 35 `cfb3335d8` | b | Martin Lund | wifi: ath12k: send the peach host DMA window | 0040 |
+| 36 `a48c82248` | b | Martin Lund | wifi: ath12k: do not advertise the full peach DMA aperture | 0041 |
+| 37 `6cdde6c91` | b | Martin Lund | wifi: ath12k: leave peach ddr_range unset | 0042 |
+| 38 `15ba7b639` | b | Martin Lund | wifi: ath12k: allow skipping the peach TME-Lite download | 0043 |
+| 39 `aafb0103c` | b | Martin Lund | wifi: ath12k: download the peach PHY ucode as its M3 | 0044 |
+| 40 `03f78f68c` | b | Martin Lund | wifi: ath12k: download the peach QDSS trace config | 0045 |
+| 41 `c7212c35b` | b | Martin Lund | wifi: ath12k: record the peach firmware crash | 0046 |
+| 42 `ee00e9759` | b | Martin Lund | wifi: ath12k: bring peach up in mission mode | 0047 |
+| 43 `bb10be835` | b | Martin Lund | wifi: ath12k: do not tell peach the QDSS config is missing | 0048 |
+| 44 `0d35c7379` | b | Martin Lund | Bluetooth: qca: add WCN7860 support | 0051 |
+| 45 `0d65e1509` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: enable Adreno 830 GPU | 0065 |
 
-Notes on the classes:
-- (a) 3-5 (gpucc/SMMU, GPU+GMU nodes, A830 catalog) are backports of ROCKNIX
-  patches from pending upstream series (Teguh Sobirin, upstream "drm/msm:
-  Support for Adreno 830 GPU" and the sm8750 gpucc DT series). Upstream they
-  should land through those series with original authorship, not as ours;
-  drop them here once they reach Derek's base. 1 (PCI qcom) and 2 (ath12k)
-  are our own fixes.
-- (b) also holds driver work that is generic in shape but not ready for
-  upstream: the peach/WCN7860 ath12k series (12, 28, 30-39), the MHI lost-EE
-  fix (29), Bluetooth WCN7860 (40), the AW882308 amp driver (25-26), the
-  sc8280xp MI2S tweaks (15, 17), the DSI RGB888 workaround (24) and the
-  only_adsp bring-up switch (22, not for upstream).
+Authorship and trailers:
+- 8-9 (GPU+GMU nodes, A830 catalog): author restored to Teguh Sobirin
+  (ROCKNIX SM8750 patches 0038 and 0049). 8 keeps his Signed-off-by from the
+  ROCKNIX patch; 0049 has none upstream, so 9 has no author SoB. Both carry a
+  `Link:` to the ROCKNIX patch, a `[mrlund: ...]` backport note, then Martin's
+  Signed-off-by.
+- 7 (gpucc/gxclkctl/adreno-smmu): ROCKNIX patch 0033 has no personal author
+  (project only) and no Signed-off-by, so Martin stays author; `Link:` and a
+  `[mrlund: ...]` note added.
+- 10-13 (dodge dts, sm8750.config, AA569 panel, Synaptics TCM2): author
+  `index986` (from the sm8750-mainline/linux v6.16 history), `Link:` to that
+  tree, `[mrlund: ...]` note (ported to 7.3, style fixes). The source has no
+  Signed-off-by, so these have no author SoB (checkpatch NO_AUTHOR_SIGN_OFF).
+- Every other commit is our own work (author Martin).
+- The old `Co-Authored-By: Grok` trailers are gone. Commits with AI help carry
+  `Assisted-by: Grok` before the Signed-off-by lines, the format in
+  `Documentation/process/coding-assistants.rst` (3-6, 15, 21-23, 29-30, 34).
+  That document also says the human submitter adds and certifies the
+  Signed-off-by: Martin has to review each patch before sending it.
+- 26 (only_adsp) is kept, marked "Bring-up workaround, not for upstream:" with
+  why it is needed and what the proper fix is (keep the modem and CDSP nodes
+  disabled in the board dts until they work). Drop it before submission.
 
-Dropped from the trial (all intentional): DIAG/debug 0025, 0027, 0028 and
-reverts 0031-0033; 0026 + revert 0034 (splash identity map); 0004 + revert
-0038 (TME flag); 0013 + revert 0050 (rfkill); trial pairs 0052-0059 (pcie0
-lane/speed, iATU dump, debug config_sid); debug-only logging 0024 (fastrpc
-heap dev_info) and 0049 (ath12k hw-mode ath12k_info). Squashed: 0066 into
-0063, 0018/0016 into the panel, 0017 into touch, 0029 into 0019 (the GDSC
-keep-on and its removal cancel; only the remoteproc part is left), 0035 into
-0022. 0001 (PREREQ) is split into dts, config, panel and touch.
+DT bindings (3-6): `qcom,adreno-44050000` added to gpu.yaml's "clocks in the
+GMU" list (not the two-region list: the SM8750 node has `cx_dbgc` too, which
+the generic reg-names list allows); `qcom,adreno-gmu-830.1` shares the 840.1
+clock rule in gmu.yaml; new `sound/awinic,aw882308.yaml` (aw88395.yaml
+requires `awinic,audio-channel`, which this part does not use);
+`qcom,wcn7860-bt` added to `qcom,wcn7850-bt.yaml`. `make dt_binding_check`
+on the four files: clean. `CHECK_DTBS=y` on `sm8750-mtp.dtb`: clean. On
+`sm8750-oneplus-dodge.dtb`: 22 board-level warnings, none from GPU, GMU, amp
+or BT (undocumented `OnePlus,13`, `oplus,dhall-ak09970`,
+`synaptics,tcm-spi-hbp`, `oneplus,dodge-panel` and their vendor properties,
+the memory node's `ddr_device_type`, the sound card compatible, one TLMM
+state).
 
-Tree vs trial: `git diff trial/omamobile-dodge-port omamobile-dodge -- arch/arm64/boot/dts`
-is empty and the dtb built from the branch is byte-identical to the gpu1 dtb.
-`-- drivers` shows only the two dropped log calls (fastrpc.c, ath12k wmi.c)
-and Derek's synaptics_tcm.c change from his new base (that driver is not
-built in our config). The Image symbol diff is only Derek's Samsung code
-(zumapro clk initcall, exynos initcall line numbers) and erratum veneer
-addresses.
+Style pass (fixups autosquashed): dodge dts (whitespace, tabs, the long memory
+`reg` split, a stale comment), panel (tabs), aw882308 (one statement per
+line), syna_tcm2 (checkpatch `--fix-inplace` and whitespace). Errors left:
+none apart from NO_AUTHOR_SIGN_OFF (9-13, see above). Warnings left: syna_tcm2
+vendor code (BRACES 15, LONG_LINE 12, LEADING_SPACE 9, LINE_SPACING 9,
+NEEDLESS_IF 6, SUSPECT_CODE_INDENT 3, CONSTANT_COMPARISON 2, NEW_TYPEDEFS 2,
+MODULE_LICENSE 2, AVOID_EXTERNS, MACRO_ARG_UNUSED, TRAILING_SEMICOLON, plus
+about 150 CHECKs), panel (CONFIG_DESCRIPTION, MSLEEP x2), aw882308
+(CONFIG_DESCRIPTION), undocumented board compatibles in 10, MAINTAINERS
+(FILE_PATH_CHANGES), and a few long lines, one typo and one OOM message in the
+ath12k/BT patches.
 
-checkpatch (`format-patch` + `checkpatch.pl --strict`), remaining:
-- 1-3, 10, 12, 13, 15, 16, 21-24, 28, 41: clean.
-- 4, 14, 20, 25, 40: undocumented DT compatibles (adreno-44050000,
-  adreno-gmu-830.1, awinic,aw882308, qcom,wcn7860-bt). Bindings patches are
-  needed before upstream.
-- 6 (dodge dts, 6 E/16 W), 8 (panel, 4 E/10 W), 9 (syna_tcm2 vendor driver,
-  54 E/73 W/148 C), 25 (aw882308, 6 E): whitespace/indent/brace style from
-  the carried 6.16 files. Needs a style pass before the PR; the touch driver
-  is vendor code and needs the most work.
-- 11, 17-19, 25, 26, 30: `Co-Authored-By: Grok` trailer (non-standard for
-  the kernel; Martin decides on keeping or changing it, e.g. Assisted-by).
-- 29-40: messages say "Ported from the dodge v6.16 bring-up tree" (the
-  private 6.16 shas were removed); a few lines over 75 chars, one CHECK each.
-- 5: uint32_t vs u32 (matches the surrounding catalog code); 7, 8, 25:
-  MAINTAINERS/Kconfig-help warnings.
+Checks: per-commit build of all 45 (config reset to gpu1, touched `.o`, and
+`qcom/sm8750-mtp.dtb` plus the dodge dtb for dts commits; doc-only commits
+skipped): all OK; the only new warning is at 42 (peach mission mode leaves
+`ath12k_qmi_process_coldboot_calibration` unused). Full build
+at HEAD (`KERNELRELEASE=7.3.0-rc6-dodge-pr1`, config-7.3.0-rc6-dodge-gpu1):
+OK, one existing warning (unused `ath12k_qmi_process_coldboot_calibration`).
+The dodge dtb is byte-identical to the gpu1 dtb.
 
-Build: full `make O=../out-omamobile-73-pr ARCH=arm64 LLVM=1
-KERNELRELEASE=7.3.0-rc6-dodge-gpu1 Image modules qcom/sm8750-oneplus-dodge.dtb`
-with config-7.3.0-rc6-dodge-gpu1 at HEAD: OK (one existing warning, unused
-ath12k_qmi_process_coldboot_calibration). Per-commit check (touched .o files
-and the dodge dtb, config reset to gpu1 before each step) started 09:25 CET,
-results in `~/android/mainline/pr-work/bisect.out`; commits 1-6 OK at the time
-of writing. For 3-4 the dodge dtb does not exist yet, so they still need a
-`qcom/sm8750-mtp.dtb` build. Not boot-tested.
+Trial image (never flashed): `TRIAL-7.3-pr1-boot_a.img`, packed like the gpu1
+images (`dodge-chain pack`, 6.16 stage 1, usbfix1 stage-2 initramfs,
+`DTB_OPTS='splash fb'`), cmdline without `dodge.flashed`, with `oops=panic
+panic=10 hung_task_panic=1 softlockup_panic=1`. An AVB-footer copy
+(`dodge-chain footer`) is `TRIAL-7.3-pr1-boot_a-avb.img`. Its modules are in
+`~/android/mainline/stage-73-pr1/` (`lib/modules/7.3.0-rc6-dodge-pr1` for
+`/usr/lib/modules/7.3.0-rc6-dodge-pr1.held`, `ovl/` for
+`/usr/local/lib/omamobile.7.3.0-rc6-dodge-pr1`, `skip-units-7.3.0-rc6-dodge-pr1`
+a copy of the gpu1 one). Not boot-tested.
 
-Before the PR (needs Martin): style pass on 6/8/9/25, the Co-Authored-By
-trailers, DT bindings for the new compatibles, keep or drop only_adsp, push to
-Martin's fork (gh login), and a boot test of the final branch.
+Before the PR (needs Martin): review and certify each Signed-off-by, the
+syna_tcm2 warnings, bindings for the board compatibles, drop 26, a boot test,
+then push to his fork.

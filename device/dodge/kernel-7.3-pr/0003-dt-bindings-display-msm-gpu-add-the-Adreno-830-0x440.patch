@@ -1,0 +1,34 @@
+From a3ed0c7faf326e8004a01e55b22cd917dec4754f Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sun, 25 Oct 2026 09:17:22 +0100
+Subject: [PATCH 03/45] dt-bindings: display/msm/gpu: add the Adreno 830
+ (0x44050000)
+
+The Adreno 830 GPU of SM8750 uses the chip-id compatible
+qcom,adreno-44050000. It already matches the generic chip-id pattern.
+Like the other A7xx/A8xx parts its clocks live in the GMU node, so add
+it to that list. It is not added to the two-region list: the SM8750 GPU
+node also describes the cx_dbgc region, which the generic three-entry
+reg-names list already allows.
+
+Assisted-by: Grok
+Signed-off-by: Martin Lund <mrlund@hotmail.com>
+---
+ Documentation/devicetree/bindings/display/msm/gpu.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/display/msm/gpu.yaml b/Documentation/devicetree/bindings/display/msm/gpu.yaml
+index e5efe2d35..bfa0f8952 100644
+--- a/Documentation/devicetree/bindings/display/msm/gpu.yaml
++++ b/Documentation/devicetree/bindings/display/msm/gpu.yaml
+@@ -451,6 +451,7 @@ allOf:
+               - qcom,adreno-43050c01
+               - qcom,adreno-43051401
+               - qcom,adreno-44010000
++              - qcom,adreno-44050000
+               - qcom,adreno-44050a01
+               - qcom,adreno-44070001
+ 
+-- 
+2.56.0
+

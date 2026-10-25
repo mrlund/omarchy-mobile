@@ -1,0 +1,33 @@
+From 0b51ef18b8d24bd2e21ae0d0ab1d4b6d23b69a7a Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sun, 25 Oct 2026 09:17:22 +0100
+Subject: [PATCH 04/45] dt-bindings: display/msm/gmu: add the Adreno 830 GMU
+
+The SM8750 GMU (qcom,adreno-gmu-830.1) has the same single register
+region and the same five clocks (ahb, gmu, cxo, memnoc, hub) as the
+Adreno 840 GMU, so share the 840.1 constraints.
+
+Assisted-by: Grok
+Signed-off-by: Martin Lund <mrlund@hotmail.com>
+---
+ Documentation/devicetree/bindings/display/msm/gmu.yaml | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/display/msm/gmu.yaml b/Documentation/devicetree/bindings/display/msm/gmu.yaml
+index 9e459f12c..1f9307e17 100644
+--- a/Documentation/devicetree/bindings/display/msm/gmu.yaml
++++ b/Documentation/devicetree/bindings/display/msm/gmu.yaml
+@@ -335,7 +335,9 @@ allOf:
+       properties:
+         compatible:
+           contains:
+-            const: qcom,adreno-gmu-840.1
++            enum:
++              - qcom,adreno-gmu-830.1
++              - qcom,adreno-gmu-840.1
+     then:
+       properties:
+         reg:
+-- 
+2.56.0
+

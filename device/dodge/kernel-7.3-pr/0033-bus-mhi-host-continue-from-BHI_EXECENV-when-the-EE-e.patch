@@ -1,0 +1,113 @@
+From f9179bc2cbc53f1f2d584ce3f35a86f4cb05e193 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 17 Oct 2026 18:09:15 +0200
+Subject: [PATCH 33/45] bus: mhi: host: continue from BHI_EXECENV when the EE
+ event is lost
+
+Peach (PCI 17cb:110e) sets BHI_EXECENV to SBL, and later AMSS, before
+the host has an event ring that could carry the EE event, so the
+event never arrives and the 90 s wait expires. Continue from the
+register after the BHI load, poll for AMSS briefly after the AMSS
+download, and ignore a duplicate SBL or mission-mode transition when
+both the register path and a late event queue one.
+
+Port of dodge 6.16 patch 0008. Its two-ELF half (BHIe sends only the
+bytes after sbl_size, keyed on a new tme_supported_image flag) is
+dropped: 7.3 boot.c already detects a second ELF header at sbl_size
+and skips the SBL part, which is the same thing without the flag.
+
+(Ported from the dodge v6.16 bring-up tree, reworked.)
+
+Signed-off-by: Martin Lund <mrlund@hotmail.com>
+---
+ drivers/bus/mhi/host/boot.c | 21 +++++++++++++++++++++
+ drivers/bus/mhi/host/pm.c   | 30 ++++++++++++++++++++++++++++++
+ 2 files changed, 51 insertions(+)
+
+diff --git a/drivers/bus/mhi/host/boot.c b/drivers/bus/mhi/host/boot.c
+index 19c84913c..8512ef602 100644
+--- a/drivers/bus/mhi/host/boot.c
++++ b/drivers/bus/mhi/host/boot.c
+@@ -598,6 +598,27 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
+ 	}
+ 
+ 	dev_info(dev, "Wait for device to enter SBL or Mission mode\n");
++	/*
++	 * Peach sets BHI_EXECENV to SBL before the host has an event
++	 * ring that could carry the EE event, so the event never arrives.
++	 * Continue from the register.
++	 */
++	{
++		enum mhi_ee_type exec = mhi_get_exec_env(mhi_cntrl);
++		enum dev_st_transition st = DEV_ST_TRANSITION_MAX;
++
++		if (exec == MHI_EE_SBL)
++			st = DEV_ST_TRANSITION_SBL;
++		else if (exec == MHI_EE_AMSS || exec == MHI_EE_WFW)
++			st = DEV_ST_TRANSITION_MISSION_MODE;
++		else if (exec == MHI_EE_FP)
++			st = DEV_ST_TRANSITION_FP;
++
++		if (st != DEV_ST_TRANSITION_MAX) {
++			dev_info(dev, "EE 0x%x already set, continuing\n", exec);
++			mhi_queue_state_transition(mhi_cntrl, st);
++		}
++	}
+ 	return;
+ 
+ error_ready_state:
+diff --git a/drivers/bus/mhi/host/pm.c b/drivers/bus/mhi/host/pm.c
+index ced83fbb1..4f752983b 100644
+--- a/drivers/bus/mhi/host/pm.c
++++ b/drivers/bus/mhi/host/pm.c
+@@ -813,6 +813,9 @@ void mhi_pm_st_worker(struct work_struct *work)
+ 			mhi_fw_load_handler(mhi_cntrl);
+ 			break;
+ 		case DEV_ST_TRANSITION_SBL:
++			/* The register path and the EE event can both queue this. */
++			if (mhi_cntrl->ee == MHI_EE_SBL)
++				break;
+ 			write_lock_irq(&mhi_cntrl->pm_lock);
+ 			mhi_cntrl->ee = MHI_EE_SBL;
+ 			write_unlock_irq(&mhi_cntrl->pm_lock);
+@@ -824,10 +827,37 @@ void mhi_pm_st_worker(struct work_struct *work)
+ 			mhi_create_devices(mhi_cntrl);
+ 			if (mhi_cntrl->fbc_download)
+ 				mhi_download_amss_image(mhi_cntrl);
++			/*
++			 * Same race as the SBL entry: the AMSS execution
++			 * environment can show up in BHI_EXECENV with no EE
++			 * event. Poll briefly. The event still works if it
++			 * arrives on its own.
++			 */
++			{
++				int n;
++
++				for (n = 0; n < 20; n++) {
++					u32 exec = MHI_EE_MAX;
++
++					if (!mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi,
++							  BHI_EXECENV, &exec))
++						dev_info(&mhi_cntrl->mhi_dev->dev,
++							 "post-AMSS %d ee=0x%x\n", n, exec);
++					if (exec == MHI_EE_AMSS || exec == MHI_EE_WFW ||
++					    exec == MHI_EE_FP) {
++						mhi_queue_state_transition(mhi_cntrl,
++							DEV_ST_TRANSITION_MISSION_MODE);
++						break;
++					}
++					msleep(100);
++				}
++			}
+ 
+ 			mhi_uevent_notify(mhi_cntrl, mhi_cntrl->ee);
+ 			break;
+ 		case DEV_ST_TRANSITION_MISSION_MODE:
++			if (MHI_IN_MISSION_MODE(mhi_cntrl->ee))
++				break;
+ 			mhi_pm_mission_mode_transition(mhi_cntrl);
+ 			break;
+ 		case DEV_ST_TRANSITION_FP:
+-- 
+2.56.0
+

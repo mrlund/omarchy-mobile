@@ -1,0 +1,45 @@
+From 40c8ebdc698a36d67cb0ffd3e4271b8c6470f6aa Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sat, 17 Oct 2026 15:13:00 +0200
+Subject: [PATCH 15/45] arm64: dts: qcom: sm8750-oneplus-dodge: enable the WCN
+ PMU
+
+The node already has the WCN7850 rail list, including vddio1p2, and
+those regulators exist on the phone. Point it at qcom,wcn7850-pmu
+and enable it so pci-pwrctrl can power the radio before the bus scan.
+
+Assisted-by: Grok
+Signed-off-by: Martin Lund <mrlund@hotmail.com>
+---
+ arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+index ffa06df7c..12cd5dd6f 100644
+--- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
++++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+@@ -401,8 +401,10 @@ vph_pwr: vph-pwr-regulator {
+ 		regulator-boot-on;
+ 	};
+ 
+-	wcn7880-pmu { // No compatible drivers
+-		compatible = "qcom,wcn7880-pmu";
++	/* Stock peach rails match this 7850 sequence, including vddio1p2.
++	   The PCI id may still be 0x110e; power-on is the step before that. */
++	wcn7880-pmu {
++		compatible = "qcom,wcn7850-pmu";
+ 
+ 		pinctrl-names = "default";
+ 		pinctrl-0 = <&wlan_en>, <&bt_default>;
+@@ -418,7 +420,7 @@ wcn7880-pmu { // No compatible drivers
+ 		vddrfa1p2-supply = <&vreg_s7i_1p2>;
+ 		vddrfa1p8-supply = <&vreg_s3g_1p8>;
+ 
+-		status = "disabled";
++		status = "okay";
+ 
+ 		clocks = <&rpmhcc RPMH_RF_CLK1>;
+ 
+-- 
+2.56.0
+

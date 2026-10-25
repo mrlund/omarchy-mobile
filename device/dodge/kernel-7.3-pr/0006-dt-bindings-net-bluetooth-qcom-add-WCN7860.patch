@@ -1,0 +1,39 @@
+From 9c103c66538e46f33443396829ec038793035335 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sun, 25 Oct 2026 09:17:23 +0100
+Subject: [PATCH 06/45] dt-bindings: net: bluetooth: qcom: add WCN7860
+
+WCN7860 is the WCN7850 successor used with SM8750. Its Bluetooth part
+is powered from the same PMU outputs, so document it in the WCN7850
+schema.
+
+Assisted-by: Grok
+Signed-off-by: Martin Lund <mrlund@hotmail.com>
+---
+ .../devicetree/bindings/net/bluetooth/qcom,wcn7850-bt.yaml     | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/devicetree/bindings/net/bluetooth/qcom,wcn7850-bt.yaml b/Documentation/devicetree/bindings/net/bluetooth/qcom,wcn7850-bt.yaml
+index 8108ef83e..696f09a6b 100644
+--- a/Documentation/devicetree/bindings/net/bluetooth/qcom,wcn7850-bt.yaml
++++ b/Documentation/devicetree/bindings/net/bluetooth/qcom,wcn7850-bt.yaml
+@@ -4,7 +4,7 @@
+ $id: http://devicetree.org/schemas/net/bluetooth/qcom,wcn7850-bt.yaml#
+ $schema: http://devicetree.org/meta-schemas/core.yaml#
+ 
+-title: Qualcomm WCN7850 Bluetooth
++title: Qualcomm WCN7850/WCN7860 Bluetooth
+ 
+ maintainers:
+   - Bartosz Golaszewski <brgl@bgdev.pl>
+@@ -15,6 +15,7 @@ properties:
+   compatible:
+     enum:
+       - qcom,wcn7850-bt
++      - qcom,wcn7860-bt
+ 
+   enable-gpios:
+     maxItems: 1
+-- 
+2.56.0
+
