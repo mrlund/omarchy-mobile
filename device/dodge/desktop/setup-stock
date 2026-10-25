@@ -17,12 +17,16 @@
 #
 # Kept dodge-specific, stock skipped (would break dodge):
 #  - ufw (firstboot allows ssh on usb0 only): root ssh over Wi-Fi must work.
-#  - sddm autologin: dodge starts Hyprland via omamobile-hyprland.service.
+#  - sddm autologin: staged separately by login-sddm (it changes how the
+#    phone boots); until then omamobile-hyprland.service starts Hyprland.
 #  - `usermod -L root`: root ssh is key-only already (sshd 10-omamobile.conf).
 # Replaced: dodge's omamobile-idle-off.service (screen off at 150 s, no lock)
 # is disabled; the stock idle path runs instead (screensaver 150 s, lock
 # 300 s, the lock blanks the panel 10 s later). `--revert` brings it back.
 # Backups: ~USER/.local/state/dodge-setup-stock/, /var/lib/dodge-setup-stock/.
+# Omarchy's default keyring (step 1b) is kept on --revert: it may hold
+# Chromium's cookie key and other secrets by then. Remove it by hand if needed
+# (~USER/.local/share/keyrings/Default_keyring.keyring and default).
 set -euo pipefail
 revert=0
 [[ ${1:-} == --revert ]] && { revert=1; shift; }
@@ -101,6 +105,17 @@ fi
 OMARCHY_INSTALL_USER=$U omarchy-apply-lock >/dev/null
 # 1. Stock user setup, unchanged (idempotent via omarchy-done markers).
 as_user omamobile-setup-user
+# 1b. Omarchy's default keyring (install/user/default-keyring.sh, from
+# omarchy-provision-user, which firstboot runs; dodge never did). Without it
+# gnome-keyring raises an invisible "create keyring" prompt and Chromium
+# (--password-store=gnome-libsecret) hangs every request with cookies.
+# Idempotent: it only writes the files that are missing.
+kr=$H/.local/share/keyrings/Default_keyring.keyring
+had_kr=0; [[ -f $kr ]] && had_kr=1
+as_user bash -eu /usr/share/omarchy/install/user/default-keyring.sh
+if ((!had_kr)) && pgrep -u "$U" -f gnome-keyring-daemon >/dev/null; then
+  echo "new default keyring: restart gnome-keyring-daemon (or log in again) to use it"
+fi
 # 2. omamobile-firstboot's user tail: PIN type, number pad, lock after start.
 as_user bash -c 't=~/.local/state/omarchy/toggles; mkdir -p "$t" ~/.config/omamobile
   [[ -f ~/.config/omamobile/credential ]] || echo pin > ~/.config/omamobile/credential
