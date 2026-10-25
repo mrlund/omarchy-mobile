@@ -21,13 +21,19 @@ Details: [dev-docs/2026-10-25-keyring-chromium.md](dev-docs/2026-10-25-keyring-c
 - **Blurry Chromium icon:** Omarchy's AppLibrary icon index keeps the first
   PNG `find` lists, here `hicolor/16x16/chromium.png` (16 PNG-only icons
   affected). Upstream bug; `setup-ui` links the 256/512 px PNGs into
-  `~/.local/share/icons`, scanned first. Applied; visual check pending.
-- **SDDM autologin staged, not booted:** `desktop/login-sddm` writes
+  `~/.local/share/icons`, scanned first. Applied; Martin confirmed sharp (08:31). Upstream: commented on
+  omacom/omarchy#16043 (fix PR #16382 pending); drop the links once it ships.
+- **SDDM autologin booted 08:25 (deadline clean, keyring OK):** `desktop/login-sddm` writes
   firstboot's autologin.conf/state.conf, orders sddm after the panel/touch
-  units, keeps `LIBGL_ALWAYS_SOFTWARE=1` via uwsm env.d, disables
+  units, disables
   `omamobile-hyprland.service`, default target `graphical.target`.
   Revert: `login-sddm --revert`. Deadline check unchanged (pgrep Hyprland).
-  Next boot to be tested with Martin.
+  Verified on the 08:25 reboot.
+- **Apps on the GPU (08:39):** dropped the leftover `LIBGL_ALWAYS_SOFTWARE=1`
+  (uwsm env.d file; login-sddm now removes it). After reboot the session env
+  has no LIBGL override, `eglinfo` as ml reports freedreno Adreno (TM) 830,
+  deadline clean. Revert: put `export LIBGL_ALWAYS_SOFTWARE=1` back in
+  `/etc/xdg/uwsm/env.d/50-dodge-software-gl` (copy kept in /root/disabled/).
 
 ## 2026-10-24: stock lock, PIN, power key and keyboard (19:57-20:30 CEST)
 

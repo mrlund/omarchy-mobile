@@ -75,7 +75,7 @@ firstboot's `s_login`:
   `/var/lib/sddm/state.conf`.
 - `sddm.service` drop-in: `After=omamobile-display-msm.service
   omamobile-touch.service` (those order only `Before=omamobile-hyprland`).
-- `/etc/xdg/uwsm/env.d/50-dodge-software-gl`: `LIBGL_ALWAYS_SOFTWARE=1`,
+- (dropped 2026-10-25 08:39, GPU in use) `/etc/xdg/uwsm/env.d/50-dodge-software-gl`: `LIBGL_ALWAYS_SOFTWARE=1`,
   which `omamobile-hyprland.service` set for the session. Hyprland itself
   renders on the GPU either way; apps keep llvmpipe, so only the login
   path changes at this boot.

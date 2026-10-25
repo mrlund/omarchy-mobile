@@ -18,7 +18,7 @@
 #    firstboot writes them (Session=omarchy.desktop: uwsm + Hyprland).
 #  - sddm.service drop-in: after the msm panel and touch units, as
 #    omamobile-hyprland.service was (they order Before= that unit only).
-#  - /etc/xdg/uwsm/env.d/50-dodge-software-gl: LIBGL_ALWAYS_SOFTWARE=1 for
+#  - (removed) /etc/xdg/uwsm/env.d/50-dodge-software-gl: formerly LIBGL_ALWAYS_SOFTWARE=1 for
 #    the session, which omamobile-hyprland.service set. Hyprland renders on
 #    the GPU either way (aquamarine/GBM ignores it); apps keep llvmpipe GL, so
 #    the login switch changes one thing only. Dropping it is a separate step.
@@ -91,8 +91,9 @@ cat > "$dropin" <<'UNIT'
 [Unit]
 After=omamobile-display-msm.service omamobile-touch.service
 UNIT
-install -d "${uenv%/*}"
-printf '# dodge (login-sddm): as omamobile-hyprland.service set it\nexport LIBGL_ALWAYS_SOFTWARE=1\n' > "$uenv"
+# GPU works on 7.3 gpu1 (2026-10-25): no software-GL override any more.
+# Remove the one older runs of this script wrote.
+rm -f "$uenv"
 systemctl daemon-reload
 systemctl disable omamobile-hyprland.service
 systemctl enable sddm.service
