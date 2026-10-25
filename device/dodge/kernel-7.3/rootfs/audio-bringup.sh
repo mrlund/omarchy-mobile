@@ -36,7 +36,17 @@ done
 [ "$(adsp_state)" = running ] || { log "ADSP not running"; exit 1; }
 
 # 7.3: upstream fastrpc assigns the audio PD heap itself (no
-# audio_heap_vmids parameter); kernel-7.3 adds the "assigned audio heap" log.
+# audio_heap_vmids parameter) inside adsprpcd's create-static-PD call.
+# Readiness: that call returned, i.e. this adsprpcd run logged
+# "Successfully opened handle ... createstaticpd:audiopd". The kernel's
+# "assigned audio heap" line (local trial commit, not in the PR branch)
+# also counts when present.
+heap_ready() {
+	inv=$(systemctl show -p InvocationID --value x-adsprpcd 2>/dev/null)
+	[ -n "$inv" ] && journalctl -q -o cat _SYSTEMD_INVOCATION_ID="$inv" 2>/dev/null |
+		grep -q 'Successfully opened handle.*createstaticpd:audiopd' && return 0
+	dmesg | grep -q "assigned audio heap"
+}
 load drivers/misc/fastrpc.ko
 for _ in $(seq 20); do [ -e /dev/fastrpc-adsp-secure ] && break; sleep 0.5; done
 if ! systemctl is-active -q x-adsprpcd; then
@@ -44,10 +54,10 @@ if ! systemctl is-active -q x-adsprpcd; then
 		-E LD_LIBRARY_PATH=$RPC $RPC/adsprpcd audiopd adsp
 fi
 for _ in $(seq 40); do
-	dmesg | grep -q "assigned audio heap" && break
+	heap_ready && break
 	sleep 0.5
 done
-dmesg | grep -q "assigned audio heap" || { log "audio heap not assigned"; exit 1; }
+heap_ready || { log "audio heap not assigned (no audiopd static PD)"; exit 1; }
 
 load drivers/soc/qcom/apr.ko
 load sound/soc/qcom/qdsp6/snd-q6dsp-common.ko

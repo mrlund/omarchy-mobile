@@ -4,6 +4,67 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-25: rootfs ext4 error flag, hard-reboot without sysrq u, audio readiness, pr1c trial (10:18-10:30 CET)
+
+Martin approved at 10:18 CET: (A) offline e2fsck of the rootfs, (B) fixing the
+audio script and rerunning pr1.
+
+- **A, offline e2fsck: not done.** No documented route takes sda15 offline
+  with e2fsck available. The stage-2 initramfs can stay put
+  (`omamobile.userdata-rw omamobile.initramfs`, dropbear on usb0), but
+  nothing builds a boot image with that cmdline today and the Alpine
+  initramfs has no e2fsprogs. Needed: a stage-2 initramfs with e2fsprogs
+  added to `tools/dodge-try`, packed with that cmdline through
+  `tools/dodge-chain`, then a one-shot `fastboot boot`. Nothing flashed.
+- **Cause of the ext4 error:** the error is at `ext4_mark_recovery_complete`
+  line 6397, which is "Orphan file not empty on read-only fs". The rootfs has
+  `orphan_file`. The trial exit `/root/dodge-hard-reboot.sh` runs sysrq u
+  (emergency remount ro) while systemd and the session hold deleted-but-open
+  files. The remount then flags the fs as having errors (EFSCORRUPTED). Both
+  pr1 exits did this: pr1b (09:51:44) and pr1c (10:24:10), so the FS Error
+  count is now 2. No real corruption has been seen: every later mount ends
+  with "recovery complete". The flag stays until an e2fsck.
+  - A first fix waited for the sysrq s/u "complete" lines before b. It was
+    tested on the pr1c exit and still flagged the error, because the
+    remount is what raises it.
+  - **Change (one script, repo + phone, sha256 `78bd72c9...`):** the script
+    no longer runs sysrq u. It does sync, then sysrq s (waits up to 10 s for
+    "Emergency Sync complete"), then sync, then b. The next mount replays the
+    journal and clears orphans, as after a power cut. Not exercised yet.
+    The phone copy of the previous script is `/root/dodge-hard-reboot.sh.pre-wait`.
+- **B, audio readiness (`kernel-7.3/rootfs/audio-bringup.sh`, repo + phone
+  gpu1 and pr1 overlays, sha256 `75fb9a67...`):** the script waited for the
+  dmesg line "assigned audio heap" from local commit cf855c622, which the PR
+  branch drops. The heap is assigned inside adsprpcd's create-static-PD
+  call. `heap_ready` now looks in the current x-adsprpcd invocation's
+  journal for "Successfully opened handle ... createstaticpd:audiopd", and
+  still accepts the old dmesg line. gpu1: service restart active, card 0
+  OnePlus-dodge, 3 s aplay rc 0, no new -110 / CMD timeout.
+- **pr1c one-shot trial** (`TRIAL-7.3-pr1-boot_a.img`, 60305408 bytes,
+  `fastboot boot` 10:22:57, ssh at t=38 s, 220 s trial deadline, oops=panic).
+  The harness now wakes the screen with `omarchy-brightness-display on` (as
+  ml) before the display and GPU checks:
+
+| Check | Result |
+|---|---|
+| uname | PASS `7.3.0-rc6-dodge-pr1`, trial=1 |
+| Display | PASS DSI connected, dpms On, txfail 0, Hyprland |
+| Touch | PASS touchpanel |
+| USB + SSH | PASS udc configured, usb0 (one ssh retry during the usb0 carrier blip at about 15 s, which gpu1 also has) |
+| Wi-Fi | PASS connected with IPv4, gateway ping 3/3 |
+| BT | PASS hci0 powered |
+| Speaker | PASS service active, both aw882308 amps running, card 0, 3 s aplay rc 0, 0 new -110 / CMD timeout during aplay (one qcom-apm CMD timeout at about 14.5 s during bring-up, same as gpu1) |
+| GPU (screen on) | PASS freedreno, Adreno (TM) 830, GL 4.6, ES 3.2, Mesa 26.2.4; gpu_faults 0, oops 0, warn 4 (clk WARNs, same as gpu1) |
+
+- **Return:** hard reboot at t=73 s (the old u variant), back on the flashed
+  gpu1 at t=107 s: `dodge.flashed`, DSI On, Hyprland, SDDM, ml session,
+  wlp1s0 connected with IPv4, battery 100%. Rootfs: `clean with errors`,
+  error count 2.
+- **Fork push not done:** the rootfs check did not come back clean, so the
+  run stopped there. The identifier scan of `format-patch
+  97a6b87a8..omamobile-dodge` (45 patches, head 0d65e1509) was clean: 0 MAC/BD,
+  IMEI, ICCID, private IP, phone, serialno or private-ids hits.
+
 ## 2026-10-25: pr1 one-shot trial: speaker audio fails, fork not pushed (09:40-09:57 CET)
 
 Martin approved the reboot at 09:40 CET. Image `TRIAL-7.3-pr1-boot_a.img`
