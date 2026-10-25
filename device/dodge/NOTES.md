@@ -1898,3 +1898,7 @@ Before the boot test:
 - Boot 9 (13:18): a Gen2 trial (max-link-speed = <2>) trains Gen2 x2 but fails BHI the same way (-5 at 99 s, bhi IRQ 0), so link speed is ruled out. Reverted. Open: the lane width difference (x2 vs x1), the PHY tables, and the ITS mapping.
 - Boot 10 (13:32): the inbound-iATU / dropped-MSI theory is ruled out. Neither DT has dma-ranges on pcie@1c00000, and both kernels program no IB windows (the "8 ib" in the log is only the detected count). A read-only debug dump on 7.3 showed ib0-7 REGION_EN=0 at setup and after the BHI timeout (bypass, same as 6.16). The root port and endpoint AER after the timeout are clean (UESta/CESta clear, HeaderLog 0, no ERR received). The endpoint MSIs go to the GIC ITS (ITS-PCI-MSI) through the dma-iommu doorbell at IOVA 0xfffff000. msi-map DeviceIDs (0x1400/0x1401) match 6.16. Debug commit reverted locally. Round trip 194 s. Next: ITS MAPD/MAPTI for DeviceID 0x1401 and the SMMU mapping of the doorbell, then the PHY gen3x2 tables.
 - Host check (13:40): the sm8750 gen3x2 QMP PCIe PHY tables and cfg are identical in 6.16 and 7.3, so the PHY driver is ruled out. ITS sizing matches 6.16, RP and EP share one DMA iommu group on both kernels, and there are no PCIe SMMU faults on 7.3.
+
+## 2026-10-25 15:10 Branch renamed
+
+- Martin renamed the fork branch `dodge-plan` to `oneplus13-dodge` (GitHub rename, old links redirect). `idcheck.sh` now diffs against `@{upstream}` instead of a hard-coded branch name.
