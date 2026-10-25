@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Offline e2fsck of the dodge rootfs (userdata, /dev/sda15) from a one-shot
+# stage-2 initramfs. Never flashes, never changes the active slot.
+#
+#   tools/dodge-fsck build   stage-2 initramfs with e2fsprogs (dodge-try
+#                            EXTRA_APKS), then a dodge-chain image with the
+#                            flashed default's kernel and dtb. No phone.
+#   tools/dodge-fsck run     battery gate, reboot-to bootloader, fastboot boot
+#                            the image, e2fsck -fn / -fy / -fn and dumpe2fs -h
+#                            in the initramfs, then sync and reboot -f back to
+#                            boot_a. Logs go to $LOG_DIR.
+#
+# Stage-2 cmdline: omamobile.userdata-rw opens sda15 writable without
+# mounting it, omamobile.initramfs keeps the init from ever mounting it or
+# switching root, omamobile.deadline arms a reboot -f fallback. The run
+# aborts (reboot -f, no fsck) if sda15 shows up in /proc/mounts. The
+# deadline is cancelled right before each e2fsck and re-armed after it.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+M="$HOME/android/mainline"
+# The flashed default (DEFAULT-7.3-gpu1-usbfix1, see NOTES 2026-10-24):
+# stage-2 Image and dtb from out-omamobile-73-gpu with DTB_OPTS="splash fb",
+# stage-1 config from out-dodge, stage 1 rebuilt in a copy of its chain
+# build. The checks after the pack hold dtb and config to the reference.
+REF_CHAIN="${REF_CHAIN:-$M/out-dodge-chain-73-gpu-usbfix1}"
+STAGE2_OUT="${STAGE2_OUT:-$M/out-dodge}"
+STAGE2_IMAGE="${STAGE2_IMAGE:-$M/out-omamobile-73-gpu/arch/arm64/boot/Image}"
+STAGE2_DTB_IN="${STAGE2_DTB_IN:-$M/out-omamobile-73-gpu/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dtb}"
+DTB_OPTS="${DTB_OPTS:-splash fb}"
+FSCK_OUT="${FSCK_OUT:-$M/out-dodge-fsck}"
+CHAIN_OUT="${CHAIN_OUT:-$M/out-dodge-chain-73-gpu-fsck}"
+KERNEL_DIR="${KERNEL_DIR:-$M/wt-dodge}"
+DEADLINE="${DEADLINE:-600}"
+DEV="${DEV:-/dev/sda15}"
+IMG="$CHAIN_OUT/images/boot-chain.img"
+LOG_DIR="${LOG_DIR:-$M/logs/fsck-$(date +%Y%m%d-%H%M%S)}"
+CMDLINE="rdinit=/init clk_ignore_unused pd_ignore_unused panic=10 console=tty0 omamobile.ufs-probe omamobile.userdata-rw omamobile.initramfs omamobile.deadline=$DEADLINE"
+S="$ROOT/tools/phone-ssh"
+
+say() { printf '\033[1m==> %s\033[0m\n' "$*"; }
+die() { printf 'dodge-fsck: %s\n' "$*" >&2; exit 1; }
+
+cmd_build() {
+  [[ -f $REF_CHAIN/.config && -f $REF_CHAIN/chain/dodge.dtb ]] || die "missing $REF_CHAIN"
+  mkdir -p "$FSCK_OUT"
+  say "Stage-2 initramfs with e2fsprogs in $FSCK_OUT"
+  EXTRA_APKS="e2fsprogs e2fsprogs-extra" KERNEL_OUT="$FSCK_OUT" "$ROOT/tools/dodge-try" initramfs
+  local b
+  for b in e2fsck dumpe2fs tune2fs; do
+    [[ -e $FSCK_OUT/initramfs/sbin/$b || -e $FSCK_OUT/initramfs/usr/sbin/$b ]] \
+      || die "the initramfs has no $b"
+  done
+  [[ -x $FSCK_OUT/initramfs/usr/bin/omamobile-deadline ]] || die "no omamobile-deadline"
+  if [[ ! -d $CHAIN_OUT ]]; then
+    say "Copying $REF_CHAIN to $CHAIN_OUT"
+    cp -a "$REF_CHAIN" "$CHAIN_OUT"
+    # Kbuild's generated Makefile names its own output directory.
+    sed -i "s|$REF_CHAIN|$CHAIN_OUT|g" "$CHAIN_OUT/Makefile"
+  fi
+  say "Chain image in $CHAIN_OUT"
+  KERNEL_DIR="$KERNEL_DIR" STAGE2_OUT="$STAGE2_OUT" CHAIN_OUT="$CHAIN_OUT" \
+    STAGE2_IMAGE="$STAGE2_IMAGE" STAGE2_DTB_IN="$STAGE2_DTB_IN" \
+    STAGE2_INITRD="$FSCK_OUT/initramfs.cpio.lz4" STAGE2_CMDLINE="$CMDLINE" DTB_OPTS="$DTB_OPTS" \
+    "$ROOT/tools/dodge-chain" pack
+  cmp "$REF_CHAIN/chain/list" <(sed "s|$CHAIN_OUT|$REF_CHAIN|; s|$FSCK_OUT/initramfs.cpio.lz4|$(grep -o '[^ ]*initramfs[^ ]*lz4' "$REF_CHAIN/chain/list")|" "$CHAIN_OUT/chain/list") \
+    || die "stage-1 cpio list differs from the reference beyond the initrd"
+  diff <(grep -v INITRAMFS_SOURCE "$REF_CHAIN/.config") <(grep -v INITRAMFS_SOURCE "$CHAIN_OUT/.config") \
+    || die "stage-1 .config differs from the reference"
+  cmp "$REF_CHAIN/chain/dodge.dtb" "$CHAIN_OUT/chain/dodge.dtb" \
+    || die "stage-2 dtb differs from the flashed default's"
+  cmp "$REF_CHAIN/chain/x/bin/busybox.static" "$CHAIN_OUT/chain/x/bin/busybox.static" \
+    || die "stage-1 busybox differs"
+  grep -q 'omamobile.initramfs' "$CHAIN_OUT/chain/cmdline" || die "cmdline lacks omamobile.initramfs"
+  local magic
+  magic=$(head -c 8 "$IMG")
+  [[ $magic == ANDROID! ]] || die "$IMG is not a boot image"
+  avbtool info_image --image "$IMG" >/dev/null 2>&1 && die "$IMG has an AVB footer"
+  say "Built $IMG ($(stat -c %s "$IMG") bytes, reference $(stat -c %s "$REF_CHAIN/images/boot-chain.img"))"
+  sha256sum "$IMG"
+}
+
+wait_ssh() { # wait_ssh <seconds> <remote test>
+  local end=$((SECONDS + $1))
+  while ((SECONDS < end)); do
+    "$S" "$2" >/dev/null 2>&1 && return 0
+    sleep 3
+  done
+  return 1
+}
+
+cmd_run() {
+  [[ -f $IMG ]] || die "missing $IMG (run build first)"
+  mkdir -p "$LOG_DIR"
+  say "Logs in $LOG_DIR"
+  "$S" 'uname -r; cat /proc/cmdline; dumpe2fs -h '"$DEV"' 2>/dev/null' > "$LOG_DIR/0-before.txt" \
+    || die "no ssh to the phone"
+  grep -q dodge.flashed "$LOG_DIR/0-before.txt" || die "the phone is not on the flashed default"
+  (cd "$ROOT" && tools/dodge-gate) || die "battery gate failed"
+  say "Rebooting to fastboot"
+  "$S" '/usr/local/bin/reboot-to bootloader' >/dev/null 2>&1 || true
+  local i
+  for i in $(seq 1 40); do
+    fastboot devices 2>/dev/null | grep -q fastboot && break
+    sleep 2
+  done
+  fastboot devices 2>/dev/null | grep -q fastboot || die "no fastboot device; check the phone"
+  say "fastboot boot $IMG (one-shot)"
+  fastboot boot "$IMG"
+  say "Waiting for the initramfs (deadline ${DEADLINE}s on the phone)"
+  # Host watchdog: no initramfs ssh within 180 s means the phone deadline,
+  # panic=10 or the hardware watchdog brings it back to boot_a.
+  wait_ssh 180 'grep -q omamobile.initramfs /proc/cmdline && [ -e /run/omamobile-userdata-ready ]' \
+    || die "initramfs not reachable in 180 s; the deadline reboots it to boot_a"
+  "$S" 'cat /proc/cmdline; cat /proc/mounts; blockdev --getro '"$DEV"'; grep PARTNAME /sys/class/block/'"${DEV#/dev/}"'/uevent; e2fsck -V 2>&1' \
+    > "$LOG_DIR/1-initramfs.txt"
+  cat "$LOG_DIR/1-initramfs.txt"
+  if grep -q "^$DEV " "$LOG_DIR/1-initramfs.txt" || ! grep -q 'PARTNAME=userdata' "$LOG_DIR/1-initramfs.txt" \
+     || ! grep -qx 0 "$LOG_DIR/1-initramfs.txt"; then
+    "$S" 'sync; (sleep 1; reboot -f) >/dev/null 2>&1 &' || true
+    die "$DEV is mounted, not userdata or not writable; no fsck, rebooted to boot_a"
+  fi
+  # Runs detached on the phone, so a USB blip cannot SIGHUP e2fsck.
+  "$S" "cat > /run/fsck.sh" <<SH
+#!/bin/sh
+step() { # step <name> <e2fsck args>
+  n=\$1; shift
+  omamobile-deadline off
+  e2fsck "\$@" $DEV > /run/fsck-\$n.txt 2>&1
+  echo "rc=\$?" >> /run/fsck-\$n.txt
+  omamobile-deadline $DEADLINE
+}
+grep -q "^$DEV " /proc/mounts && { echo mounted > /run/fsck.done; exit 1; }
+step 2-fn -fn
+step 3-fy -fy
+step 4-fn -fn
+dumpe2fs -h $DEV > /run/fsck-5-dumpe2fs.txt 2>&1
+sync
+echo ok > /run/fsck.done
+SH
+  say "e2fsck -fn, -fy, -fn and dumpe2fs -h on the phone"
+  "$S" 'rm -f /run/fsck.done; setsid sh /run/fsck.sh > /run/fsck.log 2>&1 < /dev/null &'
+  local end=$((SECONDS + 1800))
+  until "$S" 'test -e /run/fsck.done' 2>/dev/null; do
+    ((SECONDS < end)) || die "fsck not done after 1800 s; phone left in the initramfs"
+    sleep 5
+  done
+  local f
+  for f in 2-fn 3-fy 4-fn 5-dumpe2fs; do
+    "$S" "cat /run/fsck-$f.txt" > "$LOG_DIR/$f.txt" || true
+  done
+  "$S" 'cat /run/fsck.done /run/fsck.log; dmesg | grep -iE "ext4|omamobile: deadline"' > "$LOG_DIR/6-phone.txt" || true
+  say "Results"
+  tail -n 3 "$LOG_DIR"/2-fn.txt "$LOG_DIR"/3-fy.txt "$LOG_DIR"/4-fn.txt
+  grep -E '^(Filesystem state|FS Error count|First error time|Last error time)' "$LOG_DIR/5-dumpe2fs.txt" || true
+  say "sync and reboot -f to boot_a"
+  "$S" 'sync; (sleep 1; reboot -f) >/dev/null 2>&1 &' || true
+  sleep 15
+  wait_ssh 240 'grep -q dodge.flashed /proc/cmdline && ! grep -q omamobile.initramfs /proc/cmdline' \
+    || die "the phone is not back on boot_a after 240 s"
+  sleep 30
+  "$S" 'uname -r; uptime; systemctl is-active sddm; loginctl list-sessions --no-legend; nmcli -t -f DEVICE,STATE dev; systemctl --failed --no-legend; dumpe2fs -h '"$DEV"' 2>/dev/null | grep -E "^(Filesystem state|FS Error count)"' \
+    | tee "$LOG_DIR/7-after.txt"
+}
+
+case "${1:-}" in
+  build) cmd_build ;;
+  run) cmd_run ;;
+  *) sed -n '3,18p' "$0" >&2; exit 2 ;;
+esac

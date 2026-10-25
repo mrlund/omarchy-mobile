@@ -17,6 +17,13 @@ mount -t devtmpfs devtmpfs /dev
 mkdir -p /dev/pts && mount -t devpts devpts /dev/pts
 mount -t configfs configfs /sys/kernel/config
 mount -t tmpfs tmpfs /run
+# Service images (tools/dodge-fsck) pass omamobile.deadline=<s>: reboot -f
+# after <s> s unless cancelled or re-armed with omamobile-deadline. Armed
+# first, so a hang anywhere later still ends in a reboot.
+deadline=$(sed -n 's/.*omamobile\.deadline=\([0-9][0-9]*\).*/\1/p' /proc/cmdline)
+if [ -n "$deadline" ] && [ -x /usr/bin/omamobile-deadline ]; then
+  /usr/bin/omamobile-deadline "$deadline"
+fi
 
 # Every SCSI disk read-only, before anything else. A built-in host
 # enumerates disks before this runs. Nothing mounts them. This pass,

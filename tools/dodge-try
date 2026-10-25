@@ -59,12 +59,14 @@ die() { printf '\e[31merror:\e[0m %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<USAGE
-Usage: tools/dodge-try <config|pack|boot|chain>
+Usage: tools/dodge-try <config|pack|initramfs|boot|chain>
 
   config   Merge kernel/configs/omamobile-dodge.config onto arm64 defconfig
            and check the loop symbols. No phone.
   pack     config, then Image, the dodge DTB, the initramfs and a header v2
            boot.img under \$KERNEL_OUT. No phone.
+  initramfs  only the stage-2 initramfs, \$KERNEL_OUT/initramfs.cpio.lz4
+           (EXTRA_APKS adds Alpine packages). No kernel build, no phone.
   boot     pack, then fastboot boot that header v2 image and wait for SSH.
            This talks to the phone. It never flashes. ABL does not start v2.
   chain    pack stage 2, then tools/dodge-chain boot (header v4 plus kexec).
@@ -139,7 +141,10 @@ cmd_initramfs() {
   say "Staging initramfs in $stage"
   rm -rf "$stage" && mkdir -p "$stage"
   tar -xzf "$dl/$tarball" -C "$stage"
-  for apk in $(python3 -I "$ROOT/tools/alpine-fetch.py" "$ALPINE_VER" "$dl/apks" dropbear); do
+  # EXTRA_APKS (space-separated, default none) adds Alpine packages and their
+  # dependencies, e.g. "e2fsprogs e2fsprogs-extra" for tools/dodge-fsck.
+  # shellcheck disable=SC2086
+  for apk in $(python3 -I "$ROOT/tools/alpine-fetch.py" "$ALPINE_VER" "$dl/apks" dropbear ${EXTRA_APKS:-}); do
     tar -xzf "$apk" -C "$stage" --exclude='.PKGINFO' --exclude='.SIGN.*' --exclude='.*.sh' \
       2>/dev/null || true
   done
@@ -163,8 +168,10 @@ cmd_initramfs() {
   install -m 755 "$INIT" "$stage/init"
   mkdir -p "$stage/lib"
   install -m 644 "$ROOT/device/dodge/initramfs/ufs.sh" "$stage/lib/omamobile-ufs.sh"
+  install -m 755 "$ROOT/device/dodge/initramfs/deadline" "$stage/usr/bin/omamobile-deadline"
   sh -n "$stage/init"
   sh -n "$stage/lib/omamobile-ufs.sh"
+  sh -n "$stage/usr/bin/omamobile-deadline"
   # aarch64, no libc. Do not run the binary on the laptop: it reboots.
   mkdir -p "$stage/usr/bin"
   clang -target aarch64-linux-musl -fuse-ld=lld -nostdlib -static -ffreestanding \
@@ -353,6 +360,7 @@ cmd_chain() {
 case "${1:-}" in
   config) cmd_config ;;
   pack) cmd_pack ;;
+  initramfs) cmd_initramfs ;;
   boot) cmd_boot ;;
   chain) cmd_chain ;;
   -h|--help|help) usage ;;

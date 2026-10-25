@@ -4,6 +4,65 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-25: offline e2fsck of the rootfs, error flag cleared; fork pushed (10:29-10:47 CET)
+
+- **Fork push:** Martin pushed `omamobile-dodge` (`0d65e1509`) to
+  `mrlund/linux-omarchy-mobile` himself at 10:30 CET, after an extra scan
+  (SoC serial, MACs, BD address, SSID: clean; the `omamobile` gadget-serial
+  hit is the generic word). The remote was verified.
+- **Tool:** `tools/dodge-fsck build|run`.
+  - `build`: the stage-2 initramfs with e2fsprogs (`tools/dodge-try
+    initramfs` with the new `EXTRA_APKS="e2fsprogs e2fsprogs-extra"`;
+    e2fsprogs 1.47.4). Then `tools/dodge-chain pack` with the flashed
+    default's stage-2 Image and dtb (`out-omamobile-73-gpu`,
+    `DTB_OPTS="splash fb"`) and stage-1 config (`out-dodge`). The stage 1 is
+    rebuilt in a copy of the usbfix1 chain build. The tool fails if the
+    stage-2 dtb, the stage-1 cpio list or the stage-1 `.config` differ from
+    the usbfix1 reference in anything but the initrd.
+  - Cmdline: `omamobile.userdata-rw omamobile.initramfs
+    omamobile.deadline=600`. sda15 is opened writable, but the init never
+    mounts it or switches root. Header v4, kernel-only, no AVB footer,
+    61026304 bytes, sha256 `582fd36e...`. The size is 720896 bytes over the
+    60305408 of the gpu1 images: the larger initrd. Never committed, never
+    flashed.
+  - `run`: battery gate, `reboot-to bootloader`, one-shot `fastboot boot`.
+    The run aborts with no fsck (`reboot -f`) if sda15 is in `/proc/mounts`,
+    is not `PARTNAME=userdata`, or is read-only. e2fsck runs detached
+    (`setsid`) on the phone. Then `sync; reboot -f` to boot_a, and checks.
+- **Deadline:** a new `omamobile.deadline=<s>` in the stage-2 init (no effect
+  without the flag) runs `/usr/bin/omamobile-deadline`
+  (`device/dodge/initramfs/deadline`). It is armed right after `/run` is
+  mounted: background `sync; reboot -f` after <s> s. It is cancelled right
+  before each e2fsck and re-armed (600 s) after it. Logged in dmesg as
+  armed/cancelled four times.
+- **Result (10:43-10:45 CET; logs in `~/android/mainline/logs/fsck-20261025/`):**
+  - `e2fsck -fn` before: rc 4. Found:
+    - 7 deleted inodes with zero dtime
+    - block bitmap differences (about 30 blocks) and inode bitmap
+      differences (the same 7 inodes)
+    - wrong free block/inode counts
+    - orphan file (inode 12) block 0 not clean ("Failed to initialize orphan
+      file")
+  - `e2fsck -fy`: rc 1 (modified). Replayed the journal, fixed all of the
+    above, and cleared the orphan file block.
+  - `e2fsck -fn` after: rc 0, clean.
+  - `dumpe2fs -h`: `clean`, no `FS Error count` / first / last error fields
+    (the counters are zeroed). `needs_recovery` and `orphan_present` are
+    gone, and the mount count was reset.
+  - No tune2fs was needed: e2fsck 1.47 `-fy` cleared the error stats.
+  - Cosmetic: "Last checked" reads 1970 because the initramfs has no RTC
+    time.
+- **Back on gpu1 (10:45:53 CET):**
+  - `7.3.0-rc6-dodge-gpu1` with `dodge.flashed`.
+  - sda15 mounted rw with no ext4 recovery or orphan messages.
+  - `dumpe2fs -h`: clean, no error count.
+  - Session: SDDM autologin for `ml` (Hyprland), wlp1s0 connected.
+  - Audio: `omamobile-dodge-audio` active (exited), PipeWire and
+    WirePlumber active.
+  - Only the known `systemd-backlight@` failure.
+- **Cause recap:** the orphan-file block was left dirty by the old sysrq-u
+  hard reboot (see the entry below). `dodge-hard-reboot.sh` no longer uses u.
+
 ## 2026-10-25: rootfs ext4 error flag, hard-reboot without sysrq u, audio readiness, pr1c trial (10:18-10:30 CET)
 
 Martin approved at 10:18 CET: (A) offline e2fsck of the rootfs, (B) fixing the
