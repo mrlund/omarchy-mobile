@@ -4,6 +4,53 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-25: pr1 one-shot trial: speaker audio fails, fork not pushed (09:40-09:57 CET)
+
+Martin approved the reboot at 09:40 CET. Image `TRIAL-7.3-pr1-boot_a.img`
+(60305408 bytes, sha256 `51768a3f...f0e6`), `fastboot boot` only (nothing
+flashed, no set_active). Gate before every reboot, trial deadline 220 s
+(`trial=1`), `oops=panic`, return by `/root/dodge-hard-reboot.sh`. Host script
+`logs/p73-pr1-boot.sh`; scrubbed logs in `logs/2026-10-25-pr1-trial/`
+(gitignored).
+
+- **Installed on the phone:** `/usr/lib/modules/7.3.0-rc6-dodge-pr1.held`
+  (stage-73-pr1, 81M) and `/usr/local/lib/omamobile.7.3.0-rc6-dodge-pr1`
+  (copy of the gpu1 overlay, the 30 pr1 .ko files on top, sha256 verified,
+  vermagic pr1, skip-units = gpu1's). gpu1 files untouched.
+- **pr1a (09:43:48):** ssh up at t=39 s. The checks ran too early (uptime about
+  22 s, before the audio unit), so audio was not judged. GPU check passed here.
+- **pr1b (09:48:55, same image, checks wait for the audio unit):**
+
+| Check | Result |
+|---|---|
+| `uname -r` | PASS `7.3.0-rc6-dodge-pr1` |
+| Display | PASS: DSI connected, dpms On (pr1a), txfail 0, Hyprland up; dpms Off at 129 s is the lock/idle blank |
+| Touch | PASS `touchpanel` input device |
+| USB gadget + SSH | PASS udc configured, usb0 up |
+| Wi-Fi | PASS wlp1s0 connected with IPv4 (gw ping 3/3 in pr1a, 1/3 in pr1b with the screen off: the known screen-off loss) |
+| BT | PASS hci0 present, powered |
+| Speaker | **FAIL**: `omamobile-dodge-audio` failed, "audio-bringup: audio heap not assigned"; no sound card, so aplay fails (no -110 / CMD timeout because the card never came up) |
+| GPU | PASS (pr1a): eglinfo as ml = freedreno / Adreno (TM) 830, ES 3.2, Mesa 26.2.4; 0 GPU faults, 0 oopses. The pr1b eglinfo call printed nothing (screen blanked) |
+
+- **Cause of the speaker fail:** `audio-bringup.sh` waits for the dmesg line
+  "assigned audio heap" from the local log commit cf855c622 ("misc: fastrpc:
+  log the static PD remote heap assignment"). That commit is on
+  trial/omamobile-dodge-port but not in the PR branch. Not fixed in this run.
+  Options: keep the log commit, or make the script check the heap another way.
+- **dmesg vs gpu1 (kernel journal, full boot):** no new error/warn/timeout
+  lines on pr1. 4 WARNINGs on both (the existing DSI clk WARNs).
+- **Return:** hard reboot at t=168 s, back on the flashed gpu1 at t=204 s
+  (`dodge.flashed`, Hyprland, SDDM autologin session for ml, wlp1s0 connected
+  with IPv4).
+- **New fact:** after the pr1b sysrq return the root fs (sda15) records one
+  ext4 error: `clean with errors`, EFSCORRUPTED in
+  `ext4_mark_recovery_complete`, time 09:51:44 (the sysrq). gpu1 warns
+  "mounting fs with errors, running e2fsck is recommended". Nothing was run;
+  an offline e2fsck is needed.
+- **Fork:** not pushed (pr1 not clean). The identifier scan over
+  `format-patch 97a6b87a8..omamobile-dodge` (45 patches) was clean: 0 MAC,
+  IMEI, ICCID, private IP, phone, private-ids hits.
+
 ## 2026-10-25: PR branch pr1: authorship, Assisted-by, bindings, trial image (09:15-09:45 CET)
 
 - `omamobile-dodge` is now `0d65e1509`, 45 commits (local only). Details and the
