@@ -38,7 +38,7 @@ flashed, no set_active). Gate before every reboot, trial deadline 220 s
   trial/omamobile-dodge-port but not in the PR branch. Not fixed in this run.
   Options: keep the log commit, or make the script check the heap another way.
 - **dmesg vs gpu1 (kernel journal, full boot):** no new error/warn/timeout
-  lines on pr1. 4 WARNINGs on both (the existing DSI clk WARNs).
+  lines on pr1. 4 WARNINGs on both (clk_core_disable/unprepare from insmod, same as gpu1).
 - **Return:** hard reboot at t=168 s, back on the flashed gpu1 at t=204 s
   (`dodge.flashed`, Hyprland, SDDM autologin session for ml, wlp1s0 connected
   with IPv4).
