@@ -4,6 +4,31 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-25: Chromium hung (no keyring), blurry icons, SDDM login staged (07:40-08:20 CET)
+
+Details: [dev-docs/2026-10-25-keyring-chromium.md](dev-docs/2026-10-25-keyring-chromium.md).
+
+- **Chromium timed out on every page with Wi-Fi up:** cookie-bearing
+  requests stuck at `COMPUTED_PRIVACY_MODE` (net-log). `~/.local/share/keyrings`
+  was empty, so gnome-keyring raised an invisible gcr-prompter "create
+  keyring" prompt for Chromium's cookie key (`--password-store=gnome-libsecret`).
+- **Why:** Omarchy's `install/user/default-keyring.sh` runs in
+  `omarchy-provision-user` (firstboot), which dodge never ran. Fixed live
+  (Martin confirmed), and `setup-stock` now runs it (step 1b). `--revert`
+  keeps the keyring (it may hold secrets).
+- **Rest of omarchy-provision-user:** present except `mise.sh` (node and AI
+  CLI stubs, downloads; left for Martin) and the `finalize-user` marker.
+- **Blurry Chromium icon:** Omarchy's AppLibrary icon index keeps the first
+  PNG `find` lists, here `hicolor/16x16/chromium.png` (16 PNG-only icons
+  affected). Upstream bug; `setup-ui` links the 256/512 px PNGs into
+  `~/.local/share/icons`, scanned first. Applied; visual check pending.
+- **SDDM autologin staged, not booted:** `desktop/login-sddm` writes
+  firstboot's autologin.conf/state.conf, orders sddm after the panel/touch
+  units, keeps `LIBGL_ALWAYS_SOFTWARE=1` via uwsm env.d, disables
+  `omamobile-hyprland.service`, default target `graphical.target`.
+  Revert: `login-sddm --revert`. Deadline check unchanged (pgrep Hyprland).
+  Next boot to be tested with Martin.
+
 ## 2026-10-24: stock lock, PIN, power key and keyboard (19:57-20:30 CEST)
 
 Martin wants the stock experience; this replaces "screen off on idle, no
