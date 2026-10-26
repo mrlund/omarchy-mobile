@@ -2382,3 +2382,13 @@ no in-rules path to it (pristine copies can't register; activating the pending c
 forbidden modem-state write). Real partitions hashed identical before/after; phone back on gpu1,
 flag off, rootfs clean. Stopped at 1 of max 2 boots - nothing a 2nd same-approach boot would
 break open. Logs: p73-rt-*.
+
+## 2026-10-26 ~20:00 - qwesd licensing Phase A (research/scope, no phone boots)
+Verdict: BLOCKED-BY-Y. Modem Smart Transmit check = IPFM_* -> qsee_open (QSEE/QTEE secure
+session) -> QWES/IPFM TA -> installed license in RPMB. Our 6.16-based 7.3 kernel: CONFIG_QCOMTEE
+not set (QTEE landed in 6.18), CONFIG_RPMB not set, qseecom "untested machine, skipping"; no
+QWES TA staged (only on stock vendor). qwesd is a closed-source entitlement-gated prebuilt; we
+won't fake responses. Standing up the path = qcomtee backport + RPMB + closed userspace + signed
+TA = multi-day kernel work + forbidden secure/RPMB provisioning -> hit the stop condition. Phase
+B NOT run (precondition not met). See dev-docs/2026-10-26-qwes-licensing-phaseA-scope.md. Phone:
+gpu1, flag off.
