@@ -4,6 +4,34 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-26: mcfg.tmp lead + two gpu1 boots (mcfg-aside, full-restore+empty-tqftpserv) (15:38-16:00 CET)
+
+Kernel trials dropped per Martin; gpu1 only. Per-boot timestamped backups of /var/lib/omamobile/modem-efs AND /var/lib/tqftpserv (with checksums) now taken before every flag boot (/root/efs-backups/pre-*). A 1 s UIM/PDC/NAS/DMS poller runs on each flag boot, emitting only safe extracted fields (no identifiers).
+
+MCFG.TMP LEAD (Martin): no older/meaningful copy exists. Host "backups" (~/android/mainline/backups, Repos backups, fsck run outputs) contain only boot images (kernel+initramfs), never a rootfs copy of tqftpserv. On the phone the only mcfg.tmp is the current 1-byte scratch file; the persistent journal (back to Oct 24) shows it is a transient write->read->rewrite staging file during the config-transfer handshake, NOT persistent registration state (real operator config is read from the read-only firmware tree .../EU/TDC/Commercial/Denmark/mcfg_sw.mbn). So there was nothing better to substitute; plan fell back to moving it aside (Boot A below).
+
+BOOT A (mcfgA2) - only moved mcfg.tmp aside; writable copies left as-is:
+ - slot1 USIM app reaches "ready", primary-GW binds slot1/app1, PIN1 disabled. slot2 present=eUICC, 0 apps, never bound.
+ - DMS opmode "shutting-down" (config pending) the whole ~32 s search, flips "online" ~1 s, then rtsar_framework.c:3546 Smart Transmit License Check Failure (1,1,1) crash (~5 s after online). PDC: 0 configs during search. NOT registered.
+
+BOOT B (boot2) - FULL VERIFIED restore of all 6 writable copies from pristine 20261026-124620 tar (sha -c OK, all 6 live hashes matched) AND emptied tqftpserv, together:
+ - NO crash for the full 113 s window; modem stayed up (kmsg: zero Smart Transmit errors).
+ - slot1 USIM app only reaches "detected" (NOT "ready"); primary-GW binding = none throughout. slot2 eUICC 0 apps.
+ - DMS opmode stuck "shutting-down" the whole window (never online). PDC: 25 configs loaded, carrier config TDC_Denmark_Commercial = Pending (never Active). NOT registered.
+
+TWO LEADS RESOLVED:
+ - eSIM (slot 2) binding: NEGATIVE. Every second the modem maps/binds the slot-1 physical USIM (p1>l1, pgw=s1a1 when it binds at all). slot 2 is eUICC with 0 apps and is never bound. No misbinding to the eSIM on any boot.
+ - 'shutting-down'/pending-operator-config correlation: POSITIVE. opmode sits in shutting-down (config Pending) through every failing search; the carrier MCFG never reaches Active. The one moment it flips online (Boot A) is immediately followed by the Smart Transmit crash.
+
+INTERPRETATION (both boots failed to restore registration):
+ - Full restore + emptied tqftpserv removes the crash but leaves the SIM stuck at "detected" and the operator config Pending -> still no registration.
+ - Moving only mcfg.tmp aside lets the SIM reach ready and go online, but the config is still Pending and the modem crashes on the Smart Transmit license check.
+ - Net: the regression is NOT kernel/IPA and NOT eSIM-misbinding. It is the operator MCFG never activating (stuck Pending) plus the Smart Transmit license check failing when it tries to go online. Evidence now leans SIM/network-or-licensing-side, not host EFS state (restoring pristine copies did not bring registration back). QWES/qwesd licensing daemon is absent.
+
+PER INSTRUCTION: both one-shot boots failed; NOT pulling the SIM (parent will ask Martin). Claude consult #4 (raw observations) launched.
+
+End state: gpu1, flag OFF, modem not running, all modem units inactive, rootfs clean. (modem_fs1/fs2 are rewritten by the modem each boot; fsc/fsg/nvbk still match pristine.)
+
 ## 2026-10-26: why registration broke after ipa2a: not the kernel (15:04-15:30 CET)
 
 Logs: `~/android/mainline/logs/p73-gpu1flag*`, `p73-gpu1card*`, consult `claude-consult-ipa-rtsar-3*.txt`.
