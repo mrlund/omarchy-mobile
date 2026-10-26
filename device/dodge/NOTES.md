@@ -2342,3 +2342,15 @@ before/after; ended gpu1/flag-off/clean.
 - No read-only Smart-Transmit enable/mode knob found. Write candidates (NOT run):
   SAR --sar-rf-set-state (wrong layer), STX/MFS/RFRPE (need non-public vendor IDL),
   PDC activate (a write; also won't supply the QWES license).
+
+## 2026-10-26 ~19:30 Phase 1: rtsar good-vs-bad timeline diff (logs only, no boots)
+Two crash signatures are distinct: `lte_rrc_llc.c:8590 DS_3GPP_BEARER_SWITCH` (no-IPA data
+path, gpu1) vs `rtsar_framework.c:3546 Smart Transmit License Check` (IPA kernel, attach phase).
+The good 12:50/12:57 runs registered on LTE then crashed on the DS-bearer assert - they never
+reached the Smart Transmit check. rtsar appears only on the IPA kernel, intermittently, on boots
+whose writable EFS copies carried over the post-first-registration write. The three non-crashing
+IPA boots each had a different copy/online state (ipa2a: PDC 0 configs/defaults; ipa2f: copies
+restored to pre-write 12:46 backup; ipa2d: never online). Real partitions untouched throughout
+(hashes identical 12:46/13:02/17:16). Leading cause: config/region/SAR state committed to the
+rmtfs copies at first clean registration enables Smart Transmit, which then needs a QWES license
+no qwesd serves. See dev-docs/2026-10-26-rtsar-good-vs-bad-timeline.md.
