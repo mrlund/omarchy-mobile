@@ -26,6 +26,10 @@ start)
 	r=""
 	for _ in $(seq 40); do r=$(modem_rproc) && break; sleep 0.5; done
 	[ -n "$r" ] || { log "no modem remoteproc (PAS loaded with only_adsp=1, or mpss disabled in the DT)"; exit 1; }
+	# A modem crash with recovery on makes the kernel stop and restart the
+	# MPSS, and a stop resets the phone. Keep recovery off.
+	echo disabled > "$r/recovery" 2>/dev/null || log "couldn't disable recovery"
+	log "recovery $(cat "$r/recovery" 2>/dev/null)"
 	[ "$(cat "$r/state")" = running ] || echo start > "$r/state" || exit 1
 	for _ in $(seq 60); do
 		s=$(cat "$r/state")

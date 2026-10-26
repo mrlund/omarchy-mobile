@@ -2,7 +2,7 @@
 # dodge modem
 
 Everything here is inert unless `/etc/omamobile/modem-probe.enable` exists.
-Default: off (2026-10-21; a SIM is in since 2026-10-26, the modem stays offline).
+Default: off (2026-10-21; since 2026-10-26 it registers on LTE, then crashes without IPA).
 
 With the flag, at boot:
 
@@ -45,11 +45,16 @@ only logs. A phone running an older unit needs a runtime drop-in with an empty
 `ExecStop=` before any reboot.
 
 Status 2026-10-26 (7.3 gpu1, SIM inserted): the MPSS boots and QMI,
-rmtfs, tqftpserv and ModemManager work, and the SIM reads (PIN1 disabled). With the NV
-backup copies the modem lists its RF bands, but it then waits in
-`shutting-down` for a reset to apply the operator MCFG, which can't happen
-yet (read-only EFS, and a modem restart resets the phone). No registration
-and no data. Details:
+rmtfs, tqftpserv and ModemManager work. The helper sets remoteproc `recovery`
+to `disabled` before starting the MPSS, so a modem crash doesn't make the
+kernel stop it (which would reset the phone). With the NV backup copies and
+the opt-in `omamobile-rmtfs-rw-copies.conf` (rmtfs writes to the copies,
+never the partitions) the MCFG commits, and after a manual slot-1
+provisioning session plus `online` the modem registers on LTE. About 30 s
+later it crashes because there is no IPA data path for the LTE bearer. No
+data. Default: flag off.
+Details:
+[../dev-docs/2026-10-26-modem-efs-rw-73.md](../dev-docs/2026-10-26-modem-efs-rw-73.md),
 [../dev-docs/2026-10-26-modem-nvbk-73.md](../dev-docs/2026-10-26-modem-nvbk-73.md),
 [../dev-docs/2026-10-26-modem-sim-73.md](../dev-docs/2026-10-26-modem-sim-73.md),
 [../dev-docs/2026-10-21-modem.md](../dev-docs/2026-10-21-modem.md).

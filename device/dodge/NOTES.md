@@ -4,6 +4,27 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-26: modem on writable EFS copies, registration (12:45-13:05 CET)
+
+Details: [dev-docs/2026-10-26-modem-efs-rw-73.md](dev-docs/2026-10-26-modem-efs-rw-73.md).
+
+- rmtfs writable on the **copies** only (`-o` dir, no `-r`, never `-P`/`-s`),
+  copies backed up first. One write + reboot: operator MCFG `Active`.
+- Radio on: after provisioning slot 1 and setting `online` the modem
+  **registers on TELMORE LTE** (home, CS+PS attached), RSRP -105 dBm, RSRQ
+  -7 dB, SNR 13-14 dB. SIM active, PIN1 disabled, no reject.
+- About 30 s later the modem crashes:
+  `DS_3GPP_BEARER_SWITCH_COMPLETE_IND not rcvd from DS` (no IPA data path for
+  the LTE bearer). Same on two boots. Recovery is now off in the helper, so
+  the phone stays up. **IPA is the next blocker, for registration as well as
+  data.**
+- MM "Failed to find a net port" is a startup race (2 ports after an MM
+  restart and in a later boot). The primary GW session still needs manual
+  activation each boot.
+- Real partitions: all 12 hashes unchanged. Phone on gpu1, flag removed,
+  rootfs clean. Stage-2 plan (real modemst1/2 via a symlink dir, not `-P`) is
+  in the dev-doc, not run.
+
 ## 2026-10-26: modem RF bands, OnePlus NV backup (12:30-12:42 CET)
 
 Details: [dev-docs/2026-10-26-modem-nvbk-73.md](dev-docs/2026-10-26-modem-nvbk-73.md).
