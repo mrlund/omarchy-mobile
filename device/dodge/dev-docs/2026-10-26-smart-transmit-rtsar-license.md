@@ -220,3 +220,75 @@ Leads for a possible pivot (NOT pursued - needs Martin's direction):
   alternative to DIAG for either reading the item or changing SAR behaviour - but whether
   libqmi/qmicli can address an arbitrary EFS path, or set SAR to an unrestricted state, is
   unconfirmed and is a separate investigation.
+
+## Option (a) QMI read-only recon (2026-10-26 17:15-17:18, gpu1, flag gated, tqftpserv emptied)
+
+Read-only QMI probe over `qmicli -d qrtr://0` + `qrtr-lookup`. Real partitions
+hashed identical before/after; copies+tqftpserv backed up (phone+host); pristine
+restore verified; flag off; ended gpu1/clean. No writes of any kind issued.
+
+Modem was up (`modem=running`) but in the recon state (operator config emptied,
+no registration, no TX bring-up).
+
+### Service registration (qrtr-lookup, modem node 0)
+- 17 SAR  (Specific absorption rate)            registered, port 46
+- 21 MFS  (Modem embedded file system)          registered, port 25
+- 34 COEX (Coexistence)                         registered, port 47
+- 36 PDC  (Persistent device configuration)     registered, port 34
+- 41 RFRPE(RF radiated performance enhancement) registered, port 93
+- 38 STX  (Simultaneous/Smart Transmit)         NOT registered (qrtr-lookup 38 empty;
+          also absent from the full node-0 service dump).
+
+  => The Simultaneous/Smart-Transmit QMI service is not present in this recon state.
+     Likely registers only during full TX bring-up - i.e. the same window in which
+     the rtsar license check fires and the modem crashes (chicken-and-egg).
+
+### SAR (17)
+`--sar-rf-get-state` -> "SAR RF state: 0". This is an RF-state INDEX (0..20) mapped
+from NV, NOT a boolean. State 0 does NOT mean "no back-off"; it is one configured
+state. SAR controls static SAR back-off tables, not the RTSAR/Smart-Transmit
+license-gated time-averaging framework. qmicli exposes get/set-state.
+
+### MFS (21)
+Registered on the modem, but NO tool on the device can address it: libqmi/qmicli
+has no MFS command, and no public mfs_v01 / EFS-QMI IDL (message ids) was found in
+the sources checked. RFSA FILE_READ (0x0022) belongs to a different service (28,
+apps-side, used by rmtfs) and cannot read modem EFS from the AP. Reading an EFS
+path (e.g. rtsar_config) via MFS would require the vendor IDL, which is not public.
+
+### PDC (36)
+- list-configs platform: Total 0 (no platform configs).
+- list-configs software: Total 25 carrier MBN configs.
+  - Config 1 = the TDC Denmark commercial config: Status = **Pending**.
+  - All 24 others: Status = Inactive.
+  - (Config ids/version bytes intentionally not reproduced here.)
+- qmicli 1.38 PDC has list-configs (read) but no get-selected-config command, so
+  "selected vs active for slot 1" can't be read directly with this libqmi.
+
+Interpretation of Pending / earlier DeviceInUse:
+- "Pending" = the TDC config has been selected/loaded as the config to use but
+  activation has not completed; PDC configs typically require a modem refresh/
+  restart to transition Pending -> Active.
+- The earlier activate returning **DeviceInUse** is consistent with the config
+  already being in the Pending (activation-in-flight / modem-holding) state: PDC
+  refuses a fresh activate while the subsystem is already mid config-operation /
+  the device is in use. It is not a permissions failure.
+- The carrier MBN (TDC) is the component that can carry the regulatory SAR/Smart-
+  Transmit policy, so the Pending TDC config is plausibly tied to whether RTSAR is
+  demanded at registration.
+
+### RFRPE (41)
+Registered (port 93). RF radiated performance enhancement = radiated-power/antenna
+tuning. No libqmi command; no public IDL. Not a license/Smart-Transmit toggle.
+
+### Does any service expose a Smart Transmit enable/mode?
+No read-only, documented knob was found:
+- STX (38) is the natural control surface but is not registered in this state.
+- SAR (17) is static SAR tables, not the RTSAR license gate; state 0 != disabled.
+- RFRPE (41) is radiated tuning, not a license gate.
+- MFS (21) could reach the rtsar_config NV item but only with the (non-public) IDL.
+- PDC (36) governs the carrier MBN that may demand RTSAR, but toggling it is a write
+  (activate) and still would not supply the QWES license.
+
+dmesg during the probe showed no rtsar/license/smart/fatal lines (no TX bring-up in
+this recon state), only unrelated msm module-load traces.

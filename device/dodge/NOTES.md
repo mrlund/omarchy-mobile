@@ -2326,3 +2326,19 @@ Before the boot test:
   (SAR service, RF radiated-performance-enhancement service, PDC, a modem embedded file system
   service, a remote file system service) and qmicli/mmcli are on the phone - a QMI-based read or
   runtime-SAR path may be the open alternative to DIAG. Unconfirmed; separate investigation.
+
+## 2026-10-26 17:18 Option (a) QMI read-only recon result
+Gated flag boot on gpu1, tqftpserv emptied, no writes. Partitions hashed identical
+before/after; ended gpu1/flag-off/clean.
+- Registered QMI on modem: SAR(17), MFS(21), COEX(34), PDC(36), RFRPE(41).
+- STX / Simultaneous-Smart-Transmit (38): NOT registered in recon state (likely
+  only comes up during TX bring-up = the crash window).
+- SAR get-state = 0; this is an RF-state INDEX (0..20), NOT "no back-off".
+- MFS(21): no tool can address it (no qmicli cmd, no public IDL) to read rtsar_config.
+- PDC(36): 0 platform, 25 software MBN configs; TDC(DK) config = Pending, rest
+  Inactive. Pending + earlier activate=DeviceInUse => activation already in-flight /
+  device-in-use, not a perms error; needs modem refresh to go Active.
+- RFRPE(41): radiated-power tuning, not a license toggle.
+- No read-only Smart-Transmit enable/mode knob found. Write candidates (NOT run):
+  SAR --sar-rf-set-state (wrong layer), STX/MFS/RFRPE (need non-public vendor IDL),
+  PDC activate (a write; also won't supply the QWES license).
