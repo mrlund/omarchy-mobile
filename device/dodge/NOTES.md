@@ -2438,3 +2438,34 @@ Smart-Transmit license is ALREADY provisioned in persist by stock Android, so th
 path (IPFM_CheckInstalledLicense), not provisioning. Persist served read-only, RPMB listener
 read-only (log+reject every write), no TA persisted. See the phaseA-scope dev-doc. Phone: gpu1,
 flag off, hashes verified.
+
+## 2026-10-26 ~20:40 - qwesd READ path Phase A2 step 1: BLOCKED at the TEE-ABI crux
+Goal re-framed to a READ path (license already provisioned in persist by stock Android; we only
+need IPFM_CheckInstalledLicense to answer), persist read-only, RPMB listener read-only. Inspected
+the vendor QWES userspace read-only (vendor image loop-mounted read-only on the phone from a
+host-side copy; nothing on a live partition touched, no blobs committed).
+
+Crux (reported per brief): the vendor stack reaches the secure world ONLY through the legacy
+Qualcomm smcinvoke ABI, which our upstream qcomtee kernel does not provide. libminkdescriptor.so
+(the object-invoke transport every component rides on) opens /dev/smcinvoke and drives it with the
+downstream SMCINVOKE_IOCTL_* interface (invoke / accept / server / log, marshalling the downstream
+smcinvoke_accept + ObjectArg structs). It also uses the legacy /dev/qseecom. NO vendor binary or
+lib references /dev/tee*, qcomtee, or TEE_IOC_* - there is no userspace that speaks the upstream
+TEE uapi our qcomtee driver exposes. Every path is affected: qwesd, qwes_cli, qseecomd (the
+listener host) and the RPMB-client daemon all link libminkdescriptor; all are bionic
+(interp /system/bin/linker64). qwesd's direct dep closure: libqcbor, libminksocket_vendor,
+libminkdescriptor, libcrypto, libQSEEComAPI, libcurl, libqmi_csi, liblog, libutils,
+libavservices_minijail, libdsi_netctrl, libc++/c/m/dl. The read path we would call exists
+(qwes_cli -m list / listfids, IQwesService_checkInstalledLicense, GetInstalledLicenseInfo,
+GetAllInstalledFeatureIDs).
+
+So a bionic container alone is NOT sufficient: it would launch qwesd but libminkdescriptor would
+fail to open /dev/smcinvoke on our kernel. Bridging needs ONE of: (a) the downstream smcinvoke.ko
+(+ companion smci drivers) backported onto 7.3 - out-of-tree, overlaps qcomtee's claim on the QTEE
+object SMC path, intrusive, multi-day and uncertain; or (b) a userspace CUSE shim exposing
+/dev/smcinvoke that translates each SMCINVOKE_IOCTL_* into the equivalent qcomtee TEE_IOC object
+invoke on /dev/tee0 - plausible because both sit on the same QTEE object model, but it must
+implement the bidirectional accept/server loop (the TA->HLOS callback path the FS/RPMB listeners
+use), not just one-shot invoke - several days. Both exceed the one-day stop condition. Stopped at
+the blocker; no stack started, no trial boot, nothing written; phone gpu1, flag off, real
+modem/EFS/qweslicstore hashes verified unchanged.

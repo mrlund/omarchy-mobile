@@ -82,3 +82,19 @@ for a READ path: the Smart-Transmit license is already provisioned in persist by
 so the objective is the IPFM_CheckInstalledLicense read, not provisioning. Persist is served
 read-only; the RPMB listener is read-only (log + reject every write, never forward to device);
 the QWES trustlet may be loaded into QTEE memory but never persisted to secure storage.
+
+## Phase A2 step 1 RESULT (2026-10-26): TEE-ABI mismatch is the blocker
+Vendor QWES userspace inspected read-only. Every component that reaches secure world links
+libminkdescriptor.so, which opens the legacy **/dev/smcinvoke** and uses the downstream
+**SMCINVOKE_IOCTL_*** object-invoke ABI (plus legacy /dev/qseecom). NO vendor binary/lib
+references /dev/tee*, qcomtee, or TEE_IOC_* - there is no userspace that speaks the upstream TEE
+uapi our qcomtee driver exposes. All binaries are bionic (/system/bin/linker64): qwesd, qwes_cli,
+qseecomd (listener host), rpmbClient (RPMB listener). The read entry points we want exist
+(qwes_cli list/listfids, IQwesService_checkInstalledLicense, GetInstalledLicenseInfo).
+
+Consequence: enabling qcomtee (done) + a bionic container is NOT enough - libminkdescriptor would
+fail to open /dev/smcinvoke. Bridging options: (a) backport downstream smcinvoke.ko onto 7.3
+(out-of-tree, overlaps qcomtee's QTEE SMC claim, multi-day, uncertain); (b) a CUSE /dev/smcinvoke
+shim translating SMCINVOKE_IOCTL_* -> qcomtee TEE_IOC object-invoke on /dev/tee0, including the
+bidirectional accept/server callback loop the FS/RPMB listeners need (several days). Both exceed
+the one-day stop condition, so the qwesd read path stops here pending a decision on the shim.
