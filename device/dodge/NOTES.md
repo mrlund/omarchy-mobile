@@ -1,3 +1,44 @@
+## 2026-10-26: STx-off write attempt -> STOPPED, no clean write method (read-only recon, 16:37-16:50 CET)
+
+Martin approved switching Smart Transmit off in the writable copies only + one test boot
+(t476s2312), accepting Pmax/no-time-averaging for the test. On investigation NEITHER a
+supported runtime write NOR a reliable offline edit is available, so per the standing rule
+("if neither is clean, stop and report rather than hacking the image") NO write and NO boot
+was done. Nothing changed: copies only read, real partitions never touched. Phone left
+gpu1, flag off, rootfs clean, copies pristine.
+
+Target item: /nv/item_files/mcs/lmtsmgr/sar/rtsar/rtsar_config (RTSAR/Smart Transmit config).
+
+Method 1 - supported runtime write (modem writes item via DIAG/QMI, rmtfs syncs copy): NOT
+AVAILABLE on this mainline kernel.
+- No DIAG transport: no /dev/diag, no "diag" in /proc/devices, no DIAG_CHAR in kernel config,
+  no diag-router/diag_mdlog binary. Mainline has no in-kernel diag char device for the
+  SoC-integrated modem, so the classic EFS2-over-DIAG write path does not exist here.
+- qmicli (1.38) exposes no EFS/NV item write (only --dms-write-user-data, unrelated). No QMI
+  service writes arbitrary EFS items.
+
+Method 2 - offline edit of the copy (fallback): NOT CLEAN / not reliably parseable.
+- rtsar_config is NOT present in the live EFS2 images (modem_fs1/fs2/fsc/fsg: 0 occurrences
+  of "rtsar"/"/sar/"). It exists ONLY in oem_stanvbk (the OEM static NV backup, 8 records).
+- The modem DOES read /oem/nvbk/static (= oem_stanvbk) via rmtfs at boot (linux-msm/rmtfs
+  PR #33), so an edit there WOULD take effect - the locate-ability is not the problem.
+- The record format is the blocker. Each record is: full path, NUL, a short framing header,
+  an ASCII "STX2" tag (Smart Transmit v2/Gen2), then a ZLIB-compressed payload (78 9c magic),
+  inside NV-backup framing that carries length/CRC. The RTSAR config struct is thus
+  compressed and of undocumented internal layout, replicated across 8 records. Flipping only
+  the enable/mode would require decompress -> identify an unknown field among compressed
+  struct bytes -> recompress -> repair framing length + CRC across records. That cannot be
+  done reliably; it is image-hacking, which Martin's rule forbids. (No open EFS2/NV-backup
+  writer is available either.)
+
+What WOULD unblock a clean STx-off test later (for the record, not done):
+- A DIAG EFS2 transport on mainline (diag-over-QRTR router + an EFS2 PUT tool) so the modem
+  writes rtsar_config itself and rmtfs persists it to the copy - the supported path.
+- OR the RTSAR "STX2" struct spec + the oem_stanvbk record/CRC format, to edit the
+  compressed item offline deterministically.
+Neither is in hand; both are projects, not a one-run change.
+
+See dev-doc 2026-10-26-smart-transmit-rtsar-license.md (appended "Write-method investigation").
 ## 2026-10-26: Smart Transmit / RTSAR off-switch + QWES feasibility (read-only research, 16:20-16:35 CET)
 
 Read-only: no boots, no NV/EFS writes, nothing applied. Phone left gpu1, flag off, clean.

@@ -157,3 +157,20 @@ store; it does not replace the modem's runtime license query.
   exactly what the modem asks for and whether a license response alone (without the full TZ
   attestation) is accepted — worth doing as research before investing in option 4.
 - Park (option 1) remains the safe default until one of the above is chosen.
+
+## Write-method investigation (2026-10-26 16:37-16:50, after Martin approved an STx-off test)
+Goal: switch STx off in the writable copies only, one test boot. Result: STOPPED before any
+write/boot - no clean method exists on this mainline kernel. Copies only read; real
+partitions untouched; phone left gpu1, flag off, copies pristine.
+- Runtime (modem writes the item via DIAG/QMI so rmtfs persists it): NOT AVAILABLE. No
+  /dev/diag, no DIAG_CHAR, no diag-router; qmicli has no EFS/NV item write. No in-kernel diag
+  char device for the SoC modem on mainline.
+- Offline edit: rtsar_config is absent from the live EFS2 images; it exists only in
+  oem_stanvbk (OEM static NV backup), which the modem DOES read at boot via rmtfs (linux-msm
+  rmtfs PR #33). But each of the 8 records stores the config as a ZLIB-compressed payload
+  (78 9c) behind an ASCII "STX2" tag, inside NV-backup framing with length/CRC. The internal
+  RTSAR struct layout is undocumented. A reliable single-field (enable/mode) flip would need
+  decompress + known struct + recompress + framing/CRC repair across records - not reliable,
+  i.e. image-hacking, which is disallowed. No open EFS2/NV-backup writer exists.
+- Unblock later: a DIAG-EFS2-over-QRTR write path (supported), OR the STX2 struct + oem_stanvbk
+  record/CRC spec (offline). Both are separate projects.
