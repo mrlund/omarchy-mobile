@@ -1,38 +1,90 @@
-From e309297001f5952fdea490818c0a577c414ec7ff Mon Sep 17 00:00:00 2001
+From 56e4dec8280331bbe193463f6752725a65429260 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
-Date: Sat, 24 Oct 2026 11:48:12 +0200
-Subject: [PATCH 32/45] wifi: ath12k: add WCN7860 (PCI 0x110e, peach) on the
- QCC2072 HAL
+Date: Sun, 25 Oct 2026 16:01:46 +0100
+Subject: [PATCH 31/35] wifi: ath12k: add WCN7860 (peach) on the QCC2072 HAL
 
-WCN7860 reports SOC hw version 2 like WCN7850, but its UMAC register
-map, window register (0x3278), RX descriptor and 32-bit REO TLV rings
-are QCC2072's, which 7.3 supports natively. Add ATH12K_HW_WCN7860_HW20
-with the QCC2072 HAL map and hw_params cloned from QCC2072 (firmware in
-WCN7860/hw2.0), and claim 0x110e in the wifi7 PCI driver.
+WCN7860 (PCI 17cb:110e, "peach", the Wi-Fi/BT combo on SM8750 phones)
+reports SOC hw version 2 like WCN7850. Its UMAC register map, window
+register (0x3278), RX descriptor and 32-bit REO TLV rings are QCC2072's
+instead.
 
-Replaces the 6.16 dodge patches 0006, 0007, 0038-0042. The 6.16
-WCN7860 register table matches upstream qcc2072_regs value for value.
+Add ATH12K_HW_WCN7860_HW20 with the QCC2072 HAL map and hw_params
+based on QCC2072 (firmware in WCN7860/hw2.0), and claim the device in
+the wifi7 PCI driver. ATH12K_PCI_DEVICE_ID_WCN7860 goes in core.h,
+because QMI also needs it.
 
+Two differences from QCC2072:
+- The host feature list is PERST_NO_PULL | AUX_UC_SUPPORT (0x50),
+  without QDSS_CFG_MISS. With that bit set, the firmware starts
+  initializing before the host has sent the aux ucode and QDSS config,
+  refuses both with QMI error 90 and asserts in the aux MAC wakeup.
+  The vendor driver sets the bit only when the QDSS file is missing.
+- The DMA masks are limited to 28 bits. Without that, coherent
+  allocations for this chip land at the top of the 32-bit space, while
+  the vendor driver's DMA window for it is the low 384 MiB. The 28-bit
+  mask keeps the firmware segments inside that window.
+
+Assisted-by: Grok
 Signed-off-by: Martin Lund <mrlund@hotmail.com>
 ---
- drivers/net/wireless/ath/ath12k/core.h      |  1 +
+ drivers/net/wireless/ath/ath12k/core.h      |  4 +
+ drivers/net/wireless/ath/ath12k/pci.c       | 15 +++-
  drivers/net/wireless/ath/ath12k/wifi7/hal.c |  8 ++
- drivers/net/wireless/ath/ath12k/wifi7/hw.c  | 94 +++++++++++++++++++++
+ drivers/net/wireless/ath/ath12k/wifi7/hw.c  | 98 +++++++++++++++++++++
  drivers/net/wireless/ath/ath12k/wifi7/pci.c | 15 ++++
- 4 files changed, 118 insertions(+)
+ 5 files changed, 138 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/wireless/ath/ath12k/core.h b/drivers/net/wireless/ath/ath12k/core.h
-index a98fc6e06..cec642591 100644
+index a98fc6e06..47f420549 100644
 --- a/drivers/net/wireless/ath/ath12k/core.h
 +++ b/drivers/net/wireless/ath/ath12k/core.h
-@@ -159,6 +159,7 @@ enum ath12k_hw_rev {
+@@ -159,8 +159,12 @@ enum ath12k_hw_rev {
  	ATH12K_HW_IPQ5332_HW10,
  	ATH12K_HW_QCC2072_HW10,
  	ATH12K_HW_IPQ5424_HW10,
 +	ATH12K_HW_WCN7860_HW20,
  };
  
++/* WCN7860 (peach); its QMI and DMA setup differ from the other chips */
++#define ATH12K_PCI_DEVICE_ID_WCN7860	0x110e
++
  #define ATH12K_IRQ_NUM_MAX 57
+ #define ATH12K_EXT_IRQ_NUM_MAX	16
+ #define ATH12K_MAX_TCL_RING_NUM	3
+diff --git a/drivers/net/wireless/ath/ath12k/pci.c b/drivers/net/wireless/ath/ath12k/pci.c
+index 6441927b5..715239112 100644
+--- a/drivers/net/wireless/ath/ath12k/pci.c
++++ b/drivers/net/wireless/ath/ath12k/pci.c
+@@ -21,6 +21,7 @@
+ 
+ #define ATH12K_PCI_BAR_NUM		0
+ #define ATH12K_PCI_DMA_MASK		36
++#define ATH12K_PCI_DMA_MASK_WCN7860	28
+ 
+ #define ATH12K_PCI_IRQ_CE0_OFFSET		3
+ 
+@@ -860,9 +861,19 @@ static int ath12k_pci_claim(struct ath12k_pci *ab_pci, struct pci_dev *pdev)
+ 		goto disable_device;
+ 	}
+ 
+-	ab_pci->dma_mask = DMA_BIT_MASK(ATH12K_PCI_DMA_MASK);
++	/* WCN7860 firmware fails when its memory is allocated near the
++	 * top of the 32-bit DMA space (0xfe400000 and up); the vendor
++	 * driver keeps it low. Limit both masks to 256 MiB for it.
++	 */
++	if (device_id == ATH12K_PCI_DEVICE_ID_WCN7860)
++		ab_pci->dma_mask = DMA_BIT_MASK(ATH12K_PCI_DMA_MASK_WCN7860);
++	else
++		ab_pci->dma_mask = DMA_BIT_MASK(ATH12K_PCI_DMA_MASK);
+ 	dma_set_mask(&pdev->dev, ab_pci->dma_mask);
+-	dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
++	if (device_id == ATH12K_PCI_DEVICE_ID_WCN7860)
++		dma_set_coherent_mask(&pdev->dev, ab_pci->dma_mask);
++	else
++		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+ 
+ 	pci_set_master(pdev);
+ 
 diff --git a/drivers/net/wireless/ath/ath12k/wifi7/hal.c b/drivers/net/wireless/ath/ath12k/wifi7/hal.c
 index a0a1902fb..7175383ce 100644
 --- a/drivers/net/wireless/ath/ath12k/wifi7/hal.c
@@ -53,10 +105,10 @@ index a0a1902fb..7175383ce 100644
  
  int ath12k_wifi7_hal_init(struct ath12k_base *ab)
 diff --git a/drivers/net/wireless/ath/ath12k/wifi7/hw.c b/drivers/net/wireless/ath/ath12k/wifi7/hw.c
-index 7b86f324b..4736a0feb 100644
+index 7b86f324b..095a0bc1e 100644
 --- a/drivers/net/wireless/ath/ath12k/wifi7/hw.c
 +++ b/drivers/net/wireless/ath/ath12k/wifi7/hw.c
-@@ -806,6 +806,100 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
+@@ -806,6 +806,104 @@ static const struct ath12k_hw_params ath12k_wifi7_hw_params[] = {
  			.max_client_dbs_sbs = 128,
  		},
  
@@ -117,8 +169,12 @@ index 7b86f324b..4736a0feb 100644
 +
 +		.wmi_init = ath12k_wifi7_wmi_init_wcn7850,
 +
-+		.qmi_cnss_feature_bitmap = BIT(CNSS_QDSS_CFG_MISS_V01) |
-+					   BIT(CNSS_PCIE_PERST_NO_PULL_V01) |
++		/* Not QDSS_CFG_MISS: with it peach starts initializing at
++		 * once, rejects aux and qdss with err 90 (incompatible
++		 * state) and asserts in the aux MAC wakeup. Stock cnss2 sets
++		 * it only when the qdss file is missing. 0x50.
++		 */
++		.qmi_cnss_feature_bitmap = BIT(CNSS_PCIE_PERST_NO_PULL_V01) |
 +					   BIT(CNSS_AUX_UC_SUPPORT_V01),
 +
 +		.rfkill_pin = 0,
@@ -158,14 +214,14 @@ index 7b86f324b..4736a0feb 100644
  	},
  	{
 diff --git a/drivers/net/wireless/ath/ath12k/wifi7/pci.c b/drivers/net/wireless/ath/ath12k/wifi7/pci.c
-index 6c96b52de..760fe6216 100644
+index 6c96b52de..0c0625c48 100644
 --- a/drivers/net/wireless/ath/ath12k/wifi7/pci.c
 +++ b/drivers/net/wireless/ath/ath12k/wifi7/pci.c
 @@ -20,6 +20,7 @@
  #define QCN9274_DEVICE_ID		0x1109
  #define WCN7850_DEVICE_ID		0x1107
  #define QCC2072_DEVICE_ID		0x1112
-+#define WCN7860_DEVICE_ID		0x110e
++#define WCN7860_DEVICE_ID		ATH12K_PCI_DEVICE_ID_WCN7860
  
  #define ATH12K_PCI_W7_SOC_HW_VERSION_1	1
  #define ATH12K_PCI_W7_SOC_HW_VERSION_2	2

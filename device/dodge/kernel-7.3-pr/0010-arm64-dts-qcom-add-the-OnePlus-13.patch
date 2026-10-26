@@ -1,23 +1,24 @@
-From 3c270a81549216f86a47124db2865d29bb3466fc Mon Sep 17 00:00:00 2001
+From 172016d013465fee59c4e3d34068884793757721 Mon Sep 17 00:00:00 2001
 From: index986 <index986.github@gmail.com>
 Date: Sun, 25 Oct 2026 09:06:21 +0100
-Subject: [PATCH 10/45] arm64: dts: qcom: add the OnePlus 13
+Subject: [PATCH 10/35] arm64: dts: qcom: add the OnePlus 13
 
 Add a device tree for the OnePlus 13 (SM8750, codename dodge), carried
 over from the sm8750-mainline v6.16 tree: memory map, regulators, UFS,
 USB, the AA569 DSI panel, the Synaptics touchscreen, buttons, battery
-and charger, and the remote processors. Later commits in this series
-enable Wi-Fi/Bluetooth, audio, rmtfs and the GPU on top of it.
+and charger, and the ADSP. The CDSP and modem are described but stay
+disabled. Later commits in this series enable Wi-Fi/Bluetooth, audio,
+rmtfs and the GPU on top of it.
 
 Link: https://github.com/sm8750-mainline/linux/tree/v6.16/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 [mrlund: taken from the sm8750-mainline v6.16 tree (index986, with
  contributions from others in that history; no Signed-off-by there)
- and ported to 7.3]
+ and ported to 7.3; CDSP and modem left disabled]
 Signed-off-by: Martin Lund <mrlund@hotmail.com>
 ---
  arch/arm64/boot/dts/qcom/Makefile             |    1 +
- .../boot/dts/qcom/sm8750-oneplus-dodge.dts    | 1319 +++++++++++++++++
- 2 files changed, 1320 insertions(+)
+ .../boot/dts/qcom/sm8750-oneplus-dodge.dts    | 1321 +++++++++++++++++
+ 2 files changed, 1322 insertions(+)
  create mode 100644 arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 
 diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
@@ -34,10 +35,10 @@ index 1c86e7e98..9559330a2 100644
  
 diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 new file mode 100644
-index 000000000..a981d95d8
+index 000000000..6a8c855d5
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
-@@ -0,0 +1,1319 @@
+@@ -0,0 +1,1321 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Copyright (c) 2025 index986. All rights reserved.
@@ -1114,18 +1115,20 @@ index 000000000..a981d95d8
 +	status = "okay";
 +};
 +
++/*
++ * The CDSP and the modem stay disabled, as in sm8750.dtsi, until their
++ * firmware, memory carve-outs and power handling work on this phone:
++ * probing the modem hands its memory to the modem VM. The firmware names
++ * are kept so that enabling one is a status change.
++ */
 +&remoteproc_cdsp {
 +	firmware-name = "qcom/sm8750/OnePlus/cdsp.mbn",
 +			"qcom/sm8750/OnePlus/cdsp_dtb.mbn";
-+
-+	status = "okay";
 +};
 +
 +&remoteproc_mpss {
 +	firmware-name = "qcom/sm8750/OnePlus/modem.mbn",
 +			"qcom/sm8750/OnePlus/modem_dtb.mbn";
-+
-+	status = "okay";
 +};
 +
 +&tlmm {

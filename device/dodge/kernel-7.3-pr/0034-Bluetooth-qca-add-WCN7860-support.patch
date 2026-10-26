@@ -1,7 +1,7 @@
-From 0d35c73794efe5699c3228540abd8ffffc619fac Mon Sep 17 00:00:00 2001
+From 1153b4e97ce759fa4645b98852dab6e7fbb7df76 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 16:21:49 +0200
-Subject: [PATCH 44/45] Bluetooth: qca: add WCN7860 support
+Subject: [PATCH 34/35] Bluetooth: qca: add WCN7860 support
 
 WCN7860 (peach, the Wi-Fi/BT combo on SM8750 phones) is a WCN7850
 derivative on UART. Its rampatch is an ELF image (gngbtfwXX.mbn) and
@@ -12,16 +12,10 @@ Add QCA_WCN7860 with the WCN7850 handling plus those differences and
 the qcom,wcn7860-bt compatible. Power still goes through the WCN7850
 power sequencer.
 
-Based on the ROCKNIX SM8750 patch by Teguh Sobirin, ported to 6.16.
-
-(Ported from the dodge v6.16 bring-up tree.)
-
-7.3 port: upstream renamed qca_power_shutdown() to qca_power_off(),
-moved QCA6390 out of the regulator/power switches, added WCN6750 and
-the WCN39xx parts to the enable-gpios switch, and now looks qcadev up
-once with a NULL check before the bdaddr quirk. WCN7860 is added to
-each of those switches as is; its soc data keeps the 6.16 caps (no
-QCA_CAP_HFP_HW_OFFLOAD, which 7.3 added for WCN7850).
+Based on the ROCKNIX SM8750 patch by Teguh Sobirin. WCN7860 is added
+next to WCN7850 in the regulator/power, enable-gpios and power-off
+switches. Its soc data does not set QCA_CAP_HFP_HW_OFFLOAD, which
+WCN7850 has; that stays off until it is tested on WCN7860.
 
 Signed-off-by: Martin Lund <mrlund@hotmail.com>
 ---

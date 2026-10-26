@@ -1,7 +1,7 @@
-From 9c103c66538e46f33443396829ec038793035335 Mon Sep 17 00:00:00 2001
+From 0c3235afa2bf5972ce6eb66116e1bc9d9af70f0f Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sun, 25 Oct 2026 09:17:23 +0100
-Subject: [PATCH 06/45] dt-bindings: net: bluetooth: qcom: add WCN7860
+Subject: [PATCH 06/35] dt-bindings: net: bluetooth: qcom: add WCN7860
 
 WCN7860 is the WCN7850 successor used with SM8750. Its Bluetooth part
 is powered from the same PMU outputs, so document it in the WCN7850

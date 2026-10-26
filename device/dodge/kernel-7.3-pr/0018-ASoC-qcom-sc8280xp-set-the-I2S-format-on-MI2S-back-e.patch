@@ -1,7 +1,7 @@
-From ac2502beed1834811bff7a4c5fbf688e47bfaf08 Mon Sep 17 00:00:00 2001
+From 7e4fc7032609ca8de6e55d2db11c0f7aa4ca52ee Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 11:56:34 +0200
-Subject: [PATCH 19/45] ASoC: qcom: sc8280xp: set the I2S format on MI2S back
+Subject: [PATCH 18/35] ASoC: qcom: sc8280xp: set the I2S format on MI2S back
  ends
 
 MI2S codecs such as speaker amplifiers are clock consumers; set the

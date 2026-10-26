@@ -1,7 +1,7 @@
-From 89c5b5ed44c512b8199f96fb59dbe982e30a6e8e Mon Sep 17 00:00:00 2001
+From e6ff09474aea79dff26b98a8b0075ac3d9e061cd Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 11:56:34 +0200
-Subject: [PATCH 20/45] arm64: dts: qcom: sm8750-oneplus-dodge: add the sound
+Subject: [PATCH 19/35] arm64: dts: qcom: sm8750-oneplus-dodge: add the sound
  card
 
 Secondary MI2S on q6apm to the two speaker amplifiers, with the i2s1
@@ -13,7 +13,7 @@ Signed-off-by: Martin Lund <mrlund@hotmail.com>
  1 file changed, 55 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
-index 2ea7b4fdf..130096720 100644
+index 2717a7f64..e5ee16bb6 100644
 --- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 +++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 @@ -39,6 +39,30 @@ / {
@@ -47,7 +47,7 @@ index 2ea7b4fdf..130096720 100644
  	aliases {
  		serial0 = &uart7;
  	};
-@@ -1108,6 +1132,37 @@ &tlmm {
+@@ -1110,6 +1134,37 @@ &tlmm {
  	/* reserved for secure world */
  	gpio-reserved-ranges = <36 4>, <74 1>;
  

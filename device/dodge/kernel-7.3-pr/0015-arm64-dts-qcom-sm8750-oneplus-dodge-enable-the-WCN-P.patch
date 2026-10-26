@@ -1,7 +1,7 @@
-From 40c8ebdc698a36d67cb0ffd3e4271b8c6470f6aa Mon Sep 17 00:00:00 2001
+From 8472fdc85012cebb1eccf0615fd9bf6d2c7d6eea Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 17 Oct 2026 15:13:00 +0200
-Subject: [PATCH 15/45] arm64: dts: qcom: sm8750-oneplus-dodge: enable the WCN
+Subject: [PATCH 15/35] arm64: dts: qcom: sm8750-oneplus-dodge: enable the WCN
  PMU
 
 The node already has the WCN7850 rail list, including vddio1p2, and
@@ -15,7 +15,7 @@ Signed-off-by: Martin Lund <mrlund@hotmail.com>
  1 file changed, 5 insertions(+), 3 deletions(-)
 
 diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
-index ffa06df7c..12cd5dd6f 100644
+index da08eb0d2..5eca2d251 100644
 --- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 +++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 @@ -401,8 +401,10 @@ vph_pwr: vph-pwr-regulator {

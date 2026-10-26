@@ -1,31 +1,33 @@
-From f9179bc2cbc53f1f2d584ce3f35a86f4cb05e193 Mon Sep 17 00:00:00 2001
+From f8b8981b79deff54aa02f47bb5116b8f7ce33b9f Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
-Date: Sat, 17 Oct 2026 18:09:15 +0200
-Subject: [PATCH 33/45] bus: mhi: host: continue from BHI_EXECENV when the EE
+Date: Sun, 25 Oct 2026 16:01:45 +0100
+Subject: [PATCH 30/35] bus: mhi: host: continue from BHI_EXECENV when the EE
  event is lost
 
-Peach (PCI 17cb:110e) sets BHI_EXECENV to SBL, and later AMSS, before
-the host has an event ring that could carry the EE event, so the
-event never arrives and the 90 s wait expires. Continue from the
-register after the BHI load, poll for AMSS briefly after the AMSS
-download, and ignore a duplicate SBL or mission-mode transition when
-both the register path and a late event queue one.
+WCN7860 (PCI 17cb:110e) sets BHI_EXECENV to SBL, and later to AMSS,
+before the host has an event ring that could carry the EE event, so
+the event never arrives and the 90 s wait expires.
 
-Port of dodge 6.16 patch 0008. Its two-ELF half (BHIe sends only the
-bytes after sbl_size, keyed on a new tme_supported_image flag) is
-dropped: 7.3 boot.c already detects a second ELF header at sbl_size
-and skips the SBL part, which is the same thing without the flag.
+After the BHI load, continue from the register if it already shows
+SBL, AMSS/WFW or FP. After the AMSS download, poll BHI_EXECENV for up
+to 2 s (20 x 100 ms) and queue the mission-mode transition when it
+shows AMSS, WFW or FP. If the event does arrive, the register path and
+the event can both queue a transition, so a repeated SBL or
+mission-mode transition is ignored.
 
-(Ported from the dodge v6.16 bring-up tree, reworked.)
+Devices that deliver the EE event are unaffected apart from the
+duplicate guards. On those, BHI_EXECENV normally reaches AMSS soon
+after the download, so the poll ends early.
 
+Assisted-by: Grok
 Signed-off-by: Martin Lund <mrlund@hotmail.com>
 ---
  drivers/bus/mhi/host/boot.c | 21 +++++++++++++++++++++
- drivers/bus/mhi/host/pm.c   | 30 ++++++++++++++++++++++++++++++
- 2 files changed, 51 insertions(+)
+ drivers/bus/mhi/host/pm.c   | 31 +++++++++++++++++++++++++++++++
+ 2 files changed, 52 insertions(+)
 
 diff --git a/drivers/bus/mhi/host/boot.c b/drivers/bus/mhi/host/boot.c
-index 19c84913c..8512ef602 100644
+index 19c84913c..0283fff75 100644
 --- a/drivers/bus/mhi/host/boot.c
 +++ b/drivers/bus/mhi/host/boot.c
 @@ -598,6 +598,27 @@ void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl)
@@ -49,7 +51,7 @@ index 19c84913c..8512ef602 100644
 +			st = DEV_ST_TRANSITION_FP;
 +
 +		if (st != DEV_ST_TRANSITION_MAX) {
-+			dev_info(dev, "EE 0x%x already set, continuing\n", exec);
++			dev_dbg(dev, "EE 0x%x already set, continuing\n", exec);
 +			mhi_queue_state_transition(mhi_cntrl, st);
 +		}
 +	}
@@ -57,7 +59,7 @@ index 19c84913c..8512ef602 100644
  
  error_ready_state:
 diff --git a/drivers/bus/mhi/host/pm.c b/drivers/bus/mhi/host/pm.c
-index ced83fbb1..4f752983b 100644
+index ced83fbb1..d5c5cf2f9 100644
 --- a/drivers/bus/mhi/host/pm.c
 +++ b/drivers/bus/mhi/host/pm.c
 @@ -813,6 +813,9 @@ void mhi_pm_st_worker(struct work_struct *work)
@@ -70,15 +72,16 @@ index ced83fbb1..4f752983b 100644
  			write_lock_irq(&mhi_cntrl->pm_lock);
  			mhi_cntrl->ee = MHI_EE_SBL;
  			write_unlock_irq(&mhi_cntrl->pm_lock);
-@@ -824,10 +827,37 @@ void mhi_pm_st_worker(struct work_struct *work)
+@@ -824,10 +827,38 @@ void mhi_pm_st_worker(struct work_struct *work)
  			mhi_create_devices(mhi_cntrl);
  			if (mhi_cntrl->fbc_download)
  				mhi_download_amss_image(mhi_cntrl);
 +			/*
 +			 * Same race as the SBL entry: the AMSS execution
 +			 * environment can show up in BHI_EXECENV with no EE
-+			 * event. Poll briefly. The event still works if it
-+			 * arrives on its own.
++			 * event. Poll for up to 2 s (20 x 100 ms). The event
++			 * still works if it arrives on its own; a duplicate
++			 * MISSION_MODE transition is ignored below.
 +			 */
 +			{
 +				int n;
@@ -88,8 +91,8 @@ index ced83fbb1..4f752983b 100644
 +
 +					if (!mhi_read_reg(mhi_cntrl, mhi_cntrl->bhi,
 +							  BHI_EXECENV, &exec))
-+						dev_info(&mhi_cntrl->mhi_dev->dev,
-+							 "post-AMSS %d ee=0x%x\n", n, exec);
++						dev_dbg(&mhi_cntrl->mhi_dev->dev,
++							"post-AMSS %d ee=0x%x\n", n, exec);
 +					if (exec == MHI_EE_AMSS || exec == MHI_EE_WFW ||
 +					    exec == MHI_EE_FP) {
 +						mhi_queue_state_transition(mhi_cntrl,

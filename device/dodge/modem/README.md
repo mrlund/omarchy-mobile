@@ -2,7 +2,7 @@
 # dodge modem
 
 Everything here is inert unless `/etc/omamobile/modem-probe.enable` exists.
-Default: off (no SIM in the phone, 2026-10-21).
+Default: off (2026-10-21; a SIM is in since 2026-10-26, the modem stays offline).
 
 With the flag, at boot:
 
@@ -27,7 +27,21 @@ needs `/usr/local/bin/rmtfs` and `tqftpserv` (linux-msm git), `qcom_rmtfs_mem.ko
 `/usr/local/lib/omamobile/modem/`, the firmware in
 `/lib/firmware/qcom/sm8750/OnePlus/` and the EFS copies. None of those are in git.
 
+On 7.x the helper loads the in-tree `rmtfs_mem.ko` from
+`/usr/lib/modules/<release>.held` when the 6.16 `qcom_rmtfs_mem.ko` is not in
+the overlay, and the MPSS needs the `mpss` node enabled in the DT (gpu1 has it;
+the PR branch keeps it disabled).
+
 Turn on: `touch /etc/omamobile/modem-probe.enable`, then reboot. Turn off:
-remove the file and reboot (or stop `ModemManager omamobile-mm-netport
-omamobile-modem omamobile-rmtfs omamobile-tqftpserv`). Details:
+remove the file and reboot. **Never stop the modem remoteproc** (`echo stop`,
+`systemctl stop omamobile-modem` with an old unit, or a shutdown that runs
+one): on 7.3 it hard-resets the phone at once, with no kernel log and the
+filesystems still mounted. The unit has no ExecStop and `omamobile-modem stop`
+only logs. A phone running an older unit needs a runtime drop-in with an empty
+`ExecStop=` before any reboot.
+
+Status 2026-10-26 (7.3 gpu1, SIM inserted): the MPSS boots and QMI,
+rmtfs, tqftpserv and ModemManager work, the SIM reads (PIN1 disabled), but
+the modem stays offline with no RF bands, so there's no registration and no
+data. Details: [../dev-docs/2026-10-26-modem-sim-73.md](../dev-docs/2026-10-26-modem-sim-73.md). Details:
 [../dev-docs/2026-10-21-modem.md](../dev-docs/2026-10-21-modem.md).

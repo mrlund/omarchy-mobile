@@ -1,7 +1,7 @@
-From 00016ede1f4c56a4a5a5b3cca78352069776902e Mon Sep 17 00:00:00 2001
+From 54d75d6b14db9a32ceaa8176aba883a3bd024c2c Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 11:37:22 +0200
-Subject: [PATCH 17/45] arm64: dts: qcom: sm8750-oneplus-dodge: enable the
+Subject: [PATCH 16/35] arm64: dts: qcom: sm8750-oneplus-dodge: enable the
  speaker amplifier bus
 
 The two Awinic speaker amplifiers sit on hub I2C4 at 0x34 and 0x35.
@@ -13,10 +13,10 @@ Signed-off-by: Martin Lund <mrlund@hotmail.com>
  1 file changed, 9 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
-index 12cd5dd6f..f25de925c 100644
+index 5eca2d251..29c25e71f 100644
 --- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 +++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
-@@ -1315,6 +1315,15 @@ &mdss_dsi0_phy {
+@@ -1317,6 +1317,15 @@ &mdss_dsi0_phy {
  	status = "okay";
  };
  

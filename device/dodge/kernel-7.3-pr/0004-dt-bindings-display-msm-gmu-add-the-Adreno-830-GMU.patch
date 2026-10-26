@@ -1,7 +1,7 @@
-From 0b51ef18b8d24bd2e21ae0d0ab1d4b6d23b69a7a Mon Sep 17 00:00:00 2001
+From 44a634437614736fadf0b8cbef537d41f99ab8e6 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sun, 25 Oct 2026 09:17:22 +0100
-Subject: [PATCH 04/45] dt-bindings: display/msm/gmu: add the Adreno 830 GMU
+Subject: [PATCH 04/35] dt-bindings: display/msm/gmu: add the Adreno 830 GMU
 
 The SM8750 GMU (qcom,adreno-gmu-830.1) has the same single register
 region and the same five clocks (ahb, gmu, cxo, memnoc, hub) as the

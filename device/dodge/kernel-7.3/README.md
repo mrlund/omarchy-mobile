@@ -87,7 +87,74 @@ fastboot boot ~/android/mainline/out-dodge-chain-73/images/boot-chain.img
 
 Results: `../dev-docs/2026-10-21-kernel-7.3-stage1.md`.
 
-## PR branch omamobile-dodge (2026-10-25, pr1)
+## PR branch omamobile-dodge (2026-10-26, pr2)
+
+`omamobile-dodge` is now `952dec326`, 35 commits on `97a6b87a8`, pushed to
+Martin's fork (`mrlund/linux-omarchy-mobile`, branch `omamobile-dodge`; not to
+Derek, no PR opened). Patches: [../kernel-7.3-pr/](../kernel-7.3-pr/)
+(`git format-patch 97a6b87a8..952dec326`, byte-identical). The PR text is kept
+locally (`pr-work/PR-omamobile-dodge.md`).
+
+Changes from pr1 (45 commits, `0d65e1509`, below):
+- Review fixes. The only_adsp remoteproc parameter (pr1 26) is dropped: the
+  CDSP and modem stay `disabled` in the board dts instead, so there is no
+  remoteproc change in the series.
+- The ath12k/MHI bring-up commits (pr1 32-43) are squashed into 30-33. The
+  squash only removes debug code (an off-by-default `skip_tme` parameter, an
+  unused cold-boot function and waitqueue, a QMI TLV that was only printed, a
+  `ddr_range` table that was never sent) and turns info prints into debug
+  prints.
+- Checks: every commit from 10 onward builds on its own (arm64, LLVM), the
+  full build has no warnings, `dt_binding_check` on the four bindings is clean.
+- Boot tests (2026-10-26, one-shot `TRIAL-7.3-pr2-boot_a.img`, sha256
+  `727ad325...12b1`, twice): display, touch, USB, Wi-Fi with a gateway ping,
+  BT, battery, DPMS off/on, Adreno 830 on freedreno, only the ADSP running,
+  no oops. Both AW882308 amps play: live regmap reads during `aplay` show
+  SYSST `0x0211` (PLL, clock, boost up), SYSCTRL `0x5240` (out of power-down)
+  and volume `0x140` on 1-0034 and 1-0035; idle and after `0x0000`, `0xd343`,
+  muted `0x3ff`.
+
+Class: (a) shared/generic, (b) dodge.
+
+| # | class | author | subject |
+|---|---|---|---|
+| 1 `8b1ad529d` | a | Martin Lund | PCI: qcom: parse iommu-map with a 2-cell IOMMU specifier in config_sid |
+| 2 `a851560ef` | a | Martin Lund | wifi: ath12k: complete regd_update_completed when a country change is rejected |
+| 3 `0e5e9cabe` | a | Martin Lund | dt-bindings: display/msm/gpu: add the Adreno 830 (0x44050000) |
+| 4 `44a634437` | a | Martin Lund | dt-bindings: display/msm/gmu: add the Adreno 830 GMU |
+| 5 `e66401646` | a | Martin Lund | ASoC: dt-bindings: add the Awinic AW882308 amplifier |
+| 6 `0c3235afa` | a | Martin Lund | dt-bindings: net: bluetooth: qcom: add WCN7860 |
+| 7 `d1d7b1a70` | a | Martin Lund | arm64: dts: qcom: sm8750: add gpucc/gxclkctl/adreno-smmu |
+| 8 `de6cc6a89` | a | Teguh Sobirin | arm64: dts: qcom: sm8750: add Adreno 830 GPU and GMU nodes |
+| 9 `478a63fd1` | a | Teguh Sobirin | drm/msm/adreno: add the Adreno 830 catalog entry |
+| 10 `172016d01` | b | index986 | arm64: dts: qcom: add the OnePlus 13 |
+| 11 `00fcc905c` | b | index986 | arm64: configs: add an sm8750.config fragment for the OnePlus 13 |
+| 12 `41bacc877` | b | index986 | drm/panel: add the AA569 DSC command-mode panel of the OnePlus 13 |
+| 13 `9407269eb` | b | index986 | Input: add a Synaptics TCM2 SPI touchscreen driver |
+| 14 `c2549a944` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: add ABL board ids |
+| 15 `8472fdc85` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: enable the WCN PMU |
+| 16 `54d75d6b1` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: enable the speaker amplifier bus |
+| 17 `91dc290fd` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: add the speaker amplifiers |
+| 18 `7e4fc7032` | a | Martin Lund | ASoC: qcom: sc8280xp: set the I2S format on MI2S back ends |
+| 19 `e6ff09474` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: add the sound card |
+| 20 `2c388ddff` | a | Martin Lund | ASoC: qcom: sc8280xp: no headset jack on MI2S links |
+| 21 `6348864ce` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: add the WCD939x and microphones |
+| 22 `17166ac54` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: add the USB-C headset path |
+| 23 `392c58e1a` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: enable Bluetooth |
+| 24 `efa32ab4c` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: set the panel VCI rail to 3.0 V |
+| 25 `95dea7441` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: add rmtfs_mem |
+| 26 `2bc002a48` | a | Martin Lund | drm/msm/dsi: keep the RGB888 command DST format with DSC |
+| 27 `c404a5a11` | b | Martin Lund | ASoC: codecs: add a bring-up driver for Awinic 0x2308 amplifiers |
+| 28 `ff6417027` | b | Martin Lund | ASoC: codecs: aw882308: add the Receiver profile |
+| 29 `e483f1ca3` | a | Martin Lund | drm/msm/mdss: sm8750: read the display QTB once on every MDSS enable |
+| 30 `f8b8981b7` | a | Martin Lund | bus: mhi: host: continue from BHI_EXECENV when the EE event is lost |
+| 31 `56e4dec82` | a | Martin Lund | wifi: ath12k: add WCN7860 (peach) on the QCC2072 HAL |
+| 32 `c098c11d6` | a | Martin Lund | wifi: ath12k: QMI: WCN7860 firmware download sequence |
+| 33 `dad64a890` | a | Martin Lund | wifi: ath12k: collect a coredump when the firmware crashes before FW_READY |
+| 34 `1153b4e97` | a | Martin Lund | Bluetooth: qca: add WCN7860 support |
+| 35 `952dec326` | b | Martin Lund | arm64: dts: qcom: sm8750-oneplus-dodge: enable Adreno 830 GPU |
+
+## PR branch omamobile-dodge (2026-10-25, pr1, superseded by pr2)
 
 Local branch `omamobile-dodge` in `wt-omamobile` (not pushed anywhere), the
 clean form of `trial/omamobile-dodge-port` (f08f72d3e, kept untouched) for a

@@ -1,7 +1,7 @@
 From 8b1ad529d1577eed359511d5a5cc23d59c7af35a Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 13:55:40 +0200
-Subject: [PATCH 01/45] PCI: qcom: parse iommu-map with a 2-cell IOMMU
+Subject: [PATCH 01/35] PCI: qcom: parse iommu-map with a 2-cell IOMMU
  specifier in config_sid
 
 qcom_pcie_config_sid_1_9_0() reads "iommu-map" as fixed 4-cell records

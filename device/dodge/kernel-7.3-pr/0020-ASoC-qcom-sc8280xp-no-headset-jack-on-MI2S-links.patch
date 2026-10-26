@@ -1,7 +1,7 @@
-From 3bcb5c8bd68e3249fcf20a6307319ae50ba95fbd Mon Sep 17 00:00:00 2001
+From 2c388ddffd9dbdd5992c10ef25ba8e575d77ba1e Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 12:01:59 +0200
-Subject: [PATCH 21/45] ASoC: qcom: sc8280xp: no headset jack on MI2S links
+Subject: [PATCH 20/35] ASoC: qcom: sc8280xp: no headset jack on MI2S links
 
 MI2S links on these boards drive speaker amplifiers; do not create
 Headphone Jack / Mic Jack controls for them.

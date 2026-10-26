@@ -1,7 +1,7 @@
-From a833520fd1450293cf02d0013542fd9f06fb4e66 Mon Sep 17 00:00:00 2001
+From 17166ac54f513e1b8a2dfe730a02363460534203 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 12:41:16 +0200
-Subject: [PATCH 23/45] arm64: dts: qcom: sm8750-oneplus-dodge: add the USB-C
+Subject: [PATCH 22/35] arm64: dts: qcom: sm8750-oneplus-dodge: add the USB-C
  headset path
 
 The OnePlus 13 has no 3.5 mm jack: analog headsets use USB-C audio
@@ -18,7 +18,7 @@ Signed-off-by: Martin Lund <mrlund@hotmail.com>
  1 file changed, 71 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
-index c61b68542..0a74894f9 100644
+index 71819fd9e..f7edd9ed8 100644
 --- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 +++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 @@ -52,11 +52,29 @@ sound {
@@ -82,8 +82,8 @@ index c61b68542..0a74894f9 100644
  			};
  		};
  	};
-@@ -1182,6 +1217,42 @@ &remoteproc_mpss {
- 	status = "okay";
+@@ -1184,6 +1219,42 @@ &remoteproc_mpss {
+ 			"qcom/sm8750/OnePlus/modem_dtb.mbn";
  };
  
 +&i2c3 {

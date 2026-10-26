@@ -1,7 +1,7 @@
-From e8446f58bf48b275e8036b0cc9c2994e092d44cb Mon Sep 17 00:00:00 2001
+From 41bacc877006890d60c0e05501167e41378d632a Mon Sep 17 00:00:00 2001
 From: index986 <index986.github@gmail.com>
 Date: Sun, 25 Oct 2026 09:06:21 +0100
-Subject: [PATCH 12/45] drm/panel: add the AA569 DSC command-mode panel of the
+Subject: [PATCH 12/35] drm/panel: add the AA569 DSC command-mode panel of the
  OnePlus 13
 
 Add a driver for the AA569 (P_3_A0019) 1440x3168 DSC panel used on the
@@ -20,8 +20,8 @@ Signed-off-by: Martin Lund <mrlund@hotmail.com>
 ---
  drivers/gpu/drm/panel/Kconfig                 |  11 +
  drivers/gpu/drm/panel/Makefile                |   1 +
- .../gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c | 478 ++++++++++++++++++
- 3 files changed, 490 insertions(+)
+ .../gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c | 476 ++++++++++++++++++
+ 3 files changed, 488 insertions(+)
  create mode 100644 drivers/gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c
 
 diff --git a/drivers/gpu/drm/panel/Kconfig b/drivers/gpu/drm/panel/Kconfig
@@ -55,14 +55,13 @@ index 83beb2645..798d98339 100644
 +obj-$(CONFIG_DRM_PANEL_ONEPLUS_DODGE) += panel-aa569-p-3-a0019-dsc.o
 diff --git a/drivers/gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c b/drivers/gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c
 new file mode 100644
-index 000000000..66120d257
+index 000000000..ea9ee4aa6
 --- /dev/null
 +++ b/drivers/gpu/drm/panel/panel-aa569-p-3-a0019-dsc.c
-@@ -0,0 +1,478 @@
+@@ -0,0 +1,476 @@
 +// SPDX-License-Identifier: GPL-2.0-only
-+// Copyright (c) 2025 FIXME
 +// Generated with linux-mdss-dsi-panel-driver-generator from vendor device tree:
-+//   Copyright (c) 2013, The Linux Foundation. All rights reserved. (FIXME)
++//   Copyright (c) 2013, The Linux Foundation. All rights reserved.
 +
 +#include <linux/backlight.h>
 +#include <linux/delay.h>
@@ -519,7 +518,7 @@ index 000000000..66120d257
 +}
 +
 +static const struct of_device_id panel_aa569_p_3_a0019_dsc_of_match[] = {
-+	{ .compatible = "oneplus,dodge-panel" }, // FIXME
++	{ .compatible = "oneplus,dodge-panel" },
 +	{ /* sentinel */ }
 +};
 +MODULE_DEVICE_TABLE(of, panel_aa569_p_3_a0019_dsc_of_match);
@@ -534,7 +533,6 @@ index 000000000..66120d257
 +};
 +module_mipi_dsi_driver(panel_aa569_p_3_a0019_dsc_driver);
 +
-+MODULE_AUTHOR("linux-mdss-dsi-panel-driver-generator <fix@me>"); // FIXME
 +MODULE_DESCRIPTION("DRM driver for AA569 P 3 A0019 dsc cmd mode panel");
 +MODULE_LICENSE("GPL");
 -- 

@@ -15,13 +15,17 @@ modem_rproc() {
 case "${1:-}" in
 rmtfs-mem)
 	# rmtfs falls back to /dev/mem without this device; never let it.
-	grep -q '^qcom_rmtfs_mem ' /proc/modules || insmod "$KO" || exit 1
+	# The 6.16 overlay ships qcom_rmtfs_mem.ko; 7.x has rmtfs_mem.ko in its module tree.
+	if ! grep -qE '^(qcom_)?rmtfs_mem ' /proc/modules; then
+		K7=/usr/lib/modules/$(uname -r).held/kernel/drivers/soc/qcom/rmtfs_mem.ko
+		if [ -e "$KO" ]; then insmod "$KO" || exit 1; else insmod "$K7" || exit 1; fi
+	fi
 	for _ in $(seq 20); do [ -c /dev/qcom_rmtfs_mem1 ] && exit 0; sleep 0.5; done
 	log "no /dev/qcom_rmtfs_mem1"; exit 1 ;;
 start)
 	r=""
 	for _ in $(seq 40); do r=$(modem_rproc) && break; sleep 0.5; done
-	[ -n "$r" ] || { log "no modem remoteproc (only_adsp=1?)"; exit 1; }
+	[ -n "$r" ] || { log "no modem remoteproc (PAS loaded with only_adsp=1, or mpss disabled in the DT)"; exit 1; }
 	[ "$(cat "$r/state")" = running ] || echo start > "$r/state" || exit 1
 	for _ in $(seq 60); do
 		s=$(cat "$r/state")
@@ -31,8 +35,9 @@ start)
 	done
 	log "modem state $(cat "$r/state")"; exit 1 ;;
 stop)
-	r=$(modem_rproc) || exit 0
-	[ "$(cat "$r/state")" = running ] && echo stop > "$r/state"
+	# Never stop the MPSS: on 7.3 (gpu1, 2026-10-26) writing "stop" to its
+	# remoteproc hard-resets the whole phone with no kernel log. Reboot instead.
+	log "not stopping the modem (stopping it resets the phone); reboot to turn it off"
 	exit 0 ;;
 *) echo "usage: $0 rmtfs-mem|start|stop" >&2; exit 2 ;;
 esac

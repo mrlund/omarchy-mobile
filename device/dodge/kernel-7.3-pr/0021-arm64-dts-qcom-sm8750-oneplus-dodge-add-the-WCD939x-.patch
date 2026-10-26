@@ -1,7 +1,7 @@
-From 93aaeeccf760e479d14281728a16e8fad212caa4 Mon Sep 17 00:00:00 2001
+From 6348864ced0fc92ae156fa0b677744406eda6fea Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 12:27:19 +0200
-Subject: [PATCH 22/45] arm64: dts: qcom: sm8750-oneplus-dodge: add the WCD939x
+Subject: [PATCH 21/35] arm64: dts: qcom: sm8750-oneplus-dodge: add the WCD939x
  and microphones
 
 The OnePlus 13 has a WCD939x on the RX and TX SoundWire masters (reset
@@ -17,7 +17,7 @@ Signed-off-by: Martin Lund <mrlund@hotmail.com>
  1 file changed, 84 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
-index 130096720..c61b68542 100644
+index e5ee16bb6..71819fd9e 100644
 --- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 +++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 @@ -46,6 +46,33 @@ sound {
@@ -88,8 +88,8 @@ index 130096720..c61b68542 100644
  	aliases {
  		serial0 = &uart7;
  	};
-@@ -1128,10 +1182,40 @@ &remoteproc_mpss {
- 	status = "okay";
+@@ -1130,10 +1184,40 @@ &remoteproc_mpss {
+ 			"qcom/sm8750/OnePlus/modem_dtb.mbn";
  };
  
 +&swr1 {

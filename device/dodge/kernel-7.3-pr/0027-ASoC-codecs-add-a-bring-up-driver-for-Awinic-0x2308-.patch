@@ -1,7 +1,7 @@
-From 05cb79c535d8401c5a313d601e14ca31d6c5e047 Mon Sep 17 00:00:00 2001
+From c404a5a11e575225cd07ef077ad9f0a462f31577 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Tue, 20 Oct 2026 12:01:59 +0200
-Subject: [PATCH 29/45] ASoC: codecs: add a bring-up driver for Awinic 0x2308
+Subject: [PATCH 27/35] ASoC: codecs: add a bring-up driver for Awinic 0x2308
  amplifiers
 
 Minimal I2C/regmap codec driver for the two Awinic smart amplifiers
@@ -18,8 +18,8 @@ Signed-off-by: Martin Lund <mrlund@hotmail.com>
 ---
  sound/soc/codecs/Kconfig    |   9 +
  sound/soc/codecs/Makefile   |   2 +
- sound/soc/codecs/aw882308.c | 455 ++++++++++++++++++++++++++++++++++++
- 3 files changed, 466 insertions(+)
+ sound/soc/codecs/aw882308.c | 461 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 472 insertions(+)
  create mode 100644 sound/soc/codecs/aw882308.c
 
 diff --git a/sound/soc/codecs/Kconfig b/sound/soc/codecs/Kconfig
@@ -64,10 +64,10 @@ index 3d122ace7..389b506ae 100644
  obj-$(CONFIG_SND_SOC_AW88166)	+=snd-soc-aw88166.o
 diff --git a/sound/soc/codecs/aw882308.c b/sound/soc/codecs/aw882308.c
 new file mode 100644
-index 000000000..6cdb4bcec
+index 000000000..6177032c1
 --- /dev/null
 +++ b/sound/soc/codecs/aw882308.c
-@@ -0,0 +1,455 @@
+@@ -0,0 +1,461 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Bring-up driver for the Awinic smart amplifiers with product id 0x2308
@@ -213,7 +213,7 @@ index 000000000..6cdb4bcec
 +
 +	regmap_read(aw->regmap, AW_SYSST, &st);
 +	regmap_read(aw->regmap, AW_SYSCTRL, &ctrl);
-+	dev_info(aw->dev, "running: SYSST 0x%04x SYSCTRL 0x%04x atten %u\n",
++	dev_dbg(aw->dev, "running: SYSST 0x%04x SYSCTRL 0x%04x atten %u\n",
 +		 st, ctrl, aw->atten);
 +	return 0;
 +fail:
@@ -288,7 +288,7 @@ index 000000000..6cdb4bcec
 +			   I2SCTRL1_CHSEL | I2SCTRL1_I2SMD | I2SCTRL1_I2SFS |
 +			   I2SCTRL1_I2SBCK | I2SCTRL1_I2SSR, val);
 +	regmap_read(aw->regmap, AW_I2SCTRL1, &val);
-+	dev_info(aw->dev, "I2SCTRL1 0x%04x\n", val);
++	dev_dbg(aw->dev, "I2SCTRL1 0x%04x\n", val);
 +	return 0;
 +}
 +
@@ -479,8 +479,14 @@ index 000000000..6cdb4bcec
 +		aw882308_apply_fw(aw, i2c);
 +	aw882308_stop(aw);
 +
-+	/* Start at the quietest allowed level above mute. */
-+	aw->atten = min(AW_MUTE_VOL, max(min_atten, 700u));
++	/*
++	 * min_atten is a module parameter; keep it inside the volume field
++	 * so the control range cannot underflow.
++	 */
++	min_atten = min(min_atten, AW_MUTE_VOL);
++
++	/* Start quiet: attenuation 700 of 1023, or min_atten if higher. */
++	aw->atten = max(min_atten, 700u);
 +	dev_info(dev, "chip 0x%04x, chsel %u, atten floor %u\n", id, aw->chsel,
 +		 min_atten);
 +

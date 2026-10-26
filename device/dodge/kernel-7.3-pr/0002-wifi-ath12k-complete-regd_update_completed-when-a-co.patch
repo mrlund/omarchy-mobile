@@ -1,7 +1,7 @@
-From 5ae997e764833bcc017ad1c970316b829ae93ce5 Mon Sep 17 00:00:00 2001
+From a851560ef5df381adf459c92305533314491e621 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 14:45:29 +0200
-Subject: [PATCH 02/45] wifi: ath12k: complete regd_update_completed when a
+Subject: [PATCH 02/35] wifi: ath12k: complete regd_update_completed when a
  country change is rejected
 
 ath12k_reg_chan_list_event() leaves pdev_idx at 255 on the
@@ -11,8 +11,6 @@ regd_update_completed. ath12k_regd_update() then waits for the full
 ATH12K_REG_UPDATE_TIMEOUT and logs 'Timeout while waiting for
 regulatory update'. Resolve the pdev from the event's phy_id on the
 DROP path when it is in range so the waiter is released.
-
-dodge trial (local only).
 
 Signed-off-by: Martin Lund <mrlund@hotmail.com>
 ---

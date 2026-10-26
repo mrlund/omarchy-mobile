@@ -1,7 +1,7 @@
-From 68596108807c06802ffb31446050ba8c8c7e10e0 Mon Sep 17 00:00:00 2001
+From e483f1ca3653baf572558ea6095e7729537016b0 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 11:01:05 +0200
-Subject: [PATCH 31/45] drm/msm/mdss: sm8750: read the display QTB once on
+Subject: [PATCH 29/35] drm/msm/mdss: sm8750: read the display QTB once on
  every MDSS enable
 
 On the OnePlus 13 (SM8750) a warm reboot often comes up with a black
@@ -44,15 +44,13 @@ every runtime resume (screen wake).
 
 The QTB is not a resource of the MDSS device and mainline DT has no node
 for the SM8750 TBUs, so for now its physical address is per-SoC match
-data (sm8750_data.hf_qtb_base; on 7.3 SM8750 gets its own msm_mdss_data
-for it, since it shared data_57k) mapped with devm_ioremap(). Upstream, this
+data (sm8750_data.hf_qtb_base; SM8750 gets its own msm_mdss_data for
+it, since it shared data_57k) mapped with devm_ioremap(). Upstream, this
 should become a DT phandle to a TBU node, or a sync hook in arm-smmu-qcom
 (to be settled with the SMMU maintainers).
 
-The same read covers the stall after an MDSS_GDSC collapse, which is why
-the keep_gdsc_on workaround was dropped (previous commit; dodge 0055).
-
-Port of dodge 0054 from the v6.16 bring-up tree to 7.3.
+The same read covers the stall after an MDSS_GDSC collapse, so the GDSC
+does not have to be kept on.
 
 Signed-off-by: Martin Lund <mrlund@hotmail.com>
 ---

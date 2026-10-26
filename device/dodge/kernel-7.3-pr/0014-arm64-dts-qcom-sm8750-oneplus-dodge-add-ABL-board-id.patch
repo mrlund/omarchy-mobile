@@ -1,7 +1,7 @@
-From 11c60481410ea610b71ee7486de9dea781c79198 Mon Sep 17 00:00:00 2001
+From c2549a9440ed9771dd9428c6424364e3da6955bb Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Thu, 15 Oct 2026 17:38:48 +0200
-Subject: [PATCH 14/45] arm64: dts: qcom: sm8750-oneplus-dodge: add ABL board
+Subject: [PATCH 14/35] arm64: dts: qcom: sm8750-oneplus-dodge: add ABL board
  ids
 
 ABL selects a DTB by qcom,msm-id and qcom,board-id. A header v2 image
@@ -14,7 +14,7 @@ Signed-off-by: Martin Lund <mrlund@hotmail.com>
  1 file changed, 14 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
-index a981d95d8..ffa06df7c 100644
+index 6a8c855d5..da08eb0d2 100644
 --- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 +++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
 @@ -25,6 +25,20 @@ / {

@@ -4,6 +4,48 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-26: pr2 boot tests, fork pushed, modem and SIM on 7.3 (11:26-12:10 CET)
+
+Details: [dev-docs/2026-10-26-modem-sim-73.md](dev-docs/2026-10-26-modem-sim-73.md),
+[kernel-7.3/README.md](kernel-7.3/README.md) "PR branch omamobile-dodge (pr2)".
+
+- **pr2:** `omamobile-dodge` is `952dec326`, 35 commits on `97a6b87a8`
+  (pr1 was 45): review fixes, only_adsp dropped (CDSP/modem stay `disabled`
+  in the dts), ath12k/MHI bring-up squashed into 30-33 (debug code removed).
+  [kernel-7.3-pr/](kernel-7.3-pr/) now has the 35 patches.
+- **pr2a (11:26-11:29):** one-shot `TRIAL-7.3-pr2-boot_a.img` (sha256
+  `727ad325...12b1`): display, touch, USB, Wi-Fi gateway ping, BT, battery,
+  DPMS off/on, Adreno 830, only ADSP running, both amps probed, `aplay` OK, no
+  new -110, no oops. Return gate failed (99 %, top-off current), so the
+  watchdog hard reboot ran; rootfs clean.
+- **pr2b (11:56-11:58):** same image, to check the amps at register level
+  (no dynamic debug in this kernel). Live regmap reads during `aplay`: both
+  amps SYSST `0x0211` (PLL, clock, boost), SYSCTRL `0x5240`, volume `0x140`;
+  idle and after: `0x0000`, `0xd343`, `0x3ff` (muted). `Amp Volume` read 703
+  (max), not the driver default 323, because alsa-restore restores the saved
+  value; `0x140` = 1023 - 703, so the driver follows the control. Gate passed (100 %), hard reboot, back on
+  gpu1, rootfs clean, no orphans or errors.
+- **Fork:** `mrlund/linux-omarchy-mobile` `omamobile-dodge` pushed with lease,
+  `0d65e1509` -> `952dec326`, checked with ls-remote. Not pushed to Derek, no
+  PR opened.
+- **SIM:** physical SIM in slot 1, operator TELMORE, PIN1 disabled (no PIN
+  needed, nothing entered). ModemManager picks the empty eUICC slot by default;
+  a manual UIM provisioning session on slot 1 fixes that until the next boot.
+- **Modem:** on gpu1 (its DT enables `mpss`) the MPSS boots and rmtfs (`-r`),
+  tqftpserv, the fake net port and ModemManager all work, but the modem stays
+  `offline` from boot with no RF bands (InvalidTransition to online), so there's
+  no registration, no signal and no data. No hardware MCFG; the operator's
+  software MCFG is active. Probably missing RF/HW config. No kernel change
+  needed for the MPSS itself.
+- **New safety fact:** stopping the modem remoteproc hard-resets the phone at
+  once (no kernel log); the unit's old ExecStop would do the same at shutdown. EFS was
+  checked afterwards, unchanged. The unit has no ExecStop now,
+  `omamobile-modem stop` only logs, and the helper loads 7.x's `rmtfs_mem.ko`.
+- **Phone now:** gpu1, flagless (`/etc/omamobile` has only `sensors.enable`),
+  rootfs clean. Left on the phone: gpu1 `skip-units` without the modem lines
+  (backup `skip-units.pre-modem`) and the updated helper (backup
+  `omamobile-modem.pre-73`); both only matter with the flag.
+
 ## 2026-10-25: rebased onto Derek's main (15:08-15:15 CET)
 
 - **What:** `oneplus13-dodge` rebased onto `derekross/omarchy-mobile`

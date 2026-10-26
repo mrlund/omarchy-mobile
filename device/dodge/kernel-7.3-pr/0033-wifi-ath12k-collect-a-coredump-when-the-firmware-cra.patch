@@ -1,0 +1,46 @@
+From dad64a890c7c91473d00a0ac447a422c0030ebad Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Sun, 25 Oct 2026 16:01:46 +0100
+Subject: [PATCH 33/35] wifi: ath12k: collect a coredump when the firmware
+ crashes before FW_READY
+
+If the firmware crashes before QMI FW_READY, ath12k_core_reset() only
+warns and returns, and the RDDM dump that the MHI layer captured is
+lost. Collect it before returning, so early firmware crashes, like
+those seen while bringing up WCN7860, can be analysed. Also log RDDM
+entry at debug level.
+
+Assisted-by: Grok
+Signed-off-by: Martin Lund <mrlund@hotmail.com>
+---
+ drivers/net/wireless/ath/ath12k/core.c | 1 +
+ drivers/net/wireless/ath/ath12k/mhi.c  | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/drivers/net/wireless/ath/ath12k/core.c b/drivers/net/wireless/ath/ath12k/core.c
+index 262a20453..3b457474f 100644
+--- a/drivers/net/wireless/ath/ath12k/core.c
++++ b/drivers/net/wireless/ath/ath12k/core.c
+@@ -1666,6 +1666,7 @@ static void ath12k_core_reset(struct work_struct *work)
+ 
+ 	if (!(test_bit(ATH12K_FLAG_QMI_FW_READY_COMPLETE, &ab->dev_flags))) {
+ 		ath12k_warn(ab, "ignore reset dev flags 0x%lx\n", ab->dev_flags);
++		ath12k_coredump_collect(ab);
+ 		return;
+ 	}
+ 
+diff --git a/drivers/net/wireless/ath/ath12k/mhi.c b/drivers/net/wireless/ath/ath12k/mhi.c
+index ee87f00bc..a517bc728 100644
+--- a/drivers/net/wireless/ath/ath12k/mhi.c
++++ b/drivers/net/wireless/ath/ath12k/mhi.c
+@@ -155,6 +155,7 @@ static void ath12k_mhi_op_status_cb(struct mhi_controller *mhi_cntrl,
+ 			break;
+ 		}
+ 
++		ath12k_dbg(ab, ATH12K_DBG_BOOT, "firmware entered RDDM\n");
+ 		if (!(test_bit(ATH12K_FLAG_UNREGISTERING, &ab->dev_flags))) {
+ 			set_bit(ATH12K_FLAG_CRASH_FLUSH, &ab->dev_flags);
+ 			set_bit(ATH12K_FLAG_RECOVERY, &ab->dev_flags);
+-- 
+2.56.0
+

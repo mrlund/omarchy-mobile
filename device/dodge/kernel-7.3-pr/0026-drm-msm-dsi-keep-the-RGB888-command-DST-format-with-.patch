@@ -1,0 +1,46 @@
+From 2bc002a48a11fe2ef5becfa55c81b69bc3c82131 Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Wed, 21 Oct 2026 15:32:18 +0200
+Subject: [PATCH 26/35] drm/msm/dsi: keep the RGB888 command DST format with
+ DSC
+
+dsi_get_cmd_fmt() returns CMD_DST_FORMAT_RGB101010 for RGB101010
+panels. On the OnePlus 13 AA569 panel (DSC, widebus, SM8750) the first
+DCS command then times out. The panel works with RGB888, the format
+used before the RGB101010 case existed, so keep RGB888 when DSC is
+enabled.
+
+This is a workaround until the RGB101010 + DSC command-mode setup is
+understood.
+
+Signed-off-by: Martin Lund <mrlund@hotmail.com>
+---
+ drivers/gpu/drm/msm/dsi/dsi_host.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index b292dfd26..c147ba188 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -852,7 +852,17 @@ static void dsi_ctrl_enable(struct msm_dsi_host *msm_host,
+ 	} else {
+ 		/* Do not swap RGB colors */
+ 		data = DSI_CMD_CFG0_RGB_SWAP(SWAP_RGB);
+-		data |= DSI_CMD_CFG0_DST_FORMAT(dsi_get_cmd_fmt(mipi_fmt));
++		/*
++		 * With DSC and an RGB101010 panel (the AA569 on the OnePlus 13)
++		 * the RGB101010 command DST format makes the first DCS command
++		 * time out (cmd dma tx -110), while RGB888, which older kernels
++		 * programmed here, works. Keep RGB888 with DSC until the cause
++		 * is understood.
++		 */
++		if (msm_host->dsc && mipi_fmt == MIPI_DSI_FMT_RGB101010)
++			data |= DSI_CMD_CFG0_DST_FORMAT(CMD_DST_FORMAT_RGB888);
++		else
++			data |= DSI_CMD_CFG0_DST_FORMAT(dsi_get_cmd_fmt(mipi_fmt));
+ 		dsi_write(msm_host, REG_DSI_CMD_CFG0, data);
+ 
+ 		data = DSI_CMD_CFG1_WR_MEM_START(MIPI_DCS_WRITE_MEMORY_START) |
+-- 
+2.56.0
+

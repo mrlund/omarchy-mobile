@@ -1,15 +1,17 @@
-From 099b16bf981709376eaa85c1ce787685d216dcfa Mon Sep 17 00:00:00 2001
+From d1d7b1a70cfce569c7eb4ecaf729a34cbf6ee215 Mon Sep 17 00:00:00 2001
 From: Martin Lund <mrlund@hotmail.com>
 Date: Sat, 24 Oct 2026 17:21:21 +0200
-Subject: [PATCH 07/45] arm64: dts: qcom: sm8750: add
+Subject: [PATCH 07/35] arm64: dts: qcom: sm8750: add
  gpucc/gxclkctl/adreno-smmu
 
-Backport of ROCKNIX SM8750 patch 0033 (from upstream gpucc DT series),
-applied with fuzz onto 7.3-rc6 for the dodge GPU trial.
+Add the SM8750 GPU clock controller, the GX clock controller and the
+Adreno SMMU. The Adreno 830 GPU and GMU nodes in the next commit need
+them. They come from ROCKNIX SM8750 patch 0033, which takes them from
+the upstream SM8750 gpucc DT series.
 
 Link: https://github.com/ROCKNIX/distribution/commit/620bacab32a18f4338e290c898d44c45f6db145a
 [mrlund: backported ROCKNIX SM8750 patch 0033 (ROCKNIX, no original
- Signed-off-by) to 7.3-rc6 with fuzz]
+ Signed-off-by) to 7.3-rc6]
 Signed-off-by: Martin Lund <mrlund@hotmail.com>
 ---
  arch/arm64/boot/dts/qcom/sm8750.dtsi | 68 ++++++++++++++++++++++++++++

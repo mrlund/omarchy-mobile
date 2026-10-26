@@ -1,7 +1,7 @@
-From 079a91716354955da8e5cd18c8a2ba69c58bcafe Mon Sep 17 00:00:00 2001
+From 478a63fd1c5c294abdc8e0cfd47914e30194e2b7 Mon Sep 17 00:00:00 2001
 From: Teguh Sobirin <teguh@sobir.in>
 Date: Sat, 24 Oct 2026 17:21:22 +0200
-Subject: [PATCH 09/45] drm/msm/adreno: add the Adreno 830 catalog entry
+Subject: [PATCH 09/35] drm/msm/adreno: add the Adreno 830 catalog entry
 
 Backport of ROCKNIX SM8750 patch 0049 (Teguh Sobirin). chip id 0x44050000,
 firmware gen80000_{sqe,gmu,aqe}. The GX GDSC and GXPD-vote fixes (ROCKNIX
