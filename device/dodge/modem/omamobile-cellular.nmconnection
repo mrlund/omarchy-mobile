@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: MIT
+# Mobile data through NetworkManager + ModemManager. NM reads the bearer's
+# IP config from MM (static on QMI) and applies address, routes, DNS and MTU
+# on the qmapmux link. The APN comes from mobile-broadband-provider-info
+# (auto-config), so no SIM-specific value lives here. gsm routes get metric
+# 700 by default, so Wi-Fi (600) stays the default route when both are up.
+# Inert without a ModemManager modem (the modem flag is off by default).
+[connection]
+id=omamobile-cellular
+type=gsm
+autoconnect=true
+
+[gsm]
+auto-config=true
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto
+addr-gen-mode=stable-privacy

@@ -18,7 +18,11 @@ With the flag, at boot:
    `78-omamobile-mm-fake-net.rules` tags as the qcom-soc net port. ModemManager
    refuses a QMI modem without one, and SM8750 IPA isn't in 6.16 yet. Data
    can't work through it.
-6. ModemManager (drop-in `ModemManager-omamobile.conf`) starts after the units
+6. `omamobile-cellular.nmconnection` (installed into NetworkManager) is a gsm
+   profile with APN auto-config. NM, not networkd, owns the bearer and applies
+   its IP config. Untested end to end (2026-10-26: the modem crashes on the
+   Smart Transmit license check before registering).
+7. ModemManager (drop-in `ModemManager-omamobile.conf`) starts after the units
    above. Without the flag its condition skips it.
 
 Install: copy this directory to the phone and run `./install` as root. It

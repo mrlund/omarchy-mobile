@@ -4,6 +4,14 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-26: ipa2i, modem time is fine, NM gsm profile added (14:55-15:03 CET)
+
+- ipa2i (ipa2 image, one-shot boot): the ipa2g path plus a runtime NM gsm profile and a 2 s NAS/DMS time poll from MM start. Same result: searching, `rtsar_framework.c:3546 Smart Transmit License Check Failure` about 10 s after `online`, mpss crashed. No data test was reached.
+- Time lead mostly ruled out: the DMS "device" time count reads 2017, but the modem's System time and User time were already correct (2026-10-26, UTC) from MM start. The license check fails with a valid clock.
+- Userspace: `modem/omamobile-cellular.nmconnection` (gsm, `auto-config=true` APN via mobile-broadband-provider-info, ipv4/ipv6 auto). The installer drops it into NM. NM owns the bearer and applies the IP, routes, DNS and MTU on the qmapmux link. Untested end to end because of the crash; `nmcli c add type gsm` worked on the phone.
+- Back on gpu1, rootfs clean, modem flag off, Wi-Fi connected.
+- Next: find why registration went from 2-6 s (pre-IPA, ipa2a) to never, which is what exposes the rtsar crash. Compare the ipa2a EFS copy state with the current one (modem_fs1/fs2 were rewritten in ipa2b-h), and try a boot with the pre-ipa2b copies restored to the writable dir.
+
 ## 2026-10-26: ipa2b-ipa2h, Smart Transmit crash blocks registration (14:02-14:48 CET)
 
 Details: [dev-docs/2026-10-26-ipa-sm8750.md](dev-docs/2026-10-26-ipa-sm8750.md) "ipa2b-ipa2h".

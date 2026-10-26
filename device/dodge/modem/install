@@ -12,11 +12,13 @@ done
 install -Dm755 omamobile-modem /usr/local/lib/omamobile/modem/omamobile-modem
 install -Dm755 adsp-battery.sh /usr/local/lib/omamobile/adsp-battery.sh
 install -Dm644 78-omamobile-mm-fake-net.rules /etc/udev/rules.d/78-omamobile-mm-fake-net.rules
+install -Dm600 omamobile-cellular.nmconnection /etc/NetworkManager/system-connections/omamobile-cellular.nmconnection
 install -Dm644 ModemManager-omamobile.conf /etc/systemd/system/ModemManager.service.d/omamobile.conf
 for u in omamobile-rmtfs omamobile-tqftpserv omamobile-modem omamobile-mm-netport; do
 	install -Dm644 "$u.service" "/etc/systemd/system/$u.service"
 done
 systemctl daemon-reload
+nmcli connection reload || true
 udevadm control --reload
 systemctl unmask ModemManager.service
 systemctl enable omamobile-rmtfs.service omamobile-tqftpserv.service omamobile-modem.service \
