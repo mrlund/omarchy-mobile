@@ -2392,3 +2392,11 @@ won't fake responses. Standing up the path = qcomtee backport + RPMB + closed us
 TA = multi-day kernel work + forbidden secure/RPMB provisioning -> hit the stop condition. Phase
 B NOT run (precondition not met). See dev-docs/2026-10-26-qwes-licensing-phaseA-scope.md. Phone:
 gpu1, flag off.
+
+## 2026-10-26 ~19:45 - CORRECTION to Phase A kernel claim
+Earlier note said QTEE "landed in 6.18, needs backport" - WRONG; that read the running gpu1
+config. Source trees (wt-omamobile, wt-ipa) are Linux 7.3.0-rc6 and already contain
+drivers/tee/qcomtee + drivers/misc/rpmb-core. Kernel piece = config flip (CONFIG_QCOMTEE=y),
+not a backport. Verdict revised to FEASIBLE-WITH-X (kernel), userspace/TA under investigation.
+Remaining hard parts: closed bionic qwesd (container/libhybris + listeners), signed QWES/IPFM TA
+on stock vendor, RPMB-backed license store (must not write). Phase A2 to scope it.
