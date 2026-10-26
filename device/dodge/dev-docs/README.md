@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-26 | [IPA v5.5 on SM8750](2026-10-26-ipa-sm8750.md) | Root cause and port plan for the modem data path: SM8750 IPA is v5.5 (Eliza RFC data), DT derived from stock and downstream. Trial kernel ipa1 built and packed; trial boot results in the dev-doc. |
 | 2026-10-26 | [modem on writable EFS copies](2026-10-26-modem-efs-rw-73.md) | rmtfs writes to the copies only: MCFG commits, modem registers on TELMORE LTE (RSRP -105 dBm), SIM active, then crashes ~30 s later (no IPA for the LTE bearer). Real partitions unchanged. Stage-2 plan for the real partitions. |
 | 2026-10-26 | [modem RF bands: OnePlus NV backup](2026-10-26-modem-nvbk-73.md) | Root cause of "no bands": rmtfs had no `oem_stanvbk`/`oem_dycnvbk`. With read-only copies the modem lists all bands, then waits in `shutting-down` for a reset to apply the MCFG (needs writable EFS copies or a working SSR). |
 | 2026-10-26 | [modem and SIM on 7.3](2026-10-26-modem-sim-73.md) | SIM in slot 1 reads, PIN1 disabled (TELMORE). MPSS boots on gpu1, but the modem stays offline with no RF bands: no registration or data. Stopping the MPSS hard-resets the phone; the unit no longer stops it. |

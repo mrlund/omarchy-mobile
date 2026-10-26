@@ -4,6 +4,28 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-26: IPA v5.5 for the modem data path, research and trial build (13:08-13:40 CET)
+
+Details: [dev-docs/2026-10-26-ipa-sm8750.md](dev-docs/2026-10-26-ipa-sm8750.md).
+
+- SM8750 IPA is v5.5 (same data as the Eliza RFC on lore, not merged).
+  Upstream already has v5.5 config data; the RFC fixes it and adds the HW
+  filter stats QMI request. DT values come from stock DT and downstream
+  source (SPI 655, `SLAVE_IPA_CFG` on `cnoc_main`, IMEM modem tables at
+  0x14683000, PAS id 15, AP-loaded GSI firmware into `ipa_fw_mem`).
+- Kernel trial branch `trial/ipa` (local, on the PR head): RFC patches,
+  SM8750 compatible, IPA and IMEM DT nodes, mpss and IPA enabled for the
+  trial. Built as 7.3 ipa1 and packed as a one-shot chain image. Not flashed.
+- Port size: small (DT plus a compatible on top of the RFC), not a
+  multi-day port, unless the trial boot shows a problem.
+- ipa1 trial: no probe (`IRQ gsi not found`, 4-cell GIC specifiers copied
+  from SM8650; SM8750 uses 3). Fixed in `20fc72915`.
+- ipa2a trial (13:52): IPA probes and loads its GSI firmware, `rmnet_ipa0`
+  comes up, the modem registers on LTE and **no longer crashes** (stable for
+  about 3.5 min online; before, it asserted after about 30 s). A data bearer
+  connects (`qmapmux0.0`, IPv4 from QMI), but ping fails because nothing
+  applied the IPv4 settings yet.
+
 ## 2026-10-26: modem on writable EFS copies, registration (12:45-13:05 CET)
 
 Details: [dev-docs/2026-10-26-modem-efs-rw-73.md](dev-docs/2026-10-26-modem-efs-rw-73.md).
