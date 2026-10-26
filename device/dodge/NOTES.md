@@ -1,3 +1,63 @@
+## 2026-10-26: Smart Transmit / RTSAR off-switch + QWES feasibility (read-only research, 16:20-16:35 CET)
+
+Read-only: no boots, no NV/EFS writes, nothing applied. Phone left gpu1, flag off, clean.
+Full write-up: device/dodge/dev-docs/2026-10-26-smart-transmit-rtsar-license.md
+
+Can Smart Transmit be switched off, and what TX power then? (Martin pt472u)
+- The control is ONE EFS item: /nv/item_files/mcs/lmtsmgr/sar/rtsar/rtsar_config (modem
+  Limits Manager RTSAR config; confirmed canonical across Qualcomm basebands). It holds the
+  STx enable/mode + SAR_time_window + regulatory body + Reserve_power_margin and references
+  the per-band Plimit set. Binary layout not public. No standalone enable boolean; no legacy
+  static-SAR table (this device is RTSAR-only). Related items: /oem/oem_sar_dsi_config (DSI
+  selection), A-MPR tables (ampr_configured_ns / llcdb_ampr_info, always-applied regulatory
+  back-off, not SAR), vbatt limits (battery-voltage caps, not SAR). Names only; no contents.
+- OFF behaviour (FCC ID 2ABZ2-AA534 OnePlus 13 + Qualcomm STx whitepapers): with STx
+  DISABLED the device transmits up to Pmax = full calibrated max output (no time-averaging
+  cap). Pmax ~ power class 3 (~23 dBm / 200 mW sub-6; up to ~33 dBm 2G) — the ordinary
+  cellular ceiling, NOT infinite, but body-SAR time-averaging protection is gone.
+- Fixed-cap mode EXISTS but only WITH STx enabled: Reserve_power_margin = 0 => Preserve =
+  Plimit => hard static cap at Plimit, no bursts. Still needs the STx license -> still
+  crashes on mainline. There is NO documented license-free static-SAR cap; applying the
+  Plimit table as a hard cap IS the licensed feature.
+- So the only EFS lever that could stop the crash AND keep TX is disabling RTSAR in
+  rtsar_config. UNVERIFIED whether that bypasses the license check (it may run at modem init
+  regardless). If it works, TX = Pmax, capped only by A-MPR/vbatt/network control (no body
+  SAR). RF-compliance-breaking; undocumented binary-item write; needs exact backup/restore.
+
+QWES / running qwesd ourselves (Martin t473u scope + t476u 2nd choice)
+- qwesd on-device is a BIONIC binary (interpreter /system/bin/linker64, Android 35). NEEDED:
+  libqmi_csi (QMI service over QRTR = how it answers the modem), libQSEEComAPI (TrustZone),
+  MINK libs (object-IPC into TZ), libcurl+libdsi_netctrl (optional cloud license fetch at
+  api.qwes.qualcomm.com), libcrypto/libqcbor/bionic. Strings: /dev/socket/ssgtzd,
+  TZCom_getRootEnvObject, HavenToken attestation, with a "TZD connection failed; falling
+  back"/test_mode path. Real attestation needs TZ; test-mode won't yield a modem-acceptable
+  license.
+- A NATIVE GLIBC qwesd exists: qualcomm-linux/meta-qcom qwes_1.0.bb (aarch64, systemd,
+  DEPENDS = curl minkipc qmi-framework glibc), by a core linux-msm dev. Avoids bionic.
+  Open deps: qualcomm/qmi-framework (BSD-3), qualcomm/minkipc (BSD-3, MINK over
+  TEE/smcinvoke/sockets/SMC).
+- REAL BLOCKER = TrustZone + RPMB, not bionic. dodge 7.3 kernel: QCOM_SCM=y, QCOM_QSEECOM=y,
+  QCOM_TZMEM=y(SHMBRIDGE), TEE=y, but CONFIG_RPMB is NOT set, and runtime has NO /dev/qseecom
+  /dev/smcinvoke /dev/tee* node (mainline QSEECOM is in-kernel UEFISECAPP only; no QTEE
+  backend built). QWES install/attestation needs RPMB provisioned (absent). QMI/QRTR itself
+  IS available on glibc (qmicli, qrtr-lookup present). So even glibc qwesd can't attest here.
+- Halium distros (Droidian/UT/Sailfish) run vendor blobs in an LXC Android container but were
+  not found to run qwesd/QWES on SM8550/8650/8750 (they use RIL/ofono2mm). No QWES
+  reimplementation exists; only the transports are open; the QWES QMI message set is not
+  documented. No public mainline/XDA report of this exact STx license crash.
+
+Ranked options (detail in dev-doc):
+1. Park the modem (gpu1 flag off) — zero risk, baseline.
+2. Disable RTSAR via rtsar_config EFS edit — plausible but unverified to bypass the license;
+   if it works TX=Pmax (no body-SAR cap); needs one write + one test boot (future run).
+3. Run glibc qwesd and OBSERVE its QMI exchange with the modem — low risk, high effort
+   (obtain glibc qwesd or container the bionic one; build qmi-framework+minkipc; bridge
+   QRTR; trace QMI). Can't serve a valid license without TZ+RPMB.
+4. Full QWES bring-up to actually license STx — needs userspace TZ transport + QcWES TA +
+   RPMB enabled/provisioned on SM8750 mainline. Highest effort, uncertain feasibility.
+
+Recommendation: for a working modem the only EFS lever is option 2 (accept it's unverified
+and removes the SAR cap); option 3 is the right low-risk research step first; park otherwise.
 ## 2026-10-26: license root-cause research + force-online / pdc-activate boots (16:04-16:20 CET)
 
 Two gpu1 experiment boots from the Boot-B base (full verified restore of modem-efs
