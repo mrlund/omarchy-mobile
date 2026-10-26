@@ -2400,3 +2400,41 @@ drivers/tee/qcomtee + drivers/misc/rpmb-core. Kernel piece = config flip (CONFIG
 not a backport. Verdict revised to FEASIBLE-WITH-X (kernel), userspace/TA under investigation.
 Remaining hard parts: closed bionic qwesd (container/libhybris + listeners), signed QWES/IPFM TA
 on stock vendor, RPMB-backed license store (must not write). Phase A2 to scope it.
+
+## 2026-10-26 ~20:25 - qwesd licensing Phase A2 (config flip + ONE trial boot): qcomtee WORKS
+Built an ipa1-based 7.3.0-rc6 trial kernel with CONFIG_QCOMTEE=y (+ TEE, QCOM_SCM, QCOM_TZMEM
+SHMBRIDGE; RPMB left OFF) - qcomtee compiled in-tree as built-in, pure config flip, no backport.
+ONE trial boot (read-only SSH ramdisk chain image, modem flag OFF, fastboot boot, no flash):
+/dev/tee0 present and /sys/class/tee/tee0/implementation_id = 4 (QTEE); dmesg shows
+"qcomtee: QTEE version 5.2.0" - the driver probed and bound cleanly with NO device-tree node
+(qcom_scm auto-registers the qcomtee platform device). The "qseecom: untested machine, skipping"
+line is emitted ONLY by the legacy qseecom path (DT allowlist in qcom_scm); the upstream
+qcomtee object-invoke path has no such allowlist and came up regardless - gated solely by a
+runtime SMC capability probe. implementation_id=4 is itself the read-only capability readout
+(driver exposes it only after a successful QTEE get_version; gen_caps carries OBJREF). No session
+opened, no TA loaded, nothing written; all block devices stayed read-only for the whole boot.
+Phone rebooted back to gpu1 afterward, modem flag OFF, and all real modem/EFS/qweslicstore
+partition hashes verified identical to the pre-boot snapshot.
+
+Vendor QWES inventory (read-only, from a host-side copy of super extracted earlier; nothing from
+the phone's live partitions modified, no blobs committed - described only). All pieces are
+Android/bionic on the vendor partition: a qwesd daemon (init service, AIDL IQwesd, its own
+selinux policy) and a qwes_cli; the QWES client lib and a CBOR lib; the QESDK manager/sec-manager
+libs; the Mink/smcinvoke IPC stack (mink descriptor/socket/ipcbinder libs, an ipcbinder service,
+an HLOS mink daemon) plus smcinvoke example/skeleton test tools; and the listener daemons -
+qseecomd and an RPMB-client daemon with its RPMB lib. The signed QWES trustlet ships as a vendor
+firmware image (loaded by name via the normal vendor firmware path). The Smart-Transmit license
+is a .pfm that stock Android stages from the read-only vendor/odm tree and provisions into the
+persist pfm license store at runtime.
+
+Feasibility of running the vendor bionic qwesd: FEASIBLE-WITH-SIGNIFICANT-X. The kernel blocker
+is now gone (qcomtee gives the object-invoke channel). Remaining: (1) a bionic userspace to host
+qwesd + its lib closure (Android chroot/container or libhybris; our rootfs is glibc/musl);
+(2) re-service the listeners qseecomd normally provides, chiefly the RPMB and FS listeners, over
+the qcomtee supplicant path; (3) load the vendor QWES trustlet into QTEE. A read-only root-object
+open / license query looks reachable; actual license activation would write persist + RPMB-backed
+secure storage, which the standing no-write rule forbids. Framing for the next phase: the
+Smart-Transmit license is ALREADY provisioned in persist by stock Android, so the goal is a READ
+path (IPFM_CheckInstalledLicense), not provisioning. Persist served read-only, RPMB listener
+read-only (log+reject every write), no TA persisted. See the phaseA-scope dev-doc. Phone: gpu1,
+flag off, hashes verified.

@@ -60,3 +60,25 @@ Phase A2 (checkpointed) will: inventory the vendor QWES bits read-only; build an
 image with CONFIG_QCOMTEE=y; and do ONE trial boot (modem flag OFF) to confirm /dev/tee0 +
 qcomtee probe and a read-only QTEE capability query. No TAs loaded, nothing written to
 secure/RPMB.
+
+## Phase A2 RESULT (2026-10-26): qcomtee probes and binds on our 7.3 kernel
+Config flip confirmed: an ipa1-based 7.3.0-rc6 kernel with CONFIG_QCOMTEE=y (+ TEE, QCOM_SCM,
+QCOM_TZMEM in SHMBRIDGE mode; RPMB left OFF) builds with qcomtee as a built-in - no backport.
+
+ONE trial boot, read-only SSH ramdisk chain image, modem flag OFF, fastboot boot (no flash):
+- `/dev/tee0` present; `/sys/class/tee/tee0/implementation_id = 4` (TEE_IMPL_ID_QTEE).
+- dmesg: `qcomtee: QTEE version 5.2.0` - probed and bound with **no DT node** (qcom_scm
+  registers the "qcomtee" platform device itself; `qcom_scm_qtee_init()` runs unconditionally in
+  qcom_scm probe and gates only on a runtime SMC capability probe).
+- The `qseecom: untested machine, skipping` message is emitted ONLY by the legacy qseecom path
+  (DT allowlist in qcom_scm); **the qcomtee object-invoke path has no allowlist** and came up
+  regardless. Question from the brief answered: untested-machine is legacy-qseecom-only.
+- `implementation_id=4` is the read-only capability readout (exposed only after a successful
+  QTEE get_version; the driver advertises OBJREF). No session opened, no TA loaded, nothing
+  written; all block devices read-only throughout. Phone back on gpu1, hashes verified identical.
+
+So the kernel channel (item 0) is DONE. The remaining items 1-3 from the verdict stand, re-scoped
+for a READ path: the Smart-Transmit license is already provisioned in persist by stock Android,
+so the objective is the IPFM_CheckInstalledLicense read, not provisioning. Persist is served
+read-only; the RPMB listener is read-only (log + reject every write, never forward to device);
+the QWES trustlet may be loaded into QTEE memory but never persisted to secure storage.
