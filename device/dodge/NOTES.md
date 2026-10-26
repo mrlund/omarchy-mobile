@@ -4,6 +4,33 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-26: ipa2b-ipa2h, Smart Transmit crash blocks registration (14:02-14:48 CET)
+
+Details: [dev-docs/2026-10-26-ipa-sm8750.md](dev-docs/2026-10-26-ipa-sm8750.md) "ipa2b-ipa2h".
+
+- Seven one-shot boots of the same ipa2 image after ipa2a (logs
+  `~/android/mainline/logs/p73-ipa2{b..h}*`, two Claude consults
+  `claude-consult-ipa-rtsar*.txt`). Every boot that went online and was still
+  **searching** about 20 s later crashed the modem with
+  `rtsar_framework.c:3546:Smart Transmit License Check Failure Code (1, 1, 1)`
+  (b, c, e, g, h). Never seen before ipa2b. Phone stays up (recovery off).
+- Survived: ipa2a (registered about 2 s after online), ipa2d (never online),
+  ipa2f (pristine 12:46 copies, MCFG not active, so no RF activity seen).
+- One change each: LTE-only (e) still crashes; holding MM until modem-up+60 s
+  (h) still crashes about 20 s after MM sets online, so it is relative to
+  going online, not a fixed timer from modem boot. Restoring the pristine
+  copies (f) and the next boot (g) did not bring back ipa2a's fast registration.
+- New lead: DMS device time is **2017-06-16, source `device`** (no
+  time_daemon, no network time yet). Guess: the Smart Transmit license check
+  needs valid time; ipa2a and the pre-IPA boots registered within 2-6 s and got
+  network time first. Unproven. Why registration became slow is still open.
+- Userspace for data, checked offline: NetworkManager 1.58 (with the wwan
+  plugin) and systemd-networkd 262 both run; networkd's ModemManager
+  integration saw the ipa2a bearer and failed on it, NM had no gsm profile, so
+  nobody applied MM's static IPv4. Fix direction: one NM gsm profile, nothing
+  in networkd.
+- Phone on gpu1, flag off, rootfs clean after each boot. Real partitions untouched.
+
 ## 2026-10-26: IPA v5.5 for the modem data path, research and trial build (13:08-13:40 CET)
 
 Details: [dev-docs/2026-10-26-ipa-sm8750.md](dev-docs/2026-10-26-ipa-sm8750.md).
