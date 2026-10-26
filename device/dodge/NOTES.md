@@ -4,6 +4,24 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-26: why registration broke after ipa2a: not the kernel (15:04-15:30 CET)
+
+Logs: `~/android/mainline/logs/p73-gpu1flag*`, `p73-gpu1card*`, consult `claude-consult-ipa-rtsar-3*.txt`.
+
+- **Diff ipa2a vs ipa2b** (everything that could differ):
+  - Kernel, DT, initramfs: identical (same `TRIAL-7.3-ipa2-boot_a.img`, same sha256). Same rootfs and units.
+  - Session script: only the post-online watch length changed (14 to 9 loops). Output up to `online` is identical.
+  - Boot order: identical (IPA init ~22 s, modem up ~30 s, IPA sees modem running, MM ~40 s).
+  - tqftpserv: same request list. `mcfg.tmp` in `/var/lib/tqftpserv` is rewritten every boot and is not in any EFS backup.
+  - rmtfs copies: ipa2a wrote 4 full syncs (while a data bearer was connected) and was hard-rebooted with the bearer up. ipa2b/c booted on that state. No backup exists of the pre-ipa2a or pre-ipa2b copies, so the exact restore test can't be done; the pristine restore (f, g) did not help.
+  - MM/NM: ipa2a registered home ~2 s after MM enable, **before** any host provisioning (usim app listed, `aid_len=47`). The data connect came ~166 s later, so no bearer existed before the first license window. ipa2a survived 140+ s online, well past the point where every later boot crashes.
+  - Card status at provisioning time: a 47, b 0, c 0, e 0, f 47, g 0, h 0, i 47 (0 = no usim app in slot 1 yet).
+- **Test, one change (kernel back to gpu1, the exact A-C kernel), 15:16:** flag boot on flashed gpu1, no IPA. MM enable: searching (operator name seen, signal 33 %), `aid_len=0`, then `rtsar_framework.c:3546 Smart Transmit License Check Failure` 27 s after MM power-on. **The kernel and IPA are ruled out**: the kernel that registered in 6 s at 12:50/12:57 now fails the same way.
+- **Capture boot, 15:21 (gpu1, MM stopped before online):** slot 1 present, usim ready, PIN1 disabled, primary GW auto-bound to slot 1; slot 2 present, eUICC. DMS opmode `shutting-down` (MCFG pending again) right after the crashed boot's EFS write.
+- **Ranked suspects, all modem/SIM/network side:** (1) state outside the restored copies: SIM/network change after ipa2a's first attach and data session, or the never-restored tqftpserv `mcfg.tmp`; (2) MCFG selection flapping (Pending on every second boot) so the license/Smart Transmit config differs; (3) the connected-state EFS sync from ipa2a (weakened by f/g).
+- Phone on gpu1, flag off, rootfs clean, Wi-Fi connected. Real partitions untouched.
+- Next: back up `/var/lib/tqftpserv` and the copies before every boot; one boot with `mcfg.tmp` moved aside; read MCFG selected/active configs (PDC) and UIM card status early in each boot; check the SIM in another phone (needs Martin).
+
 ## 2026-10-26: ipa2i, modem time is fine, NM gsm profile added (14:55-15:03 CET)
 
 - ipa2i (ipa2 image, one-shot boot): the ipa2g path plus a runtime NM gsm profile and a 2 s NAS/DMS time poll from MM start. Same result: searching, `rtsar_framework.c:3546 Smart Transmit License Check Failure` about 10 s after `online`, mpss crashed. No data test was reached.
