@@ -1,3 +1,82 @@
+## 2026-10-26: license root-cause research + force-online / pdc-activate boots (16:04-16:20 CET)
+
+Two gpu1 experiment boots from the Boot-B base (full verified restore of modem-efs
+from the 12:46 pristine tar + empty tqftpserv), one change each, backup before every
+boot, flag off + rootfs clean after each. No partition writes; mpss never stopped by us.
+
+BOOT fo (force operating-mode=online):
+- Base reached as before: SIM only "detected" (not ready), nothing bound, opmode
+  stuck shutting-down, TDC config Pending.
+- At t=57s issued ONE `qmicli -p -d qrtr://0 --dms-set-operating-mode=online`.
+- Result: "Operating mode set successfully". opmode flipped shutting-down -> online
+  at t=58 and STAYED online, mpss=running, for ~79s to end of poll. ZERO rtsar /
+  Smart Transmit / fatal markers. reg stayed not-registered-searching (radio on).
+- => The rtsar Smart Transmit crash is NOT triggered by merely going online while the
+  SIM is "detected" and MCFG is Pending. Going online alone is safe.
+
+BOOT pa (pdc-activate the Pending TDC config):
+- Same base. At t=56s extracted the Pending TDC_Denmark_Commercial software config id
+  at runtime (len=40 hex) and ran `--pdc-activate-config=software,<id>`.
+- Result: "error: couldn't activate config: DeviceInUse". opmode stayed shutting-down
+  for all 339 samples, SIM only detected, NO crash. The modem refused the manual
+  activate because its own config subsystem is already busy in the failing
+  shutting-down/pending loop. Inconclusive for reproducing the crash (could not reach
+  applied-MCFG / transmit bring-up from the stuck base).
+
+Combined with Boot A (mcfg aside: SIM reached "ready", slot-1 bound, MCFG applied,
+opmode flapped to online, rtsar crash ~5s later): the crash fires only when the modem
+actually progresses to a ready SIM + applied MCFG + real bearer/transmit bring-up
+(transmitter keying). It is a TX-enable-time license check, not an opmode-online event.
+
+LICENSE ROOT-CAUSE (the rtsar message names the real problem):
+- Smart Transmit (STx) = Qualcomm modem time-averaged Tx-power / SAR-compliance feature
+  (RTSAR framework). Its runtime parameters live in OEM-provisioned modem EFS; the
+  FEATURE itself is license-gated.
+- On stock Android SM8750 the license is supplied by QWES (Qualcomm Wireless Edge
+  Services): daemon qwesd + qwes_cli, a persist pfm license store, and RPMB metadata.
+  Read-only persist.img confirms the store exists and the STx license is INSTALLED:
+  /data/pfm/licenses/oem_stx_platform_license.pfm.inst (status ".inst" = installed ok),
+  plus store_0..store_6 qwes_license_store blobs (184 KB each) and a QLS HLOS time
+  anchor qls_hlos-timestamp (0-byte, dated Nov 2024). (No ids/contents copied here.)
+- On this mainline userspace qwesd does NOT run and is NOT a systemd unit. The binaries
+  are staged on the writable side (sensors/.../vendor_a/bin/qwesd, qwes_cli) but are
+  Android aarch64 ELFs (interpreter /system/bin/linker64, built for Android 35) and
+  cannot run on our glibc userspace without a full Android container. So nothing serves
+  the QWES license store to the modem.
+- Mechanism: at TX bring-up the modem's RTSAR code queries the QWES license service
+  over QMI. On stock qwesd answers (license present) and TX is allowed. On mainline the
+  query goes unanswered / license-absent => "Smart Transmit License Check Failure (1,1,1)"
+  => mpss fatal crash. This matches the crash firing exactly at real transmit enable.
+
+Grace period / why ipa2a registered once:
+- No public QWES doc confirms a documented grace-period timeout or a supported SAR
+  bypass. The one-time ipa2a success was almost certainly a residual license grant
+  held in the modem's own state (RPMB / a live qwesd session from the preceding stock
+  boot), NOT anything stored in the EFS copies we hold: we restore the pristine 12:46
+  EFS every boot and the crash still returns, so the grant is not in those copies.
+  qls_hlos-timestamp being nearly 2 years stale is consistent with licensing never
+  being refreshed under mainline.
+
+Can we feed a license file in from the read-only image? NO, not usefully:
+- The modem does NOT obtain the STx license by reading a file from the writable EFS
+  (rmtfs) or via tqftpserv (tqftpserv only ever serves mcfg.tmp / server_check.txt).
+  It obtains it from the QWES license service (qwesd) over QMI. Dropping .pfm /
+  store_* blobs into the tqftpserv or rmtfs copies does not make the modem read them,
+  so it would not satisfy the check. The missing piece is the qwesd QMI responder, not
+  a file in the writable tree. (We did NOT write persist and did NOT copy license files.)
+
+Community search: lore / pmaports / linux-msm turned up the general SM8650/SM8750 QRTR
+modem bring-up guidance (qmicli -pd qrtr://0, rmtfs required) and an unrelated EFS
+rmts crash on an old device, but NO specific mainline report of "Smart Transmit License
+Check Failure". This appears to be a licensing/QWES gap not yet documented for mainline
+on these SoCs, rather than a known kernel/IPA bug.
+
+Leaning: root cause is the absent QWES license responder (qwesd) on mainline, which
+leaves the modem's RTSAR Smart Transmit license check unsatisfied at TX bring-up. This
+is modem-firmware/licensing, independent of kernel (gpu1, no IPA) and of the SIM (same
+card reached "ready" in Boot A; the "stuck detected" in Boot B is modem-side).
+CLAUDE CONSULT #5 candidate: how mainline users satisfy / stub the QWES STx license
+check (qwesd QMI shim, or disabling STx via an EFS/NV item), given qwesd cannot run.
 <!-- SPDX-License-Identifier: MIT -->
 # OnePlus 13 (dodge) bring-up notes
 
