@@ -2354,3 +2354,15 @@ restored to pre-write 12:46 backup; ipa2d: never online). Real partitions untouc
 (hashes identical 12:46/13:02/17:16). Leading cause: config/region/SAR state committed to the
 rmtfs copies at first clean registration enables Smart Transmit, which then needs a QWES license
 no qwesd serves. See dev-docs/2026-10-26-rtsar-good-vs-bad-timeline.md.
+
+## 2026-10-26 ~19:45 Phase 2: fresh Claude consult #4 (no prior context)
+Given only raw facts + the Phase 1 timeline (no conclusions), it independently reached the same
+top explanation: the operator MCFG applies config into EFS NV that enables Smart Transmit; the
+framework then runs a QWES license check that nothing answers (no qwesd) and the failure is
+fatal. The two surviving online boots (ipa2a with PDC 0 configs; ipa2f with pristine 12:46
+copies) are exactly the boots where MCFG was NOT in effect. It framed the DS-bearer assert as
+*survivorship*: on the MCFG-active no-IPA boots it killed the modem ~30 s after attach, before
+the rtsar check was reached - so rtsar appearing "only on IPA" is selection, not causation.
+Decisive read/test it named: a pristine-copy boot that actually registers+attaches - if it holds
+past ~120 s, hypothesis confirmed and we also have a non-QWES workaround; if it still crashes
+rtsar, the config-state explanation is wrong. Prompt+answer: logs/claude-consult-fresh-4*.
