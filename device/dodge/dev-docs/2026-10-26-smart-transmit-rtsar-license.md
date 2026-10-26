@@ -174,3 +174,49 @@ partitions untouched; phone left gpu1, flag off, copies pristine.
   i.e. image-hacking, which is disallowed. No open EFS2/NV-backup writer exists.
 - Unblock later: a DIAG-EFS2-over-QRTR write path (supported), OR the STX2 struct + oem_stanvbk
   record/CRC spec (offline). Both are separate projects.
+
+## Option 1 (DIAG write path) feasibility - read-only recon (2026-10-26 16:55-17:09)
+Goal (Martin): before treating option 1 as a project, check whether the dodge modem actually
+exposes a DIAG transport that andersson/diag-router (linux-msm/diag) could bind, and whether
+an open EFS2-over-DIAG client could then stat/get the rtsar_config item. READ-ONLY only: no
+EFS write. Three gated flag boots on gpu1, pristine EFS base, tqftpserv emptied; real
+partitions hashed before/after (identical every boot - no partition writes); copies+tqftpserv
+backed up (phone + host mirror) each boot; phone returned to gpu1/flag-off/clean each time.
+
+Tooling check (sanctioned, already on the phone): diag-router is the right router (handles the
+DIAG_CNTL feature-mask handshake + HDLC framing, exposes DIAG over a socket) but it needs an
+aarch64 build AND a separate EFS2 client; the phone rootfs has no compiler. More importantly,
+diag-router binds DIAG either as a glink/rpmsg channel (peripheral-rpmsg.c: "DIAG"/"DIAG_CNTL"
+/"DIAG_CMD") or as QRTR service id 4097 (peripheral-qrtr.c: DIAG_SERVICE_ID 4097, modem
+instances CNTL=0/CMD=1/DATA=2). So the real question is whether the modem advertises DIAG on
+either transport.
+
+Kernel/transport (NOT a blocker): gpu1 has CONFIG_RPMSG_CHAR=m and CONFIG_RPMSG_CTRL=m (plus
+RPMSG_QCOM_GLINK=y); the modules are staged and load cleanly at runtime (rpmsg_char, rpmsg_ctrl,
+qcom_glink_smem). The userspace rpmsg DIAG path is supported - no kernel rebuild needed.
+
+Finding - DIAG is NOT exposed by this modem build, on either transport:
+- glink/rpmsg: with the modem running, 4080000.remoteproc advertises only DATA1-4, DATA11, DS,
+  IPCRTR, LOOPBACK_CTL_MPSS, SSM_RTR_MODEM_APPS, modem_apps, rpmsg_ctrl. No DIAG / DIAG_CNTL /
+  DIAG_CMD channel. So diag-router's rpmsg peripheral has nothing to bind.
+- QRTR: qrtr-lookup (present at /usr/bin) enumerates a full QMI service suite on the modem node,
+  but `qrtr-lookup 4097` returns an empty list - no DIAG QRTR server is registered. So
+  diag-router's QRTR peripheral has nothing to bind either.
+Conclusion: option 1 as premised (DIAG-over-rpmsg, or DIAG-over-QRTR, driving an EFS2 client)
+cannot proceed on this firmware. No EFS2 stat/get was possible; no put was attempted. The
+blocker is the modem firmware's diag enablement, not the mainline kernel.
+
+Incidental: on these pristine-EFS / empty-tqftpserv boots (no operator config -> no
+registration -> no TX bring-up) the modem stayed `running` for the whole ~2 min window and did
+NOT hit the rtsar license crash. Consistent with the crash being gated on TX bring-up during
+registration; it does not contradict earlier crashes (those boots drove attach/registration).
+
+Leads for a possible pivot (NOT pursued - needs Martin's direction):
+- The modem exposes a rich QMI surface over QRTR, and qmicli/mmcli/qrtr-lookup are already on
+  the phone. Present QMI services include the Specific Absorption Rate service, the RF radiated
+  performance enhancement service, the Persistent Device Configuration (PDC) service, a "Modem
+  embedded file system" service, and (on the apps node) a "Remote file system" service. A
+  QMI-based path (PDC / an EFS-over-QMI service / runtime SAR control) may be the open
+  alternative to DIAG for either reading the item or changing SAR behaviour - but whether
+  libqmi/qmicli can address an arbitrary EFS path, or set SAR to an unrestricted state, is
+  unconfirmed and is a separate investigation.

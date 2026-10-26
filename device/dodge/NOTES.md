@@ -2311,3 +2311,18 @@ Before the boot test:
 ## 2026-10-25 15:10 Branch renamed
 
 - Martin renamed the fork branch `dodge-plan` to `oneplus13-dodge` (GitHub rename, old links redirect). `idcheck.sh` now diffs against `@{upstream}` instead of a hard-coded branch name.
+
+## 2026-10-26 17:09 Option 1 (DIAG write path) - read-only recon result
+- Checked whether the dodge modem exposes a DIAG transport for andersson/diag-router. Answer:
+  NO, on either transport. glink/rpmsg: the modem (4080000.remoteproc) advertises only
+  DATA1-4/DATA11/DS/IPCRTR/LOOPBACK_CTL_MPSS/SSM_RTR_MODEM_APPS/modem_apps/rpmsg_ctrl - no
+  DIAG/DIAG_CNTL/DIAG_CMD channel. QRTR: `qrtr-lookup 4097` (DIAG service id) returns empty.
+- CONFIG_RPMSG_CHAR/CTRL are present and load cleanly - the kernel is NOT the blocker. No
+  kernel rebuild done. The blocker is the modem firmware not enabling diag.
+- So option 1 (DIAG-over-rpmsg or -QRTR + an EFS2 client) cannot proceed as specified. No EFS2
+  read was possible; no EFS write attempted. Three gated read-only flag boots; real partitions
+  hashed identical before/after; copies+tqftpserv backed up each boot; phone left gpu1/flag-off/clean.
+- Lead for a pivot (needs direction): the modem exposes a full QMI service suite over QRTR
+  (SAR service, RF radiated-performance-enhancement service, PDC, a modem embedded file system
+  service, a remote file system service) and qmicli/mmcli are on the phone - a QMI-based read or
+  runtime-SAR path may be the open alternative to DIAG. Unconfirmed; separate investigation.
