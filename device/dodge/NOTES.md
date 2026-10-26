@@ -4,6 +4,24 @@
 Findings from this phone, newest first. The plan is [PLAN.md](PLAN.md).
 Attempts live in [dev-docs/](dev-docs/).
 
+## 2026-10-26: modem RF bands, OnePlus NV backup (12:30-12:42 CET)
+
+Details: [dev-docs/2026-10-26-modem-nvbk-73.md](dev-docs/2026-10-26-modem-nvbk-73.md).
+
+- **Root cause of "offline, no bands":** rmtfs asks for `/oem/nvbk/static`
+  and `/oem/nvbk/dynamic` (`oem_stanvbk`/`oem_dycnvbk`, linux-msm/rmtfs PR
+  #33). With `-o <dir>` those files have to be in the EFS dir, and they weren't.
+  Read-only copies of `oplusstanvbk_a` and `oplusdycnvbk` (on the phone only,
+  not in git) fixed it: DMS lists GSM/WCDMA/LTE/NR bands.
+- **Next blocker:** the operator MCFG turns `Pending` and the modem waits in
+  `shutting-down` for a reset. A modem restart resets the phone, and `-r`
+  drops the EFS writes, so it can't finish. Proposed: rmtfs writable on the
+  copies only (never `-P`), after Martin approves. No registration, signal or
+  data yet. Nothing points at the SIM.
+- Persist read once, read-only (image + `ro,noload`): nothing for the modem.
+- Phone left on gpu1, flag removed, rootfs clean, copies verified unchanged.
+  Repo unit (no ExecStop) and helper now installed on the phone.
+
 ## 2026-10-26: pr2 boot tests, fork pushed, modem and SIM on 7.3 (11:26-12:10 CET)
 
 Details: [dev-docs/2026-10-26-modem-sim-73.md](dev-docs/2026-10-26-modem-sim-73.md),

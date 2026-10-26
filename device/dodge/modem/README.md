@@ -26,6 +26,10 @@ needs `/usr/local/bin/rmtfs` and `tqftpserv` (linux-msm git), `qcom_rmtfs_mem.ko
 (built at `KERNELRELEASE=6.16.0-gb3ee311dab85`) in
 `/usr/local/lib/omamobile/modem/`, the firmware in
 `/lib/firmware/qcom/sm8750/OnePlus/` and the EFS copies. None of those are in git.
+The EFS dir also needs the OnePlus NV backup, or the modem has no RF bands.
+Make read-only copies of the current slot's partitions, `dd if=` only:
+`oplusstanvbk_a` -> `oem_stanvbk`, `oplusdycnvbk` -> `oem_dycnvbk` (mode 600;
+the dynamic one is per-unit calibration, keep it off the repo).
 
 On 7.x the helper loads the in-tree `rmtfs_mem.ko` from
 `/usr/lib/modules/<release>.held` when the 6.16 `qcom_rmtfs_mem.ko` is not in
@@ -41,7 +45,11 @@ only logs. A phone running an older unit needs a runtime drop-in with an empty
 `ExecStop=` before any reboot.
 
 Status 2026-10-26 (7.3 gpu1, SIM inserted): the MPSS boots and QMI,
-rmtfs, tqftpserv and ModemManager work, the SIM reads (PIN1 disabled), but
-the modem stays offline with no RF bands, so there's no registration and no
-data. Details: [../dev-docs/2026-10-26-modem-sim-73.md](../dev-docs/2026-10-26-modem-sim-73.md). Details:
+rmtfs, tqftpserv and ModemManager work, and the SIM reads (PIN1 disabled). With the NV
+backup copies the modem lists its RF bands, but it then waits in
+`shutting-down` for a reset to apply the operator MCFG, which can't happen
+yet (read-only EFS, and a modem restart resets the phone). No registration
+and no data. Details:
+[../dev-docs/2026-10-26-modem-nvbk-73.md](../dev-docs/2026-10-26-modem-nvbk-73.md),
+[../dev-docs/2026-10-26-modem-sim-73.md](../dev-docs/2026-10-26-modem-sim-73.md),
 [../dev-docs/2026-10-21-modem.md](../dev-docs/2026-10-21-modem.md).
