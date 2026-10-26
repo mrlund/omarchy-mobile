@@ -2366,3 +2366,19 @@ the rtsar check was reached - so rtsar appearing "only on IPA" is selection, not
 Decisive read/test it named: a pristine-copy boot that actually registers+attaches - if it holds
 past ~120 s, hypothesis confirmed and we also have a non-QWES workaround; if it still crashes
 rtsar, the config-state explanation is wrong. Prompt+answer: logs/claude-consult-fresh-4*.
+
+## 2026-10-26 ~19:36 Phase 3: one decisive test boot (pristine copies + IPA image + online)
+Restored the writable EFS copies to the pristine 12:46 state (20261026-124620) + emptied
+tqftpserv BEFORE the modem stack started, then ran the ipa1 bring-up (provision slot 1 + online)
+on the ipa1 image. Result: RESTORE-VERIFIED; modem booted and held mpss=running for the full
+~200 s with NO rtsar crash and no crash of any kind. BUT ModemManager stayed failed/sim-missing
+the whole time (as in ipa2f), so it never registered/attached - pristine copies predate the
+modem's own SIM/EFS state, so the card isn't seen. Partially informative: an online+searching
+modem on pristine copies ran 200 s with no rtsar, whereas the post-commit-copy boots crashed
+rtsar at 57-112 s while also just searching - consistent with Smart Transmit enforcement being
+governed by state in the writable copies, not merely by being online. But it does NOT achieve a
+registered pristine boot, which is the one observation that would fully settle it, and there is
+no in-rules path to it (pristine copies can't register; activating the pending config is a
+forbidden modem-state write). Real partitions hashed identical before/after; phone back on gpu1,
+flag off, rootfs clean. Stopped at 1 of max 2 boots - nothing a 2nd same-approach boot would
+break open. Logs: p73-rt-*.
