@@ -1,3 +1,12 @@
+## 2026-10-27: gpu2 (gpu1 + IPA) is the flashed default; modem flag on; NM cellular autoconnect (18:25-18:39 CET)
+
+`7.3.0-rc6-dodge-gpu2` (kernel-7.3 patches 0067-0074) is on boot_a and marked
+successful. `/etc/omamobile/modem-probe.enable` is set. Every boot restores the
+good EFS set, registers within about 8 s, and NM brings up `omamobile-cellular`
+(Wi-Fi stays the default route). A graceful reboot with the MPSS running is
+clean. Rollback: tools/dodge-restore-73gpu1u. See
+dev-docs/2026-10-27-gpu2-ipa-default-and-cellular-autoconnect.md.
+
 ## 2026-10-27: good EFS copy sets are start-only; a set left after a long registered boot hits rtsar (15:00 CET)
 
 Boot S1 started from the copies left by the good R3 replay boot, with no restore,
