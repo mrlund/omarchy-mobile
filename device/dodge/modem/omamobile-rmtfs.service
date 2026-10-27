@@ -5,7 +5,8 @@
 Description=dodge modem remote file system (read-only copies)
 ConditionPathExists=/etc/omamobile/modem-probe.enable
 ConditionPathExists=/var/lib/omamobile/modem-efs/modem_fs1
-After=omamobile-adsp-battery.service
+Requires=omamobile-modem-efs.service
+After=omamobile-adsp-battery.service omamobile-modem-efs.service
 
 [Service]
 ExecStartPre=/usr/local/lib/omamobile/modem/omamobile-modem rmtfs-mem

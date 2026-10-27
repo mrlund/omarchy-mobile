@@ -5,8 +5,8 @@
 [Unit]
 Description=dodge modem DSP start
 ConditionPathExists=/etc/omamobile/modem-probe.enable
-Requires=omamobile-rmtfs.service omamobile-tqftpserv.service
-After=omamobile-rmtfs.service omamobile-tqftpserv.service omamobile-adsp-battery.service
+Requires=omamobile-modem-efs.service omamobile-rmtfs.service omamobile-tqftpserv.service
+After=omamobile-modem-efs.service omamobile-rmtfs.service omamobile-tqftpserv.service omamobile-adsp-battery.service
 
 [Service]
 Type=oneshot

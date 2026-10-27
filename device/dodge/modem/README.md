@@ -25,6 +25,18 @@ With the flag, at boot:
 7. ModemManager (drop-in `ModemManager-omamobile.conf`) starts after the units
    above. Without the flag its condition skips it.
 
+Since 2026-10-27, with the IPA trial kernel, two more units bracket the stack:
+`omamobile-modem-efs.service` runs before rmtfs. It needs an enabled IPA DT
+node (otherwise nothing starts and the copies are left alone). It snapshots the
+copies to `/var/lib/omamobile/efs-snapshots/auto-*` (newest 12 kept), then
+restores the named good set `/var/lib/omamobile/efs-good/<name>`. The name is
+in `/etc/omamobile/modem-efs-good`, and good sets are never rotated.
+`omamobile-modem-online.service` runs before ModemManager. It provisions SIM
+slot 1 if needed, goes online, waits for registration and snapshots `reg`. A
+set the modem has written to for a few minutes crashes the next boot (rtsar),
+so the good set is restored on every boot. See
+[../dev-docs/2026-10-27-option-b-efs-timeline-and-units.md](../dev-docs/2026-10-27-option-b-efs-timeline-and-units.md).
+
 Install: copy this directory to the phone and run `./install` as root. It
 needs `/usr/local/bin/rmtfs` and `tqftpserv` (linux-msm git), `qcom_rmtfs_mem.ko`
 (built at `KERNELRELEASE=6.16.0-gb3ee311dab85`) in
