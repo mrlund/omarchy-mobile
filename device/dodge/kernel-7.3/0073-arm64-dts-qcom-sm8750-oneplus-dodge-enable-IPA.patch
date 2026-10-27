@@ -1,0 +1,33 @@
+From 5893e0ff93e6cb949f3d40fd2ba6bc6b74c39afe Mon Sep 17 00:00:00 2001
+From: Martin Lund <mrlund@hotmail.com>
+Date: Mon, 26 Oct 2026 13:17:23 +0100
+Subject: [PATCH 73/74] arm64: dts: qcom: sm8750-oneplus-dodge: enable IPA
+
+The GSI firmware comes from the modem partition (ipa_fws, PAS id 15).
+
+Signed-off-by: Martin Lund <mrlund@hotmail.com>
+---
+ arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+index dd2c51069..9f1fff3db 100644
+--- a/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
++++ b/arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts
+@@ -1057,6 +1057,13 @@ vreg_l2j_1p2: ldo2 {
+ 	};
+ };
+ 
++&ipa {
++	firmware-name = "qcom/sm8750/OnePlus/ipa_fws.mbn";
++	memory-region = <&ipa_fw_mem>;
++
++	status = "okay";
++};
++
+ &pm8550_flash {
+ 	status = "okay";
+ 	led-0 {
+-- 
+2.56.0
+

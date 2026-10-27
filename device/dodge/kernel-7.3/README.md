@@ -65,7 +65,7 @@ make O=../out-omamobile-73 ARCH=arm64 LLVM=1 KERNELRELEASE=7.3.0-rc6-dodge-s1 \
 # skip-units-<R> as its skip-units file.
 ```
 
-GPU kernel `7.3.0-rc6-dodge-gpu1` (2026-10-24, flashed default since 18:44 CEST):
+GPU kernel `7.3.0-rc6-dodge-gpu1` (2026-10-24, flashed default from 18:44 CEST until gpu2 on 2026-10-27):
 the same tree as s1 plus patches 0062-0066 (formerly 0054-0058). Its config is `config-7.3.0-rc6-dodge-gpu1`, which is
 `config-7.3.0-rc6-dodge-s1` plus `dodge-73-gpu.config` (`CONFIG_SM_GPUCC_8750=y`;
 that is the only diff). The skip-units file is `skip-units-7.3.0-rc6-dodge-gpu1`,
@@ -74,6 +74,28 @@ a copy of the s1 one. It is built in `out-omamobile-73-gpu` with
 (`/usr/lib/modules/7.3.0-rc6-dodge-gpu1.held` and
 `/usr/local/lib/omamobile.7.3.0-rc6-dodge-gpu1`), so the s1 tree that the
 current flashed default uses stays untouched.
+
+Mobile data kernel `7.3.0-rc6-dodge-gpu2` (2026-10-27, the flashed default
+since 18:25 CET): gpu1 plus IPA, patches 0067-0074
+(`git format-patch f08f72d3e..9f87b1144 --start-number 67`, branch
+`dodge-gpu2`). It is based on the gpu1 tree (`f08f72d3e`), so it keeps
+only_adsp and with the modem flag off it behaves exactly like gpu1. The four
+IPA driver patches come from Koskovich's Eliza/IPA v5.5 series (bindings, v5.5
+data fix, the HW filter stats QMI request, Eliza data). The four of ours add
+the SM8750 compatible, the IPA and IMEM nodes, enable IPA on dodge, and use
+the 3-cell GIC interrupt specifier. The config is `config-7.3.0-rc6-dodge-gpu2`,
+byte-identical to gpu1's (IPA was already `=m`); only `ipa.ko` differs in the
+module tree. `skip-units-7.3.0-rc6-dodge-gpu2` skips only
+`omamobile-mm-netport.service`, because with IPA the real `rmnet_ipa0` port
+exists. It is built in `out-omamobile-73-gpu2` with
+`KERNELRELEASE=7.3.0-rc6-dodge-gpu2` and packed with the same 6.16 stage 1 and
+the usbfix1 stage-2 initramfs. Since 2026-10-27 the modem flag is on by
+default and NetworkManager autoconnects `omamobile-cellular`, with Wi-Fi
+preferred (see [../modem/README.md](../modem/README.md)). Rollback:
+`tools/dodge-restore-73gpu1u` (gpu1 with usbfix1, the previous default), then
+`tools/dodge-restore-73gpu1`, `-73s1`, `-616`; `tools/dodge-restore-73gpu2`
+puts gpu2 back. Results:
+`../dev-docs/2026-10-27-gpu2-ipa-default-and-cellular-autoconnect.md`.
 
 Boot (one-shot, never flashed), with the 6.16 stage 1 unchanged:
 

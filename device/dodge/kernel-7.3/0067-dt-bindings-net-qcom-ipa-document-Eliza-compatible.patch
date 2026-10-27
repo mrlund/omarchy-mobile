@@ -1,0 +1,30 @@
+From cc674d173bcf87583d9b3e9254a389725f90f557 Mon Sep 17 00:00:00 2001
+From: Alexander Koskovich <akoskovich@pm.me>
+Date: Thu, 16 Apr 2026 22:40:48 +0000
+Subject: [PATCH 67/74] dt-bindings: net: qcom,ipa: document Eliza compatible
+
+Document the IPA on the Eliza Platform which uses version 5.5.1,
+which is a minor revision of v5.5 found on SM8550, thus we can
+use the SM8550 bindings as fallback since it shares the same
+register mappings.
+
+Signed-off-by: Alexander Koskovich <akoskovich@pm.me>
+---
+ Documentation/devicetree/bindings/net/qcom,ipa.yaml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Documentation/devicetree/bindings/net/qcom,ipa.yaml b/Documentation/devicetree/bindings/net/qcom,ipa.yaml
+index 68ec76fe4..e4b14ddf8 100644
+--- a/Documentation/devicetree/bindings/net/qcom,ipa.yaml
++++ b/Documentation/devicetree/bindings/net/qcom,ipa.yaml
+@@ -60,6 +60,7 @@ properties:
+           - const: qcom,sc7180-ipa
+       - items:
+           - enum:
++              - qcom,eliza-ipa
+               - qcom,sm8650-ipa
+           - const: qcom,sm8550-ipa
+ 
+-- 
+2.56.0
+

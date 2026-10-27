@@ -1,0 +1,5 @@
+# 7.3 gpu2 (gpu1 + IPA): units listed here do not start on this kernel
+# (omamobile-kmod-overlay, 50-omamobile-kernel-skip.conf). The modem units
+# are gated by /etc/omamobile/modem-probe.enable; IPA gives the real
+# rmnet_ipa0, so the fake net port stays off.
+omamobile-mm-netport.service

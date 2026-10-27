@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # dodge-restore-73gpu1: put the 7.3.0-rc6-dodge-gpu1 boot chain (old stage-2
 # initramfs, before the 2026-10-24 USB-race fix) back on boot_a.
-# Rollback chain: usbfix1 -> gpu1 (this tool) -> s1 (dodge-restore-73s1)
+# Rollback chain: gpu2 (dodge-restore-73gpu2) -> gpu1 usbfix1 (dodge-restore-73gpu1u)
+#   -> gpu1 (this tool) -> s1 (dodge-restore-73s1)
 #   -> 6.16 (dodge-restore-616).
 #   tools/dodge-restore-73gpu1          flash boot_a, set_active a, reboot
 #   tools/dodge-restore-73gpu1 once     one-shot: fastboot boot (nothing written)
