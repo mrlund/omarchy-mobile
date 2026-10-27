@@ -2469,3 +2469,14 @@ implement the bidirectional accept/server loop (the TA->HLOS callback path the F
 use), not just one-shot invoke - several days. Both exceed the one-day stop condition. Stopped at
 the blocker; no stack started, no trial boot, nothing written; phone gpu1, flag off, real
 modem/EFS/qweslicstore hashes verified unchanged.
+
+### qwesd READ path - step 0 (2026-10-27): translator route decided
+Prior art survey (quic-teec / minkipc / qcomtee docs). The entire HLOS QTEE stack already exists
+open-source over the upstream TEE uapi our qtee1 kernel exposes (/dev/tee0): quic-teec (libqcomtee
+Object-IPC client + supplicant) and minkipc (libminkadaptor = Object_invoke gateway over qcomtee;
+qtee_supplicant; libfsservice FS listener; librpmbservice RPMB listener). Decision: route (b) -
+build open minkipc+quic-teec+QCBOR for the target and run vendor qwesd against libminkadaptor
+(/dev/tee0) in place of vendor libminkdescriptor.so (/dev/smcinvoke), with a read-only FS listener
+(persist copy) and a write-refusing RPMB listener. Rejected the bespoke CUSE smcinvoke shim as more
+work. Open risk = bionic ABI match of vendor imports vs libminkadaptor exports (step 1). See
+dev-docs/2026-10-26-qwes-licensing-phaseA-scope.md "Phase A2 step 0 RESULT".

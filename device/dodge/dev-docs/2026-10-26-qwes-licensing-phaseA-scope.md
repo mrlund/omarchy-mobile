@@ -98,3 +98,65 @@ fail to open /dev/smcinvoke. Bridging options: (a) backport downstream smcinvoke
 shim translating SMCINVOKE_IOCTL_* -> qcomtee TEE_IOC object-invoke on /dev/tee0, including the
 bidirectional accept/server callback loop the FS/RPMB listeners need (several days). Both exceed
 the one-day stop condition, so the qwesd read path stops here pending a decision on the shim.
+
+## Phase A2 step 0 RESULT (2026-10-27): prior art -> route decided (build open minkipc over qcomtee)
+Approved to build the smcinvoke<->qcomtee translator. ~30 min prior-art survey settled the route.
+
+Key finding: the full HLOS-side QTEE stack already exists as open source, targeting exactly the
+upstream TEE uapi our qtee1 kernel exposes (/dev/tee0, QTEE 5.2) - no closed /dev/smcinvoke needed:
+- quic/quic-teec (libqcomtee): userspace Object-IPC client over the in-tree qcomtee driver, using
+  TEE_IOC_OBJECT_INVOKE for outbound invokes and the supplicant recv/send (TEE_IOC_SUPPL_RECV/SEND)
+  for QTEE->HLOS callbacks. BSD-3. Builds via CMake with a cross toolchain; depends on QCBOR.
+- quic/minkipc: the open MINK-IPC stack built ON quic-teec. Relevant pieces:
+  * libminkadaptor - the "User Invoke Gateway": implements the generic Mink Object C ABI
+    (object.h: Object/Object_invoke; MinkCom.h: MinkCom_getRootEnvObject / getClientEnvObject /
+    getMemoryObject) over qcomtee, including the inbound (supplicant) path. This is the open analog
+    of the vendor libminkdescriptor.so (same MINK lineage), but talking /dev/tee0 instead of
+    /dev/smcinvoke.
+  * qtee_supplicant - the HLOS daemon that services QTEE callbacks (CBO listener dispatch).
+  * listeners/libfsservice (fs + gpfs) - the filesystem listener (serves HLOS FS reads/writes to
+    QTEE). Point its root at a READ-ONLY copy of persist pfm; refuse write ops.
+  * listeners/librpmbservice - the RPMB listener. Its dispatch is a switch in rpmb_service.c:
+    TZ_CM_CMD_RPMB_{INIT,READ,WRITE,PARTITION}; TZ_CM_CMD_RPMB_WRITE -> rpmb_handle_write() ->
+    rpmb_write(). READ-ONLY enforcement is a one-function patch: in rpmb_handle_write log the
+    command + num_sectors and return an error WITHOUT calling rpmb_write(); leave READ untouched
+    and never forward a write to /dev/mmcblk0rpmb or /dev/bsg/ufs-bsg. (Our kernel has RPMB off, so
+    this listener may simply find no device; it is a safety net.)
+  * rpmb_client, libtimeservice, libtaautoload, listenercbo - additional listeners, not needed for
+    a license READ but available.
+  The QWES IDL itself (IQWESTAServices, IQWESKeyStore, IProvisioning, IKVStore) ships in minkipc's
+  SDK, confirming QWES rides on this same Mink Object model over Object_invoke.
+
+Routes weighed (cheapest first):
+  (b) CHOSEN - build open minkipc + quic-teec + QCBOR for the target and run the vendor qwesd stack
+      against libminkadaptor (over /dev/tee0) instead of vendor libminkdescriptor.so, with
+      qtee_supplicant + a read-only libfsservice and a write-refusing librpmbservice for callbacks.
+      Cheapest because transport AND the whole listener/supplicant layer already exist over qcomtee;
+      we write almost no new plumbing - only the read-only policy patches and the wiring/config.
+  (a) REJECTED as primary - a bespoke CUSE /dev/smcinvoke -> /dev/tee0 shim. It would reimplement
+      the entire downstream SMCINVOKE_IOCTL_* surface (INVOKE/ACCEPT/SERVER/ACK, tzhandle encoding,
+      the callback server loop) AND still need an FS/RPMB listener. More code, and it reinvents what
+      libminkadaptor already does correctly against real QTEE object semantics. Kept only as a
+      fallback shape (see risk below), and even then it would sit on libminkadaptor's Object_invoke,
+      not raw ioctls.
+
+Open risk (the real work, = step 1/2): ABI match. The vendor qwesd/qwes_cli/libqwes are bionic
+(linker64) and link vendor libminkdescriptor.so + libminksocket_vendor.so by SONAME. libminkadaptor
+builds a different SONAME (minkadaptor) and exports the generic Object/MinkCom C ABI. Step 1 must
+diff what the vendor binaries actually import (undefined syms) against libminkadaptor's exports:
+  - If they import the generic Mink symbols (Object_invoke vtable bootstrap + MinkCom_*), then build
+    libminkadaptor for bionic (NDK; minkipc has Android.bp) and install it as libminkdescriptor.so
+    (SONAME patch / symlink) so qwesd resolves against it - near drop-in.
+  - If the vendor lib exposes extra private symbols qwesd hard-links, add a thin bionic shim that
+    exports those and forwards to libminkadaptor - still far less than a CUSE shim.
+Fallback if bionic ABI can't be matched at all: a CUSE /dev/smcinvoke node backed by libminkadaptor
+(keeps the vendor lib unchanged behind a clean process/ABI boundary).
+
+Hard rules unchanged: persist read-only (served from a read-only copy); RPMB listener read-only
+(log + refuse every write by type/size, never forward); no TA persisted to secure storage (load
+into QTEE memory only); real modem/EFS/persist partitions never written (hash before/after);
+standing dodge trial rules; no identifiers/firmware/TA/.pfm in the repo; never fake/hard-code a
+license response. If the read needs a secure-storage write to succeed, stop and report.
+
+Next (step 1): on the host, diff vendor import syms vs libminkadaptor exports; cross-build
+quic-teec+QCBOR+minkipc for aarch64; write the SMCINVOKE-ABI -> qcomtee Object-invoke mapping note.
