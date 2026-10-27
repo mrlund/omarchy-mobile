@@ -1,3 +1,12 @@
+## 2026-10-27: good EFS copy sets are start-only; a set left after a long registered boot hits rtsar (15:00 CET)
+
+Boot S1 started from the copies left by the good R3 replay boot, with no restore,
+and hit the rtsar Smart Transmit fatal ~13-28 s after online. At modem-up the slot-1
+GW provisioning session was already bound. That matches R1 (bad). R2 and R3 (good)
+started unbound and were provisioned by hand. Before any modem-on boot, check that the
+live copies are a known unbound set (pristine, or R2's registration snapshot), and
+snapshot them before and after. See dev-docs/2026-10-27-replay-stability.md.
+
 ## 2026-10-26: STx-off write attempt -> STOPPED, no clean write method (read-only recon, 16:37-16:50 CET)
 
 Martin approved switching Smart Transmit off in the writable copies only + one test boot

@@ -50,6 +50,8 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-27 | [replay stability](2026-10-27-replay-stability.md) | Stopped after 1 of 3 boots: the R3 end-state copy set hit the rtsar fatal on the next cold boot. rtsar tracks the slot-1 provisioning binding being already persisted at modem-up (R1, S1 bad; R2, R3 unbound and good). Last good set restored; backups in three places, all verified. |
+| 2026-10-27 | [first-boot replay](2026-10-27-first-boot-replay.md) | Pristine set and its registration snapshot register on home LTE and pass data (ping) with no rtsar, once ModemManager is held back until after provisioning and registration. Carrier MCFG Active is not the trigger. |
 | 2026-10-27 | [offline MCFG edit on EFS copies](2026-10-27-efs-copy-offline-mcfg-edit.md) | Stopped, no boots: modem_fs1/fs2 sync images are encrypted (device-bound), so the carrier MCFG cannot be deselected offline; OEM NV backups are cleartext but static and restore-only (out of bounds). Snapshot copy sets around every modem-on boot. |
 | 2026-10-26 | [IPA v5.5 on SM8750](2026-10-26-ipa-sm8750.md) | Root cause and port plan for the modem data path: SM8750 IPA is v5.5 (Eliza RFC data), DT derived from stock and downstream. Trial kernel ipa1 built and packed; trial boot results in the dev-doc. |
 | 2026-10-26 | [modem on writable EFS copies](2026-10-26-modem-efs-rw-73.md) | rmtfs writes to the copies only: MCFG commits, modem registers on TELMORE LTE (RSRP -105 dBm), SIM active, then crashes ~30 s later (no IPA for the LTE bearer). Real partitions unchanged. Stage-2 plan for the real partitions. |

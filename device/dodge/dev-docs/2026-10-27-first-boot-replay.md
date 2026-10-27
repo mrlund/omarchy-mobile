@@ -65,6 +65,9 @@ The bad reference is `replay-R1-pre-*`. No snapshot contents, hashes or
 identifiers are committed.
 
 ## Next
+**Update (same day).** The consecutive-boot test ran: the R3 end-state set
+hit rtsar on the next cold boot. See [replay stability](2026-10-27-replay-stability.md).
+
 Run more cold boots from the R3 end state, with no restore in between, to see
 whether a good set stays good across consecutive boots. Or find which step
 in the earlier crashing lineage turned the set bad (one variable per boot).
