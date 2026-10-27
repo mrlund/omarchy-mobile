@@ -2,7 +2,12 @@
 # dodge modem
 
 Everything here is inert unless `/etc/omamobile/modem-probe.enable` exists.
-Default: off (2026-10-21; since 2026-10-26 it registers on LTE, then crashes without IPA).
+Default: **on** since 2026-10-27 with the flashed `7.3.0-rc6-dodge-gpu2` (IPA),
+which gives working mobile data. It was off from 2026-10-21 (from 2026-10-26 it
+registered on LTE, then crashed without IPA). On a kernel without an enabled IPA
+DT node (gpu1, s1, 6.16) `omamobile-modem-efs` exits without touching the
+copies, so rmtfs and the MPSS are never started and a rollback stays safe with
+the flag on (the MPSS is only probed).
 
 With the flag, at boot:
 
@@ -17,11 +22,16 @@ With the flag, at boot:
 5. `omamobile-mm-netport.service` creates the tun `rmnet_mm0`, which
    `78-omamobile-mm-fake-net.rules` tags as the qcom-soc net port. ModemManager
    refuses a QMI modem without one, and SM8750 IPA isn't in 6.16 yet. Data
-   can't work through it.
-6. `omamobile-cellular.nmconnection` (installed into NetworkManager) is a gsm
-   profile with APN auto-config. NM, not networkd, owns the bearer and applies
-   its IP config. Untested end to end (2026-10-26: the modem crashes on the
-   Smart Transmit license check before registering).
+   can't work through it. gpu2 skips this unit (its skip-units file): IPA
+   provides the real `rmnet_ipa0`.
+6. `omamobile-cellular.nmconnection` (installed into NetworkManager, mode 600)
+   is a gsm profile: APN `internet`, autoconnect with priority -10 and
+   unlimited retries, route metric 700 for IPv4 and IPv6, no secrets. NM, not
+   networkd, owns the bearer and applies its IP config. Wi-Fi (metric 600)
+   stays the default route while it is up; with Wi-Fi off the default moves to
+   the cellular `qmapmux0.0`. NM may still pick cellular as the IPv6 default
+   when the Wi-Fi network has no IPv6. Tested end to end on gpu2 2026-10-27
+   (NM autoconnects about 14 s after ModemManager sees the modem).
 7. ModemManager (drop-in `ModemManager-omamobile.conf`) starts after the units
    above. Without the flag its condition skips it.
 
