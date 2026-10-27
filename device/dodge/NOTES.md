@@ -2480,3 +2480,13 @@ build open minkipc+quic-teec+QCBOR for the target and run vendor qwesd against l
 (persist copy) and a write-refusing RPMB listener. Rejected the bespoke CUSE smcinvoke shim as more
 work. Open risk = bionic ABI match of vendor imports vs libminkadaptor exports (step 1). See
 dev-docs/2026-10-26-qwes-licensing-phaseA-scope.md "Phase A2 step 0 RESULT".
+
+### qwesd READ path - step 1 (2026-10-27): symbol diff -> thin 2-function shim suffices
+Vendor qwesd/qwes_cli import only TWO symbols from libminkdescriptor.so: TZCom_getRootEnvObject and
+TZCom_getClientEnvObject. All later QTEE calls ride the Object vtable (Object_invoke is static inline,
+not a dynamic symbol); Object is the same 2-pointer C ABI. So a thin forwarding shim (TZCom_* ->
+libminkadaptor MinkCom_*) over qcomtee is sufficient - no need to replicate MinkCBContext or the other
+48 exports. libqwes.so does NOT link libminkdescriptor (it is a /dev/socket/qwes_ipc client of qwesd).
+Open risk for step 3: confirm the license read uses the Mink/smcinvoke path (shim-covered) and not
+libQSEEComAPI /dev/qseecom (absent on qtee1 -> would be a separate blocker). Design note:
+dev-docs/2026-10-27-smcinvoke-qcomtee-abi-map.md.
