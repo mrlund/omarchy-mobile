@@ -310,6 +310,59 @@ say "ready"
   echo c > /proc/sysrq-trigger
 ) &
 
+# Firmware-match helper mode: stay in initramfs, run the helper, leave
+# status for the host over SSH (tools/firmware-match). Never switch_root.
+# Cmdline: omamobile.firmware-match[=check|copy]
+#          omamobile.firmware-match-from=a|b omamobile.firmware-match-to=a|b
+if grep -q 'omamobile.firmware-match' /proc/cmdline; then
+  say "firmware-match: helper mode"
+  fm_from=$(sed -n 's/.*omamobile\.firmware-match-from=\([ab]\).*/\1/p' /proc/cmdline | head -1)
+  fm_to=$(sed -n 's/.*omamobile\.firmware-match-to=\([ab]\).*/\1/p' /proc/cmdline | head -1)
+  [ -n "$fm_from" ] || fm_from=a
+  [ -n "$fm_to" ] || fm_to=b
+  fm_copy=--copy
+  grep -q 'omamobile.firmware-match=check' /proc/cmdline && fm_copy=
+  # Wait for UFS PARTNAME nodes (by-partlabel is often absent here).
+  i=0
+  while [ "$i" -lt 90 ]; do
+    ma= mb=
+    for ue in /sys/class/block/*/uevent; do
+      [ -f "$ue" ] || continue
+      pn=$(sed -n 's/^PARTNAME=//p' "$ue" 2>/dev/null) || continue
+      [ "$pn" = modem_a ] && ma=${ue%/uevent} && ma=/dev/${ma##*/}
+      [ "$pn" = modem_b ] && mb=${ue%/uevent} && mb=/dev/${mb##*/}
+    done
+    [ -n "$ma" ] && [ -n "$mb" ] && [ -b "$ma" ] && [ -b "$mb" ] && break
+    i=$((i + 1))
+    sleep 1
+  done
+  # Best-effort by-partlabel symlinks for the helper / host tooling.
+  mkdir -p /dev/disk/by-partlabel
+  for ue in /sys/class/block/*/uevent; do
+    [ -f "$ue" ] || continue
+    pn=$(sed -n 's/^PARTNAME=//p' "$ue" 2>/dev/null) || continue
+    [ -n "$pn" ] || continue
+    base=${ue%/uevent}
+    ln -sf "/dev/${base##*/}" "/dev/disk/by-partlabel/$pn" 2>/dev/null || true
+  done
+  helper=/usr/bin/omamobile-firmware-match
+  if [ -x "$helper" ]; then
+    say "firmware-match: running $helper from=$fm_from to=$fm_to $fm_copy"
+    # shellcheck disable=SC2086
+    "$helper" --from "$fm_from" --to "$fm_to" $fm_copy \
+      || say "firmware-match: helper exit $?"
+  else
+    say "firmware-match: helper binary missing; host must push it"
+    echo "RESULT=FAIL" > /run/omamobile-firmware-match.status
+    echo "DETAIL=helper-missing" >> /run/omamobile-firmware-match.status
+  fi
+  say "firmware-match: status ready; waiting for host (SSH)"
+  while true; do
+    setsid -c sh </dev/tty1 >/dev/tty1 2>&1
+    sleep 1
+  done
+fi
+
 # Hand over to an ext4 Arch root on the one opened userdata partition.
 # omamobile.initramfs stays here. A missing systemd or a failed mount
 # stays here too. switch_root only works as PID 1.

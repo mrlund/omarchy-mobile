@@ -1,0 +1,121 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# firmware-match: RAM-boot a helper image on dodge, attest/copy A/B firmware,
+# return to fastboot. Used by install-phone (qcom-abl) when the operator did
+# not pass --firmware-slots-match.
+#
+#   tools/firmware-match --from a|b --to a|b [--check] --image BOOT.img
+#
+# Requires the phone already in fastboot. Never flashes; never set_active.
+# Status channel: SSH over USB NCM (root@172.16.42.1).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+HELPER="$ROOT/device/dodge/firmware-match/helper"
+FROM= TO= IMAGE=
+DO_COPY=1
+SSH_HOST="${SSH_HOST:-172.16.42.1}"
+SSH_OPTS=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o BatchMode=yes -o ConnectTimeout=8)
+DEADLINE="${FIRMWARE_MATCH_DEADLINE:-180}"
+FASTBOOT="${FASTBOOT:-fastboot}"
+
+say() { printf '\e[1m==> %s\e[0m\n' "$*"; }
+die() { printf '\e[31merror:\e[0m %s\n' "$*" >&2; exit 1; }
+note() { printf '  %s\n' "$*"; }
+
+usage() {
+  cat <<USAGE
+Usage: tools/firmware-match --from a|b --to a|b --image BOOT.img [--check]
+
+  RAM-boots BOOT.img (non-persistent), runs the firmware-match helper over
+  SSH, prints RESULT, reboots to bootloader. --check skips copying.
+USAGE
+  exit 2
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --from) FROM=${2:?}; shift 2 ;;
+    --to) TO=${2:?}; shift 2 ;;
+    --image) IMAGE=${2:?}; shift 2 ;;
+    --check) DO_COPY=0; shift ;;
+    -h|--help) usage ;;
+    *) die "unknown arg: $1" ;;
+  esac
+done
+[[ $FROM == a || $FROM == b ]] || usage
+[[ $TO == a || $TO == b ]] || usage
+[[ -n $IMAGE && -f $IMAGE ]] || die "--image is required and must exist"
+[[ -x $HELPER ]] || die "missing helper $HELPER"
+
+SS() { ssh "${SSH_OPTS[@]}" "root@$SSH_HOST" "$@"; }
+S() { timeout 25 ssh "${SSH_OPTS[@]}" "root@$SSH_HOST" "$@"; }
+
+mapfile -t serials < <("$FASTBOOT" devices 2>/dev/null | awk '$2 == "fastboot" {print $1}')
+((${#serials[@]} == 1)) || die "expected one phone in fastboot, found ${#serials[@]}"
+serial=${serials[0]}
+fb() { "$FASTBOOT" -s "$serial" "$@"; }
+
+say "firmware-match from=$FROM to=$TO copy=$DO_COPY image=$(basename "$IMAGE")"
+note "current-slot (pre): $(fb getvar current-slot 2>&1 | awk -F': ' '/current-slot/{print $2; exit}')"
+
+say "fastboot boot (RAM only)"
+fb boot "$IMAGE"
+
+say "waiting for SSH on $SSH_HOST (deadline ${DEADLINE}s)"
+t0=$SECONDS
+up=0
+while ((SECONDS - t0 < DEADLINE)); do
+  if S 'true' >/dev/null 2>&1; then up=1; break; fi
+  sleep 2
+done
+((up == 1)) || die "SSH never came up within ${DEADLINE}s"
+
+# Prefer auto-run status if init already wrote one for our from/to; else push+run.
+status=""
+if S 'test -r /run/omamobile-firmware-match.status'; then
+  status=$(S 'cat /run/omamobile-firmware-match.status' || true)
+  # Accept only if FROM/TO match what we asked (auto-run baked cmdline).
+  if [[ $status == *"FROM=$FROM"* && $status == *"TO=$TO"* && $status == RESULT=* ]]; then
+    note "using initramfs auto-run status"
+  else
+    status=""
+  fi
+fi
+
+if [[ -z $status ]]; then
+  say "pushing helper over SSH"
+  # scp may not exist on initramfs; stream base64 over SSH stdin.
+  base64 -w0 "$HELPER" | ssh "${SSH_OPTS[@]}" "root@$SSH_HOST"     'mkdir -p /tmp && base64 -d > /tmp/firmware-match-helper && chmod +x /tmp/firmware-match-helper'     || die "failed to push helper"
+  copy_flag=
+  ((DO_COPY == 1)) && copy_flag=--copy
+  say "running helper"
+  # shellcheck disable=SC2086
+  SS "/tmp/firmware-match-helper --from $FROM --to $TO $copy_flag" || true
+  status=$(S 'cat /run/omamobile-firmware-match.status') || die "no status file after helper"
+fi
+
+printf '%s\n' "$status"
+result=$(awk -F= '/^RESULT=/{print $2; exit}' <<<"$status")
+fm_ok=1
+[[ $result == MATCH || $result == COPIED ]] || fm_ok=0
+
+say "reboot to bootloader"
+# Prefer reboot-to if present (Arch or initramfs); else sysrq-ish reboot via
+# the dodge reboot-to binary or busybox reboot.
+if S 'test -x /usr/bin/reboot-to || test -x /usr/local/bin/reboot-to'; then
+  S '/usr/bin/reboot-to bootloader 2>/dev/null || /usr/local/bin/reboot-to bootloader' || true
+else
+  # initramfs: write BCB / use reboot -f; dodge packs reboot-to into initramfs
+  S 'reboot-to bootloader 2>/dev/null || reboot -f' || true
+fi
+
+say "waiting for fastboot"
+for i in $(seq 60); do
+  "$FASTBOOT" devices 2>/dev/null | grep -q . && break
+  sleep 2
+done
+"$FASTBOOT" devices 2>/dev/null | grep -q . || die "phone did not return to fastboot"
+note "current-slot (post): $(fb getvar current-slot 2>&1 | awk -F': ' '/current-slot/{print $2; exit}')"
+((fm_ok == 1)) || die "firmware-match failed: RESULT=$result"
+say "firmware-match OK ($result)"

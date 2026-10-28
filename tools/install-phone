@@ -19,7 +19,7 @@
 # Before anything it checks: the phone answers in fastboot, its product is the
 # descriptor's CODENAME, the bootloader is unlocked, both bootloader slots
 # carry the same version (or --bootloader-slots-match), firmware on both slots
-# matches (or --firmware-slots-match), and each image fits its inactive-slot
+# matches (auto firmware-match helper on qcom-abl, or --firmware-slots-match), and each image fits its inactive-slot
 # partition (an AVB_FOOTERS image exactly). It asks for the user name, password,
 # host name, time zone, optional Wi-Fi and the SSH public key, writes them as
 # /etc/omamobile/firstboot.conf (and root's authorized_keys) into a LOCAL
@@ -44,7 +44,7 @@
 #                            when the bootloader reports no per-slot versions:
 #                            you checked the other slot carries VERSION too
 #                            (it must equal the current slot's)
-#     --firmware-slots-match ATTESTATION
+#     --firmware-slots-match ATTESTATION  (qcom-abl override; else auto helper)
 #                            you checked that non-boot firmware on the inactive
 #                            slot matches the running slot (xbl/abl/modem/…);
 #                            the installer never flashes those partitions. The
@@ -263,8 +263,14 @@ case ${current_slot:-} in
   b) inactive_slot=a ;;
   *) die "the phone reports current-slot='${current_slot:-}', expected a or b" ;;
 esac
-target_slot=${D[OMAMOBILE_SLOT]:-b}
-[[ $target_slot == a || $target_slot == b ]] || die "$conf: OMAMOBILE_SLOT must be a or b, not $target_slot"
+# OMAMOBILE_SLOT: a|b pins the Omarchy home slot; "inactive" means the slot
+# that is not currently active (first-install / classic A/B flip). Default b.
+_om_slot=${D[OMAMOBILE_SLOT]:-b}
+case $_om_slot in
+  a|b) target_slot=$_om_slot ;;
+  inactive) target_slot=$inactive_slot ;;
+  *) die "$conf: OMAMOBILE_SLOT must be a, b, or inactive, not $_om_slot" ;;
+esac
 for p in $BOOT_IMAGES; do
   [[ " $UFS_RW " == *" ${p}_${target_slot} "* ]] \
     || die "$conf: install target is slot ${target_slot}, but ${p}_${target_slot} is not on the storage-guard allowlist (UFS_RW)"
@@ -275,15 +281,29 @@ else
   note "install target: slot ${target_slot} (inactive relative to current ${current_slot})"
 fi
 # Firmware gate: xbl/abl/modem/vbmeta/… are never flashed. For qcom-abl the
-# target slot must already carry matching non-boot firmware, attested with
-# --firmware-slots-match (sha256 / copy-partitions). For android-v4 (Pixel),
-# matching bootloader slots (above) are the attestation unless the user also
-# passes the flag. Phone evidence 2026-10-28 (dodge): 27 A/B firmware
-# partitions differed; A→B copy then set_active b.
+# target slot must carry matching non-boot firmware. Preferred path: RAM-boot
+# tools/firmware-match (copies current → target when they differ). Manual
+# --firmware-slots-match remains as an operator override. Phone evidence
+# 2026-10-28 (dodge): 27 A/B firmware partitions differed; A→B copy then
+# set_active b.
 if [[ -n $firmware_match ]]; then
   note "firmware slots match attested (--firmware-slots-match $firmware_match)"
 elif [[ $BOOT_METHOD == qcom-abl ]]; then
-  die "BOOT_METHOD=qcom-abl needs matching firmware on slot ${target_slot} (sha256 of A/B firmware pairs, or a confirmed copy). Then rerun with --firmware-slots-match <token>. The installer never flashes xbl, abl, vbmeta or modem"
+  if [[ $target_slot == "$current_slot" ]]; then
+    note "firmware-match skipped (install target is the active slot; no inactive copy)"
+  else
+    fm_img=${FIRMWARE_MATCH_IMAGE:-}
+    [[ -n $fm_img ]] || fm_img=$images/firmware-match.img
+    [[ -f $fm_img ]] || fm_img=$images/boot.img
+    [[ -f $fm_img ]] || die "BOOT_METHOD=qcom-abl needs a RAM-boot helper image (FIRMWARE_MATCH_IMAGE or $images/firmware-match.img or boot.img), or pass --firmware-slots-match <token>. The installer never flashes xbl, abl, vbmeta or modem"
+    if ((dry)); then
+      note "firmware-match would run: current ${current_slot} → target ${target_slot} via $(basename "$fm_img") (dry-run: skipped)"
+    else
+      say "Firmware-match helper (current ${current_slot} → target ${target_slot})"
+      "$here/firmware-match" --from "$current_slot" --to "$target_slot" --image "$fm_img"         || die "firmware-match helper failed; refuse to switch slots. Fix firmware or pass --firmware-slots-match <token> after a confirmed manual copy"
+      note "firmware slots match attested (firmware-match helper)"
+    fi
+  fi
 else
   note "firmware on slot ${target_slot} not attested; Pixel path relies on matching bootloader slots (installer never flashes radio/modem/vbmeta)"
 fi

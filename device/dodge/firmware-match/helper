@@ -1,0 +1,224 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# firmware-match helper: compare (and optionally copy) A/B firmware pairs.
+# Runs in the dodge initramfs or under Arch. Never touches vbmeta,
+# qweslicstore, oplusstanvbk, non-A/B partitions, or the boot-chain
+# images install-phone flashes (boot/init_boot/vendor_boot/dtbo).
+#
+# Usage:
+#   helper --from a|b --to a|b [--copy] [--status PATH] [--log PATH]
+#
+# Status file (default /run/omamobile-firmware-match.status):
+#   RESULT=MATCH|COPIED|FAIL
+#   FROM=... TO=...
+#   MATCHED=N DIFF=N COPIED=N
+#   DETAIL=...
+#
+# Backup policy (user devices): this helper does NOT dump the dest slot
+# before overwrite. Lab work kept /var/tmp backups; shipping installs
+# rely on the source slot remaining intact and on stock/OTA recovery.
+# Documented in device/dodge/firmware-match/README.md.
+set -eu
+
+FROM=
+TO=
+DO_COPY=0
+STATUS=/run/omamobile-firmware-match.status
+LOG=/run/omamobile-firmware-match.log
+
+# Firmware A/B pairs (morning 2026-10-28 list + same-slot MATCH peers).
+# Order: small first so a mid-copy failure is cheap to spot.
+PARTS="soccp_dcd qupfw cpucp_dtb multiimgoem multiimgqti pdp_cdb featenabler
+devcfg spuservice soccp_debug keymaster aop aop_config pdp shrm engineering_cdt
+pvmfw abl cpucp bluetooth imagefv uefisecapp xbl_ramdump xbl xbl_config
+tz uefi hyp oplus_sec splash dsp recovery modem"
+
+usage() {
+  echo "usage: $0 --from a|b --to a|b [--copy] [--status PATH] [--log PATH]" >&2
+  exit 2
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --from) FROM=${2:-}; shift 2 ;;
+    --to) TO=${2:-}; shift 2 ;;
+    --copy) DO_COPY=1; shift ;;
+    --status) STATUS=${2:-}; shift 2 ;;
+    --log) LOG=${2:-}; shift 2 ;;
+    -h|--help) usage ;;
+    *) echo "unknown arg: $1" >&2; usage ;;
+  esac
+done
+
+[ "$FROM" = a ] || [ "$FROM" = b ] || usage
+[ "$TO" = a ] || [ "$TO" = b ] || usage
+
+mkdir -p "$(dirname "$STATUS")" "$(dirname "$LOG")"
+: > "$LOG"
+say() { echo "firmware-match: $*" | tee -a "$LOG" > /dev/kmsg 2>/dev/null || echo "firmware-match: $*" | tee -a "$LOG"; }
+
+write_status() {
+  result=$1; matched=$2; diff=$3; copied=$4; detail=$5
+  {
+    echo "RESULT=$result"
+    echo "FROM=$FROM"
+    echo "TO=$TO"
+    echo "MATCHED=$matched"
+    echo "DIFF=$diff"
+    echo "COPIED=$copied"
+    echo "DETAIL=$detail"
+  } > "$STATUS"
+  # Also mirror a one-liner to ACM console if present (host can dmesg/serial).
+  say "STATUS RESULT=$result matched=$matched diff=$diff copied=$copied $detail"
+}
+
+# Resolve name_slot to a block node. Prefer by-partlabel; fall back to
+# PARTNAME in /sys/class/block/*/uevent (Arch root and the dodge initramfs
+# often have no by-partlabel symlinks — see AGENTS.md).
+part_path() {
+  name="${1}_$2"
+  if [ -e "/dev/disk/by-partlabel/$name" ]; then
+    echo "/dev/disk/by-partlabel/$name"
+    return 0
+  fi
+  for ue in /sys/class/block/*/uevent; do
+    [ -f "$ue" ] || continue
+    pn=$(sed -n 's/^PARTNAME=//p' "$ue" 2>/dev/null) || continue
+    [ "$pn" = "$name" ] || continue
+    base=${ue%/uevent}
+    echo "/dev/${base##*/}"
+    return 0
+  done
+  # Missing: still print the by-partlabel path so callers' [ -e ] fails cleanly.
+  echo "/dev/disk/by-partlabel/$name"
+}
+
+# Parent disk of a partition node (sda from sda12, etc.).
+parent_disk() {
+  node=$(readlink -f "$1")
+  base=${node##*/}
+  # strip trailing partition digits (sda12 -> sda, sdb3 -> sdb)
+  echo "$base" | sed 's/[0-9][0-9]*$//'
+}
+
+sha_of() {
+  sha256sum "$1" | awk '{print $1}'
+}
+
+wait_parts() {
+  # UFS may still be probing right after boot.
+  n=0
+  while [ "$n" -lt 60 ]; do
+    ok=1
+    for p in abl modem xbl; do
+      [ -e "$(part_path "$p" a)" ] && [ -e "$(part_path "$p" b)" ] || ok=0
+    done
+    [ "$ok" = 1 ] && return 0
+    n=$((n + 1))
+    sleep 1
+  done
+  return 1
+}
+
+say "start from=$FROM to=$TO copy=$DO_COPY"
+
+if ! wait_parts; then
+  write_status FAIL 0 0 0 "ufs-partitions-missing"
+  exit 1
+fi
+
+# Same-slot install target: nothing to copy; pairs may still be checked
+# for the operator, but RESULT is MATCH for the installer gate.
+if [ "$FROM" = "$TO" ]; then
+  matched=0; diff=0
+  for p in $PARTS; do
+    sa=$(part_path "$p" a); sb=$(part_path "$p" b)
+    if [ ! -e "$sa" ] || [ ! -e "$sb" ]; then
+      say "skip missing $p"
+      continue
+    fi
+    ha=$(sha_of "$sa"); hb=$(sha_of "$sb")
+    if [ "$ha" = "$hb" ]; then
+      matched=$((matched + 1))
+      say "MATCH $p"
+    else
+      diff=$((diff + 1))
+      say "DIFF $p (same-slot target; not copying)"
+    fi
+  done
+  write_status MATCH "$matched" "$diff" 0 "same-slot-target"
+  exit 0
+fi
+
+matched=0; diff=0; copied=0
+need_copy=""
+
+for p in $PARTS; do
+  src=$(part_path "$p" "$FROM")
+  dst=$(part_path "$p" "$TO")
+  if [ ! -e "$src" ] || [ ! -e "$dst" ]; then
+    say "skip missing $p"
+    continue
+  fi
+  hs=$(sha_of "$src"); hd=$(sha_of "$dst")
+  if [ "$hs" = "$hd" ]; then
+    matched=$((matched + 1))
+    say "MATCH $p"
+  else
+    diff=$((diff + 1))
+    need_copy="$need_copy $p"
+    say "DIFF $p"
+  fi
+done
+
+if [ -z "$need_copy" ]; then
+  write_status MATCH "$matched" 0 0 "all-pairs-equal"
+  exit 0
+fi
+
+if [ "$DO_COPY" != 1 ]; then
+  write_status FAIL "$matched" "$diff" 0 "need-copy:${need_copy# }"
+  exit 1
+fi
+
+# Copy each DIFF pair source → dest with LUN+partition setrw, verify, setro.
+for p in $need_copy; do
+  src=$(part_path "$p" "$FROM")
+  dst=$(part_path "$p" "$TO")
+  disk=$(parent_disk "$dst")
+  [ -n "$disk" ] && [ -b "/dev/$disk" ] || {
+    write_status FAIL "$matched" "$diff" "$copied" "no-parent-disk:$p"
+    exit 1
+  }
+  say "COPY $p (${FROM}->${TO}) disk=$disk"
+  if ! blockdev --setrw "/dev/$disk"; then
+    write_status FAIL "$matched" "$diff" "$copied" "setrw-disk-fail:$p"
+    exit 1
+  fi
+  if ! blockdev --setrw "$dst"; then
+    blockdev --setro "/dev/$disk" || true
+    write_status FAIL "$matched" "$diff" "$copied" "setrw-part-fail:$p"
+    exit 1
+  fi
+  if ! dd if="$src" of="$dst" bs=1M conv=fsync status=none; then
+    blockdev --setro "$dst" || true
+    blockdev --setro "/dev/$disk" || true
+    write_status FAIL "$matched" "$diff" "$copied" "dd-fail:$p"
+    exit 1
+  fi
+  sync
+  hs=$(sha_of "$src"); hd=$(sha_of "$dst")
+  blockdev --setro "$dst" || true
+  blockdev --setro "/dev/$disk" || true
+  if [ "$hs" != "$hd" ]; then
+    write_status FAIL "$matched" "$diff" "$copied" "verify-fail:$p"
+    exit 1
+  fi
+  copied=$((copied + 1))
+  matched=$((matched + 1))
+  diff=$((diff - 1))
+  say "VERIFY_OK $p sha256=$hs"
+done
+
+write_status COPIED "$matched" 0 "$copied" "copied-ok"
+exit 0

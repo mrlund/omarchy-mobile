@@ -258,6 +258,70 @@ fi
 [[ -z $(flashing_calls) ]] || fail "a refused bundle flashes nothing"
 pass "bundle mode: signature required (pinned key), checksums checked, its own images used"
 
+# qcom-abl: empty version-bootloader, firmware-match auto (dry-run skips RAM-boot),
+# --firmware-slots-match override, OMAMOBILE_SLOT=inactive, same-slot skip.
+qcom_desc() {
+  cat <<'EOF'
+CODENAME=testdev
+NAME="Test Phone"
+COMPATIBLE="test,testdev"
+BOOT_METHOD=qcom-abl
+BOOT_IMAGES="boot init_boot vendor_boot vendor_kernel_boot dtbo"
+UFS_RW="boot_a boot_b init_boot_a init_boot_b vendor_boot_a vendor_boot_b vendor_kernel_boot_a vendor_kernel_boot_b dtbo_a dtbo_b userdata"
+OMAMOBILE_SLOT=b
+EOF
+}
+qcom_vars() {
+  # $1 = current-slot
+  cat > "$t/vars" <<EOF
+product:testdev
+unlocked:yes
+current-slot:${1:-b}
+version-bootloader:
+partition-size:boot_a: 0x4000000
+partition-size:boot_b: 0x4000000
+partition-size:init_boot_a: 0x800000
+partition-size:init_boot_b: 0x800000
+partition-size:vendor_boot_a: 0x4000000
+partition-size:vendor_boot_b: 0x4000000
+partition-size:vendor_kernel_boot_a: 0x4000000
+partition-size:vendor_kernel_boot_b: 0x4000000
+partition-size:dtbo_a: 0x1000000
+partition-size:dtbo_b: 0x1000000
+EOF
+}
+# Also copy the firmware-match host tool into the fake repo (install-phone calls it).
+mkdir -p "$R/device/dodge/firmware-match" "$R/tools"
+cp tools/firmware-match "$R/tools/firmware-match"
+cp device/dodge/firmware-match/helper "$R/device/dodge/firmware-match/helper"
+chmod +x "$R/tools/firmware-match" "$R/device/dodge/firmware-match/helper"
+
+qcom_desc > "$R/device/testdev/device.conf"
+qcom_vars b
+install --dry-run || { cat "$t/out"; fail "qcom-abl same-slot dry-run (skip helper)"; }
+grep -q 'firmware-match skipped' "$t/out" || fail "notes same-slot firmware-match skip"
+grep -q 'would run: fastboot -s FAKE123 --set-active=b' "$t/out" || fail "same-slot still set-active b"
+
+qcom_vars a
+# target b, current a → would run helper (dry-run)
+install --dry-run || { cat "$t/out"; fail "qcom-abl cross-slot dry-run"; }
+grep -q 'firmware-match would run' "$t/out" || fail "notes firmware-match would run on dry-run"
+grep -q 'would run: fastboot -s FAKE123 flash boot_b' "$t/out" || fail "cross-slot flashes boot_b"
+
+install --dry-run --firmware-slots-match lab-ok || { cat "$t/out"; fail "qcom-abl with --firmware-slots-match"; }
+grep -q 'firmware slots match attested (--firmware-slots-match lab-ok)' "$t/out" || fail "honours --firmware-slots-match override"
+
+# OMAMOBILE_SLOT=inactive with current=b → target a
+qcom_desc | sed 's/^OMAMOBILE_SLOT=b/OMAMOBILE_SLOT=inactive/' > "$R/device/testdev/device.conf"
+qcom_vars b
+install --dry-run || { cat "$t/out"; fail "OMAMOBILE_SLOT=inactive dry-run"; }
+grep -q 'install target: slot a (inactive relative to current b)' "$t/out" || fail "inactive resolves to a when current is b"
+grep -q 'would run: fastboot -s FAKE123 flash boot_a' "$t/out" || fail "inactive flashes boot_a"
+grep -q 'firmware-match would run: current b → target a' "$t/out" || fail "inactive path would run helper b→a"
+
+descriptor > "$R/device/testdev/device.conf"
+pass "qcom-abl: same-slot skips helper; cross-slot dry-runs helper; --firmware-slots-match override; OMAMOBILE_SLOT=inactive"
+
 # The script itself: one write path, and none of the forbidden fastboot forms
 code=$(grep -v '^[[:space:]]*#' tools/install-phone)
 grep -nE '(run|fb|FASTBOOT")[^#]*( -w( |$)|--slot|flashing|erase|format|oem )' <<<"$code" && fail "no -w, --slot, flashing, erase, format or oem"

@@ -25,18 +25,24 @@ Descriptor: [device.conf](device.conf) (`BOOT_METHOD=qcom-abl`,
 1. Phone in fastboot; product `dodge`; bootloader unlocked.
 2. Install target = `OMAMOBILE_SLOT` (generic key; dodge sets `b`; default `b`)
    (first install from stock on A → flash B).
-3. Requires `--firmware-slots-match <token>`: non-boot firmware on the target
-   slot already matches the running slot (sha256 of A/B pairs, or a confirmed
-   A→target copy). This ABL returns an empty `version-bootloader`, so the
-   Pixel-style BL string check cannot substitute. The installer **never**
-   flashes xbl, abl, vbmeta, modem, radio, persist, efs or devinfo.
+3. Firmware gate (qcom-abl): when the install target differs from
+   `current-slot`, `install-phone` auto-runs `tools/firmware-match` —
+   RAM-boots a helper image, hashes A/B firmware pairs, copies
+   running→inactive with sha256 read-back if needed, reports over USB
+   NCM SSH, reboots to bootloader. Refuses if the helper fails.
+   `--firmware-slots-match <token>` remains a manual override (skips the
+   helper). Same-slot reflash skips both. This ABL's empty
+   `version-bootloader` is why the Pixel BL string check cannot
+   substitute. The installer **never** flashes xbl, abl, vbmeta, modem,
+   radio, persist, efs or devinfo. Design: [firmware-match/README.md](firmware-match/README.md).
 4. Flashes only `boot_<target>` and `userdata`, then
    `--set-active=<target>` and reboot.
-5. `--dry-run` prints every command first.
+5. `--dry-run` prints every command first (helper is not RAM-booted).
 
-Preparing target-slot firmware (once per phone when slots differ): byte-exact
-copy of the running slot's differing firmware partitions onto the target
-(read-back verified). On 2026-10-28 that was 27 partitions; see §5.
+Preparing target-slot firmware (once per phone when slots differ): the
+helper does the byte-exact copy. On 2026-10-28 a manual A→B pass covered
+27 partitions; see §5. Shipping helper does not dump the dest slot first
+(source slot remains intact; stock/OTA is the recovery path).
 
 ## 3. Boot success and rollback
 
@@ -62,7 +68,8 @@ On-phone bring-up (private branch `oneplus13-dodge` @ `4bb5c98`), kernel
 | --- | --- | --- |
 | Firmware-match | sha256 of every `*_a`/`*_b` pair: **27 differed** (B not blank). Byte-exact A→B copy of abl/aop/…/xbl/modem/… (read-back verified). Left untouched: vbmeta, qweslicstore, oplusstanvbk, modemst/fsg/fsc/persist/EFS/oplusdycnvbk/RPMB | pass |
 | Inactive-slot boot | Omarchy `boot_b` set active; stock OTA `boot.img` on `boot_a` only (not booted; Arch owns userdata) | pass |
-| `version-bootloader` | empty on this ABL → installer must use `--firmware-slots-match`, not Pixel BL strings | noted |
+| `version-bootloader` | empty on this ABL → firmware-match helper / `--firmware-slots-match`, not Pixel BL strings | noted |
+| Auto firmware-match helper | `fastboot boot` chain image; RESULT=MATCH on A==B (no writes); returned Omarchy `boot_b` (2026-10-28) | pass |
 | SSH / Wi-Fi | up after `set_active b` | pass |
 | Cellular | registered with data (gpu2 IPA) | pass |
 | Audio | PipeWire / WirePlumber up | pass |
