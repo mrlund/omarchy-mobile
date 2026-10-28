@@ -82,7 +82,7 @@ On-phone bring-up (private branch `oneplus13-dodge` @ `4bb5c98`), kernel
 | Autorotate | running | pass |
 | Boot-success | `dodge-boot-success` marked `boot_b` successful | pass |
 | EFS guards | modemst/fsg/fsc/oplusdycnvbk/qweslicstore/oplusstanvbk/modem hashes unchanged | pass |
-| `install-phone --dry-run` | still to run against this descriptor on a spare / dry path | _TODO before open_ |
+| `install-phone --dry-run` | live phone 2026-10-28: inactive→a + helper plan; `--reflash`→b skip; getvar only | pass |
 
 Full narrative stays on the private branch
 (`device/dodge/dev-docs/2026-10-28-slot-b-firmware-match.md`); this table is
