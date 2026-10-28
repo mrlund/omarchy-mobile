@@ -1,0 +1,56 @@
+<!-- SPDX-License-Identifier: MIT -->
+# dodge modem
+
+Everything here is inert unless `/etc/omamobile/modem-probe.enable` exists.
+Default in day-to-day use: **on** with a kernel that has IPA enabled (gpu2),
+which gives working mobile data. On a kernel without an enabled IPA DT node
+`omamobile-modem-efs` exits without touching the copies, so rmtfs and the MPSS
+are never started and a rollback stays safe with the flag on.
+
+## Boot sequence (flag present)
+
+1. `adsp-battery.sh` loads `qcom_q6v5_pas`. The MPSS is probed; the CDSP may
+   fail its load without firmware (harmless).
+2. `omamobile-modem-efs.service` runs before rmtfs when IPA is present. It
+   restores the named good EFS *copy set* from
+   `/var/lib/omamobile/efs-good/<name>` (name in
+   `/etc/omamobile/modem-efs-good`). Good sets are never rotated. Optional
+   auto-snapshots under `/var/lib/omamobile/efs-snapshots/` stay on the phone.
+3. `omamobile-rmtfs.service` loads `qcom_rmtfs_mem` and runs **only**
+   `rmtfs -r -o /var/lib/omamobile/modem-efs -v`: read-only copies of the EFS
+   partitions, with modem writes kept in RAM. Never `-P`.
+4. `omamobile-tqftpserv.service` serves MCFG from `/lib/firmware`.
+5. `omamobile-modem.service` starts the MPSS by name. Do **not** stop the
+   modem remoteproc (hard-reset risk on 7.3); the unit has no ExecStop.
+6. `omamobile-modem-online.service` provisions SIM slot 1 if needed, goes
+   online, waits for registration.
+7. ModemManager (drop-in `ModemManager-omamobile.conf`) and the NM profile
+   `omamobile-cellular.nmconnection` (APN `internet`, metric 700) bring up
+   data on `rmnet_ipa0` / `qmapmux0.0`.
+
+## EFS restore (no blobs in git)
+
+The modem needs the phone's own non-volatile calibration. This repository
+ships **units and docs only** — never EFS snapshots, NV backups, or modem
+firmware.
+
+On the phone, once, take read-only copies of the current slot's partitions
+(`dd if=` only, mode 600) into `/var/lib/omamobile/modem-efs/` (and promote a
+known-good set into `/var/lib/omamobile/efs-good/<name>`):
+
+- `oplusstanvbk_<slot>` → `oem_stanvbk`
+- `oplusdycnvbk` → `oem_dycnvbk` (per-unit; keep off any shared medium)
+
+A set the modem has written to for a few minutes can crash the next boot
+(rtsar), so the good set is restored on every boot. Firmware for the MPSS
+belongs under `/lib/firmware/qcom/sm8750/OnePlus/` from the owner's own
+factory image (`tools/phone-provision` / extract scripts); it is not in git.
+
+## Install
+
+Copy this directory to the phone and run `./install` as root. It expects
+`rmtfs` and `tqftpserv` (linux-msm), the in-tree `rmtfs_mem` module for the
+running kernel, and the firmware + EFS copies above.
+
+Turn on: `touch /etc/omamobile/modem-probe.enable`, then reboot. Turn off:
+remove the flag and reboot.
