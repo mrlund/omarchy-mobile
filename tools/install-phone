@@ -4,14 +4,14 @@
 # laptop (docs/RELEASES.md §6). In a release bundle this file is "install".
 #
 # What it writes, and nothing else:
-#   - the Omarchy slot's boot images (OMAMOBILE_SLOT if set, else the inactive slot), one "fastboot flash <image>_<slot>"
-#     per BOOT_IMAGES entry of the device descriptor (slot = the other of a/b
-#     from current-slot), each checked against its storage-guard allowlist
+#   - the Omarchy slot's boot images (OMAMOBILE_SLOT, default b), one "fastboot flash <image>_<slot>"
+#     per BOOT_IMAGES entry of the device descriptor, each checked against its
+#     storage-guard allowlist
 #     (UFS_RW);
 #   - "fastboot flash userdata" with the root image (this ERASES userdata:
 #     stock Android on the other slot needs a factory reset if it is ever
 #     booted again);
-#   - "fastboot --set-active=<inactive>", then "fastboot reboot".
+#   - "fastboot --set-active=<OMAMOBILE_SLOT>", then "fastboot reboot".
 # It has no code path for any other partition, and never uses -w, --slot,
 # "flashing" or an unsuffixed partition name. xbl, abl, vbmeta, modem, radio,
 # persist, efs, modem_userdata and devinfo are never flashed.
@@ -250,16 +250,17 @@ else
   die "the phone only reports slot ${current_slot:-?}'s bootloader ($current_bl). Activating the other slot runs that slot's bootloader, so both must match. Check the other slot (fastboot getvar version-bootloader while it is current), then rerun with --bootloader-slots-match $current_bl"
 fi
 note "$CODENAME, unlocked, current slot ${current_slot:-?}"
-# Install target: prefer OMAMOBILE_SLOT (Omarchy's home slot after first
-# light). Otherwise the inactive slot (first install from stock). Pixel
-# descriptors omit OMAMOBILE_SLOT and only allowlist *_b, so with the phone
-# on A the inactive slot is B — unchanged.
+# Install target: OMAMOBILE_SLOT is a generic descriptor key for Omarchy's
+# home slot (default b = current upstream / Pixel behaviour). Descriptors
+# may set it explicitly. Dodge first-installs onto the inactive slot at
+# stock (A→B), which matches the default; after the firmware-match move it
+# sets OMAMOBILE_SLOT=b so reflashes stay on B. Never flashes firmware.
 case ${current_slot:-} in
   a) inactive_slot=b ;;
   b) inactive_slot=a ;;
   *) die "the phone reports current-slot='${current_slot:-}', expected a or b" ;;
 esac
-target_slot=${D[OMAMOBILE_SLOT]:-$inactive_slot}
+target_slot=${D[OMAMOBILE_SLOT]:-b}
 [[ $target_slot == a || $target_slot == b ]] || die "$conf: OMAMOBILE_SLOT must be a or b, not $target_slot"
 for p in $BOOT_IMAGES; do
   [[ " $UFS_RW " == *" ${p}_${target_slot} "* ]] \

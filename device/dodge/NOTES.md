@@ -15,7 +15,7 @@ tree: `arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts`. Userspace: this
 tree's `device/dodge/` and `packages/omamobile-device-dodge`.
 
 Install path: `BOOT_METHOD=qcom-abl`, `OMAMOBILE_SLOT=b`. `tools/install-phone`
-flashes `boot_<OMAMOBILE_SLOT>` (else the inactive slot) and `userdata`, then
+flashes `boot_<OMAMOBILE_SLOT>` (generic key, default `b`) and `userdata`, then
 `--set-active` to that slot. It never flashes xbl, abl, vbmeta or modem.
 `--firmware-slots-match` is required (this ABL's `version-bootloader` is
 empty). Phone evidence 2026-10-28: 27 firmware partitions differed; A→B copy

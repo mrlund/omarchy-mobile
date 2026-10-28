@@ -23,7 +23,7 @@ Descriptor: [device.conf](device.conf) (`BOOT_METHOD=qcom-abl`,
 `BOOT_IMAGES=boot`, `UFS_RW="boot_a boot_b userdata"`).
 
 1. Phone in fastboot; product `dodge`; bootloader unlocked.
-2. Install target = `OMAMOBILE_SLOT` (`b`) when set, else the inactive slot
+2. Install target = `OMAMOBILE_SLOT` (generic key; dodge sets `b`; default `b`)
    (first install from stock on A → flash B).
 3. Requires `--firmware-slots-match <token>`: non-boot firmware on the target
    slot already matches the running slot (sha256 of A/B pairs, or a confirmed
