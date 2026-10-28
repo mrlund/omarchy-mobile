@@ -1,0 +1,27 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# omamobile-deadline <seconds>|off: fallback for one-shot service images
+# (tools/dodge-fsck). Arms a background "sync; reboot -f" after <seconds>,
+# replacing any earlier one; "off" cancels it. reboot -f leaves the active
+# slot alone, so the phone comes back up on the flashed boot_a. The init
+# arms it only with omamobile.deadline=<seconds> on the cmdline.
+pidf=/run/omamobile-deadline.pid
+if [ -r "$pidf" ]; then
+  kill "$(cat "$pidf")" 2>/dev/null
+  rm -f "$pidf"
+fi
+if [ "${1:-}" = off ]; then
+  echo "omamobile: deadline cancelled" > /dev/kmsg
+  exit 0
+fi
+case "${1:-}" in
+  ''|*[!0-9]*) echo "usage: omamobile-deadline <seconds>|off" >&2; exit 2 ;;
+esac
+(
+  sleep "$1"
+  echo "omamobile: deadline $1 s reached, sync and reboot -f" > /dev/kmsg
+  sync
+  reboot -f
+) </dev/null >/dev/null 2>&1 &
+echo $! > "$pidf"
+echo "omamobile: deadline armed, reboot -f in $1 s" > /dev/kmsg

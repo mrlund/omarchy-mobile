@@ -1,0 +1,55 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Host-side check of the userdata decision. No phone, no block devices.
+set -eu
+cd "$(dirname "$0")"
+# shellcheck disable=SC1091
+. ./ufs.sh
+
+fail=0
+expect() {
+  got=$(ufs_userdata_decision "$1")
+  if [ "$got" = "$2" ]; then
+    echo "ok $2"
+  else
+    echo "FAIL $1: got '$got' want '$2'" >&2
+    fail=1
+  fi
+}
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# The 2026-10-16 probe: one userdata, on sda15.
+probe=../../../logs/dodge-ufs-probe-20261016-110453.txt
+if [ -f "$probe" ]; then
+  mkdir -p "$tmp/probe"
+  while read -r line; do
+    case $line in
+      *" PARTNAME="*)
+        dev=${line%% ro=*}
+        dev=${dev# }
+        name=${line#*PARTNAME=}
+        mkdir -p "$tmp/probe/sda/$dev"
+        printf 'PARTNAME=%s\n' "$name" > "$tmp/probe/sda/$dev/uevent"
+        ;;
+    esac
+  done < "$probe"
+  expect "$tmp/probe" "allow sda15"
+fi
+
+mkdir -p "$tmp/none/sda/sda1"
+printf 'PARTNAME=persist\n' > "$tmp/none/sda/sda1/uevent"
+expect "$tmp/none" "stop 0"
+
+mkdir -p "$tmp/two/sda/sda15" "$tmp/two/sde/sde9"
+printf 'PARTNAME=userdata\n' > "$tmp/two/sda/sda15/uevent"
+printf 'PARTNAME=userdata\n' > "$tmp/two/sde/sde9/uevent"
+expect "$tmp/two" "stop 2 sda15 sde9"
+
+# A whole-disk PARTNAME is not a partition and does not count.
+mkdir -p "$tmp/disk/sda"
+printf 'PARTNAME=userdata\n' > "$tmp/disk/sda/uevent"
+expect "$tmp/disk" "stop 0"
+
+[ "$fail" -eq 0 ]

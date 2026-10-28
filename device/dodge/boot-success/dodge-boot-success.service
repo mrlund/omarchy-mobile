@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT
+# Mark the running A/B slot's boot successful once this boot has proved
+# itself: sshd, the ADSP battery service and audio all active, 90 s after
+# boot (dodge-boot-success.timer). Idempotent: a slot that is already
+# marked is left alone. 
+[Unit]
+Description=Mark this A/B slot's boot successful (dodge)
+After=sshd.service omamobile-adsp-battery.service omamobile-dodge-audio.service
+ConditionPathExists=/usr/local/lib/omamobile/dodge-boot-success
+
+[Service]
+Type=oneshot
+ExecCondition=/usr/bin/systemctl is-active --quiet sshd.service omamobile-adsp-battery.service omamobile-dodge-audio.service
+ExecStart=/usr/local/lib/omamobile/dodge-boot-success
