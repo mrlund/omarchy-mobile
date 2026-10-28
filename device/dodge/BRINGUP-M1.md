@@ -39,7 +39,10 @@ Descriptor: [device.conf](device.conf) (`BOOT_METHOD=qcom-abl`,
    helper). Same-slot / `--reflash` skips both. This ABL's empty
    `version-bootloader` is why the Pixel BL string check cannot
    substitute. The installer **never** flashes xbl, abl, vbmeta, modem,
-   radio, persist, efs or devinfo. Design: [firmware-match/README.md](firmware-match/README.md).
+   radio, persist, efs or devinfo from an image; on dodge the running
+   slot's firmware may be copied onto the inactive slot
+   ([CONTRIBUTING.md](../../CONTRIBUTING.md) §3.1). Design:
+   [firmware-match/README.md](firmware-match/README.md).
 4. Flashes only `boot_<target>` and `userdata`, then
    `--set-active=<target>` and reboot.
 5. `--dry-run` prints every command first (helper is not RAM-booted).

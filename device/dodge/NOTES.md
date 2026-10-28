@@ -22,7 +22,9 @@ remains a manual override. Day-2 updates are packages; to rewrite
 boot/userdata on an already-Omarchy phone without touching the other slot:
 `install-phone --reflash` (this ABL cannot fetch boot images, so the
 installer cannot auto-detect Omarchy from fastboot alone). Never flashes
-xbl, abl, vbmeta or modem. Phone evidence 2026-10-28: 27 firmware partitions
+xbl, abl, vbmeta or modem from an image; firmware-match may copy
+running→inactive ([CONTRIBUTING.md](../../CONTRIBUTING.md) §3.1). Phone
+evidence 2026-10-28: 27 firmware partitions
 differed; A→B copy then Omarchy on `boot_b` — see [BRINGUP-M1.md](BRINGUP-M1.md)
 §5. Helper e2e 2026-10-28: `fastboot boot` + RESULT=MATCH (A==B, no writes),
 returned to Omarchy on `boot_b`.

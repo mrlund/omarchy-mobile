@@ -15,7 +15,10 @@
 #   - "fastboot --set-active=<OMAMOBILE_SLOT>", then "fastboot reboot".
 # It has no code path for any other partition, and never uses -w, --slot,
 # "flashing" or an unsuffixed partition name. xbl, abl, vbmeta, modem, radio,
-# persist, efs, modem_userdata and devinfo are never flashed.
+# persist, efs, modem_userdata and devinfo are never flashed from any image;
+# on qcom-abl devices that declare it in CONTRIBUTING.md §3.1, the running
+# slot's own firmware may be copied onto the inactive slot by
+# tools/firmware-match (never the other direction; never vbmeta / non-A/B).
 #
 # Before anything it checks: the phone answers in fastboot, its product is the
 # descriptor's CODENAME, the bootloader is unlocked, both bootloader slots
@@ -48,9 +51,11 @@
 #     --firmware-slots-match ATTESTATION  (qcom-abl override; else auto helper)
 #                            you checked that non-boot firmware on the inactive
 #                            slot matches the running slot (xbl/abl/modem/…);
-#                            the installer never flashes those partitions. The
-#                            value is recorded in the log; any non-empty token
-#                            is accepted (use the current bootloader version)
+#                            the installer never flashes those from an image
+#                            (qcom-abl may copy running→inactive; see
+#                            CONTRIBUTING.md §3.1). The value is recorded in
+#                            the log; any non-empty token is accepted (use
+#                            the current bootloader version)
 #     --reflash              rewrite the currently active slot in place (day-2
 #                            boot/userdata reflash on an already-Omarchy phone).
 #                            Overrides OMAMOBILE_SLOT=inactive so the stock
@@ -265,7 +270,8 @@ note "$CODENAME, unlocked, current slot ${current_slot:-?}"
 # means the slot that is not currently active — first-install onto the
 # non-running slot so stock stays where it is. Day-2 updates are packages;
 # --reflash rewrites the active slot in place (keeps the other slot as
-# stock/Omarchy fallback). Never flashes firmware. This ABL cannot fetch
+# stock/Omarchy fallback). Never flashes firmware from an image (qcom-abl
+# may copy running→inactive; CONTRIBUTING.md §3.1). This ABL cannot fetch
 # boot images, so we cannot auto-detect an already-Omarchy phone from
 # fastboot alone: use --reflash for that case.
 case ${current_slot:-} in
@@ -292,9 +298,10 @@ for p in $BOOT_IMAGES; do
   [[ " $UFS_RW " == *" ${p}_${target_slot} "* ]] \
     || die "$conf: install target is slot ${target_slot}, but ${p}_${target_slot} is not on the storage-guard allowlist (UFS_RW)"
 done
-# Firmware gate: xbl/abl/modem/vbmeta/… are never flashed. For qcom-abl the
-# target slot must carry matching non-boot firmware. Preferred path: RAM-boot
-# tools/firmware-match (copies current → target when they differ). Manual
+# Firmware gate: xbl/abl/modem/vbmeta/… are never flashed from an image.
+# For qcom-abl the target slot must carry matching non-boot firmware.
+# Preferred path: RAM-boot tools/firmware-match (copies running → inactive
+# when they differ; named exception in CONTRIBUTING.md §3.1). Manual
 # --firmware-slots-match remains as an operator override. Phone evidence
 # 2026-10-28 (dodge): 27 A/B firmware partitions differed; A→B copy then
 # set_active b.
@@ -307,7 +314,7 @@ elif [[ $BOOT_METHOD == qcom-abl ]]; then
     fm_img=${FIRMWARE_MATCH_IMAGE:-}
     [[ -n $fm_img ]] || fm_img=$images/firmware-match.img
     [[ -f $fm_img ]] || fm_img=$images/boot.img
-    [[ -f $fm_img ]] || die "BOOT_METHOD=qcom-abl needs a RAM-boot helper image (FIRMWARE_MATCH_IMAGE or $images/firmware-match.img or boot.img), or pass --firmware-slots-match <token>. The installer never flashes xbl, abl, vbmeta or modem"
+    [[ -f $fm_img ]] || die "BOOT_METHOD=qcom-abl needs a RAM-boot helper image (FIRMWARE_MATCH_IMAGE or $images/firmware-match.img or boot.img), or pass --firmware-slots-match <token>. The installer never flashes xbl, abl, vbmeta or modem from an image (see CONTRIBUTING.md §3.1)"
     if ((dry)); then
       note "firmware-match would run: current ${current_slot} → target ${target_slot} via $(basename "$fm_img") (dry-run: skipped)"
     else
@@ -317,7 +324,7 @@ elif [[ $BOOT_METHOD == qcom-abl ]]; then
     fi
   fi
 else
-  note "firmware on slot ${target_slot} not attested; Pixel path relies on matching bootloader slots (installer never flashes radio/modem/vbmeta)"
+  note "firmware on slot ${target_slot} not attested; Pixel path relies on matching bootloader slots (installer never flashes radio/modem/vbmeta from an image)"
 fi
 # Downstream flash paths use target_slot (was inactive_slot). Keep the
 # physical other slot for the confirmation banner.
@@ -501,12 +508,14 @@ echo "    fastboot reboot"
 echo
 if [[ $target_slot == "$current_slot" ]]; then
   echo "userdata will be ERASED (Omarchy root rewritten in place on slot ${target_slot})."
-  echo "Slot ${other_slot} (the other slot), the bootloader, radio, persist, efs,"
-  echo "modem, vbmeta and devinfo are not touched."
+  echo "Slot ${other_slot} (the other slot) is not flashed. Bootloader/radio/modem/"
+  echo "vbmeta/persist/efs/devinfo are never flashed from an image (CONTRIBUTING.md §3.1)."
 else
   echo "userdata will be ERASED: stock Android's data is lost. Stock/other OS on"
-  echo "slot ${current_slot} stays as the fallback (not flashed). The bootloader,"
-  echo "radio, persist, efs, modem, vbmeta and devinfo are not touched."
+  echo "slot ${current_slot} stays as the fallback (not flashed). Bootloader/radio/"
+  echo "modem/vbmeta/persist/efs/devinfo are never flashed from an image; on"
+  echo "qcom-abl, firmware-match may already have copied running→inactive"
+  echo "(CONTRIBUTING.md §3.1). Booting stock afterwards needs a factory reset."
 fi
 echo
 answer=$(ask "Type the phone's codename ($CODENAME) to go ahead")

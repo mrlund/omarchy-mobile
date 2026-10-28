@@ -4,7 +4,8 @@
 Auto-attests A/B firmware equality before `install-phone` activates the
 Omarchy slot on Qualcomm ABL devices (OnePlus 13). Replaces the manual
 `--firmware-slots-match` friction for the common path; the flag stays as
-an operator override.
+an operator override. The running→inactive copy is a named exception in
+[CONTRIBUTING.md](../../../CONTRIBUTING.md) §3.1.
 
 ## How it works
 
