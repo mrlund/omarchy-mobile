@@ -1,24 +1,28 @@
 #!/usr/bin/env bash
-# dodge-restore-73gpu2: put the 7.3.0-rc6-dodge-gpu2 boot chain (gpu1 + IPA mobile data, usbfix1 initramfs) on boot_a.
+# dodge-restore-73gpu2: put the 7.3.0-rc6-dodge-gpu2 boot chain (gpu1 + IPA mobile data, usbfix1 initramfs) on the Omarchy slot.
+# From 2026-10-28 that slot is B (stock boot_a is the fallback image). Override with SLOT=a for the emergency layout.
 # Rollback chain: gpu2 (this tool) -> gpu1 usbfix1 (dodge-restore-73gpu1u) -> gpu1 (dodge-restore-73gpu1) -> s1 (dodge-restore-73s1) -> 6.16 (dodge-restore-616).
-#   tools/dodge-restore-73gpu2          flash boot_a, set_active a, reboot
+#   tools/dodge-restore-73gpu2          flash boot_${SLOT}, set_active ${SLOT}, reboot
 #   tools/dodge-restore-73gpu2 once     one-shot: fastboot boot (nothing written)
 #   tools/dodge-restore-73gpu2 print    print the commands only
-# The phone must be in fastboot. Only boot_a is written; slot a is set active.
+# The phone must be in fastboot. Only boot_${SLOT} is written.
+# Dry-run emergency back to A (destroys stock-on-A layout): SLOT=a tools/dodge-restore-73gpu2 print
 set -euo pipefail
 IMG="${IMG:-$HOME/android/mainline/images/CANDIDATE-7.3-gpu2-boot_a.img}"
 SHA=da5dff072869a67d152346ff233e9c2fe8de101e22ae9a5c018742384a93001d
+SLOT="${SLOT:-b}"
 mode="${1:-flash}"
 if [[ $mode == print ]]; then
-  echo "fastboot flash boot_a $IMG && fastboot set_active a && fastboot reboot"
+  echo "fastboot flash boot_${SLOT} $IMG && fastboot set_active ${SLOT} && fastboot reboot"
   echo "fastboot boot $IMG"; exit 0
 fi
+[[ $SLOT == a || $SLOT == b ]] || { echo "SLOT must be a or b" >&2; exit 2; }
 [[ -f $IMG ]] || { echo "missing $IMG" >&2; exit 1; }
 echo "$SHA  $IMG" | sha256sum -c --quiet || { echo "image sha256 mismatch" >&2; exit 1; }
 [[ $(stat -c %s "$IMG") == 60305408 ]] || { echo "image is not 60305408 bytes" >&2; exit 1; }
 fastboot devices | grep -q fastboot || { echo "phone is not in fastboot" >&2; exit 1; }
 case "$mode" in
   once)  fastboot boot "$IMG" ;;
-  flash) fastboot flash boot_a "$IMG" && fastboot set_active a && fastboot reboot ;;
+  flash) fastboot flash "boot_${SLOT}" "$IMG" && fastboot set_active "$SLOT" && fastboot reboot ;;
   *) echo "usage: $0 [flash|once|print]" >&2; exit 2 ;;
 esac

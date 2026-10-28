@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # dodge-restore-616: put the 6.16 boot chain back on boot_a (the fallback
 # kept when 7.3 became the flashed default, 2026-10-24).
-#   tools/dodge-restore-616          flash boot_a, set_active a, reboot
+#   tools/dodge-restore-616          flash boot_${SLOT}, set_active ${SLOT}, reboot
 #   tools/dodge-restore-616 once     one-shot: fastboot boot (nothing written)
 #   tools/dodge-restore-616 print    print the commands only
-# The phone must be in fastboot. Only boot_a is written; slot a is set active.
+# The phone must be in fastboot. Only boot_${SLOT} is written; SLOT defaults to b.
 # Equivalent one-liners:
 #   fastboot flash boot_a "$FALLBACK" && fastboot set_active a && fastboot reboot
 #   fastboot boot "$FALLBACK"
 set -euo pipefail
+SLOT="${SLOT:-b}"
 FALLBACK="${FALLBACK:-$HOME/android/mainline/images/FALLBACK-6.16-boot_a-9940497e.img}"
 SHA=9940497e7870b8b6b5ef1d28166801dbdbcf4f22a8e24f32e468f11a6b044af4
 mode="${1:-flash}"

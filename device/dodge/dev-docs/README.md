@@ -50,6 +50,7 @@ and stay out of git.
 
 | Date | Entry | Result |
 | --- | --- | --- |
+| 2026-10-28 | [slot B firmware-match](2026-10-28-slot-b-firmware-match.md) | Phase-1 case differed (27 firmware partitions). A→B copy verified; Omarchy on boot_b; stock boot_a written; guards unchanged; restore tools default SLOT=b. |
 | 2026-10-27 | [replay stability](2026-10-27-replay-stability.md) | Stopped after 1 of 3 boots: the R3 end-state copy set hit the rtsar fatal on the next cold boot. rtsar tracks the slot-1 provisioning binding being already persisted at modem-up (R1, S1 bad; R2, R3 unbound and good). Last good set restored; backups in three places, all verified. |
 | 2026-10-27 | [option B EFS timeline and units](2026-10-27-option-b-efs-timeline-and-units.md) | A clean UIM close doesn't keep a set good. B3 started already bound and was good, so the binding isn't the cause. New flag-gated units restore a named good set before each modem start, then provision and go online before ModemManager. Two consecutive flag-on cold boots registered with data and no rtsar. Flag left off. |
 | 2026-10-27 | [first-boot replay](2026-10-27-first-boot-replay.md) | Pristine set and its registration snapshot register on home LTE and pass data (ping) with no rtsar, once ModemManager is held back until after provisioning and registration. Carrier MCFG Active is not the trigger. |

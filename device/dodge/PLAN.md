@@ -162,22 +162,46 @@ An A/B OTA leaves the older firmware on the inactive slot. If this
 unit's anti-rollback fuse has blown, booting that slot may hard-brick it
 [I]. So:
 
-- Never `fastboot set_active b` (or `--set-active=other`), and never
-  flash `--slot=other`, until both slots' firmware is known to be the
-  same build. `fastboot set_active a` on the **current** slot is
-  required after every boot-chain flash of `boot_a`: it clears the
-  boot-successful bit and gives the new image 7 tries, which
-  `dodge-boot-success.timer` turns back into "successful" only after a
-  good boot (2026-10-20, §9). Check `getvar current-slot` reads `a`
-  first; if it does not, stop. On 2026-10-15 slot A
-  was current and slot B was marked unbootable (`slot-successful:yes`
-  as well, retry count 6). Slot B is not a fallback. `getvar
-  version-bootloader` came back empty, so the bootloader version of
-  neither slot is known yet.
+- **Firmware-match gate before any slot switch.** Never
+  `fastboot set_active <other>` (or `--set-active=other`), and never
+  flash `--slot=other`, until every A/B firmware partition on the
+  inactive slot matches the running slot (sha256 of
+  `/dev/disk/by-partlabel/*_{a,b}`). On 2026-10-28 this phone's slots
+  **differed** on xbl/xbl_config/xbl_ramdump/abl/aop/aop_config/hyp/tz/
+  keymaster/devcfg/bluetooth/modem/cpucp/cpucp_dtb/imagefv/uefi/
+  uefisecapp/shrm/qupfw/featenabler/engineering_cdt/pdp/pdp_cdb/pvmfw/
+  soccp_dcd/soccp_debug/recovery (dsp/splash/spuservice/oplus_sec/
+  multiimgoem/multiimgqti/qweslicstore/vm-bootsys already matched).
+  Discrete ARB index integers were not extractable from `xbl_config`
+  with the host tools on hand; both configs are ELF with the same
+  phnum. The fix was a byte-exact A→B copy of the differing firmware
+  partitions (read-back verified), **not** via fastboot. Never copy
+  `vbmeta`, `qweslicstore`, `oplusstanvbk`, or any non-A/B name
+  (modemst/fsg/fsc/persist/EFS/oplusdycnvbk/RPMB). Backups of every
+  overwritten `_b` live off-git under
+  `~/android/mainline/scratch/slotb/backup-b/` (and on-phone
+  `/var/tmp/slotb-b-backup/`).
+- **Upstream-style layout (from 2026-10-28).** Omarchy runs on the
+  inactive-at-stock slot (`boot_b` today); stock `boot` from the
+  CPH2653 16.0.10 OTA sits on `boot_a` as a fallback image. Stock
+  `init_boot`/`vendor_boot`/`dtbo` are on B; A's `init_boot` may still
+  carry Magisk from the rooted bring-up. `getvar version-bootloader`
+  stays empty on this ABL, so the installer must use the partition
+  sha256 gate (or a user-confirmed copy-partitions step), not a
+  bootloader version string.
+- After every Omarchy boot-chain flash, `fastboot set_active
+  <omarchy-slot>` clears the boot-successful bit and gives the new
+  image 7 tries; `dodge-boot-success.timer` marks it successful only
+  after a good boot (§9). Check `getvar current-slot` first.
+- **Do not boot stock** while `userdata` holds Arch: stock may offer to
+  wipe data. Rollback if B fails: reflash Omarchy to `boot_b` +
+  `set_active b` (`tools/dodge-restore-73gpu2`). Emergency: reflash
+  Omarchy to `boot_a` + `set_active a` (abandons the stock-on-A
+  layout). Dry-run only for the emergency path until tested.
 - Switch off automatic system updates in OxygenOS right after unlock. An
   OTA must not move the bootloader during the project. Taking one is a
   decision with its own dev-docs entry.
-- Our boot images go to the active slot only.
+- Day-to-day Omarchy images go to the Omarchy slot only (`boot_b`).
 
 ### 3.4 How this maps onto AGENTS.md
 
@@ -191,11 +215,13 @@ directory, and a line in the root file, point here. On dodge:
   phone; no `devmem`, no PMU/PMIC register access from userspace; one
   change per boot; a safety net before each risky step; no identifying
   data or vendor blobs in git; citable sources only.
-- Replaced: "only slot B is ours" becomes §3.1 to §3.3 (the bootloader
-  chain is untouchable, the active slot's boot images are ours, the other
-  slot is untouchable until §3.3 clears it). The `UFS_RW` allowlist and
-  `bin/omamobile flash|push` do not exist for dodge yet (§5.4). "Slot A is
-  the way back" becomes OxygenOS plus `adb reboot bootloader` (§5.2).
+- Replaced: "only slot B is ours" becomes §3.1 to §3.3 (bootloader
+  chain untouchable except the §3.3 firmware-match copy; Omarchy on the
+  inactive-at-stock slot; stock boot on the other). The `UFS_RW`
+  allowlist and `bin/omamobile flash|push` do not exist for dodge yet
+  (§5.4). "Slot A is the way back" is stock `boot_a` plus
+  `fastboot set_active a` — but only after wiping Arch `userdata`
+  (§3.3).
 - Not applicable: everything in AGENTS.md §4 is gs201. Dodge gotchas go
   in `device/dodge/NOTES.md`.
 

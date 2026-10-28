@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# dodge-restore-73gpu1u: put the 7.3.0-rc6-dodge-gpu1 boot chain with the usbfix1 stage-2 initramfs (the default before gpu2) back on boot_a.
+# dodge-restore-73gpu1u: put the 7.3.0-rc6-dodge-gpu1 boot chain with the usbfix1 stage-2 initramfs (the default before gpu2) back on the Omarchy slot (default boot_b from 2026-10-28).
 # Rollback chain: gpu2 (dodge-restore-73gpu2) -> gpu1 usbfix1 (this tool) -> gpu1 (dodge-restore-73gpu1) -> s1 (dodge-restore-73s1) -> 6.16 (dodge-restore-616).
-#   tools/dodge-restore-73gpu1u          flash boot_a, set_active a, reboot
+#   tools/dodge-restore-73gpu1u          flash boot_${SLOT}, set_active ${SLOT}, reboot
 #   tools/dodge-restore-73gpu1u once     one-shot: fastboot boot (nothing written)
 #   tools/dodge-restore-73gpu1u print    print the commands only
-# The phone must be in fastboot. Only boot_a is written; slot a is set active.
+# The phone must be in fastboot. Only boot_${SLOT} is written; SLOT defaults to b.
 set -euo pipefail
+SLOT="${SLOT:-b}"
 IMG="${IMG:-$HOME/android/mainline/images/DEFAULT-7.3-gpu1-usbfix1-boot_a.img}"
 SHA=ef049091d515cf953f6c3cf79420b41a2588ed05a0a553f64b4bf455c22653af
 mode="${1:-flash}"
 if [[ $mode == print ]]; then
-  echo "fastboot flash boot_a $IMG && fastboot set_active a && fastboot reboot"
+  echo "fastboot flash boot_${SLOT} $IMG && fastboot set_active ${SLOT} && fastboot reboot"
   echo "fastboot boot $IMG"; exit 0
 fi
 [[ -f $IMG ]] || { echo "missing $IMG" >&2; exit 1; }
@@ -19,6 +20,7 @@ echo "$SHA  $IMG" | sha256sum -c --quiet || { echo "image sha256 mismatch" >&2; 
 fastboot devices | grep -q fastboot || { echo "phone is not in fastboot" >&2; exit 1; }
 case "$mode" in
   once)  fastboot boot "$IMG" ;;
-  flash) fastboot flash boot_a "$IMG" && fastboot set_active a && fastboot reboot ;;
+  flash) [[ $SLOT == a || $SLOT == b ]] || { echo "SLOT must be a or b" >&2; exit 2; }
+  fastboot flash "boot_${SLOT}" "$IMG" && fastboot set_active "$SLOT" && fastboot reboot ;;
   *) echo "usage: $0 [flash|once|print]" >&2; exit 2 ;;
 esac
