@@ -32,15 +32,18 @@ Pieces:
   node `ssc-accel ssc-proximity`, set `ACCEL_MOUNT_MATRIX` with X and Y inverted
   (the raw data read 180° off), and order iio-sensor-proxy after hexagonrpcd.
   iio-sensor-proxy is built from git with `-Dssc-support=enabled`.
-- `omamobile-autorotate`: monitor-sensor → `hyprctl eval` monitor and
-  touch transform. `install` appends `hl.exec_cmd("omamobile-autorotate")` to the
-  session user's `~/.config/hypr/autostart.lua`. The script exits without
-  `/etc/omamobile/sensors.enable`, runs one instance per session (flock), and logs to
-  `$XDG_RUNTIME_DIR/omamobile-autorotate.log`. Debounces orientation changes
-  (`OMAMOBILE_ROTATE_DEBOUNCE_MS`, default 600) and ignores them while tilt is
-  face-up/face-down, so a small hand tip does not rotate; `omamobile-autorotate
-  --self-test` checks that. Martin checked all four orientations in hand on
-  2026-10-21; sensitivity re-tuned 2026-10-28.
+- `omamobile-autorotate`: raw accel via `ssccli` (libssc; no IIO sysfs on
+  dodge) → `hyprctl eval` monitor and touch transform. Applies the udev
+  `ACCEL_MOUNT_MATRIX` (-X,-Y). Hysteresis is relative to the current
+  orientation (`OMAMOBILE_ROTATE_ANGLE_DEG`, default 75, same both ways), with
+  debounce (`OMAMOBILE_ROTATE_DEBOUNCE_MS`, default 600), near-flat ignore
+  (`OMAMOBILE_ROTATE_FLAT_DEG`, default 30), and ~8 Hz decide rate
+  (`OMAMOBILE_ROTATE_HZ`); accel stream pauses while the backlight is off.
+  `install` appends `hl.exec_cmd("omamobile-autorotate")` to the session user's
+  `~/.config/hypr/autostart.lua`. Gated on `/etc/omamobile/sensors.enable`,
+  one instance (flock), log `$XDG_RUNTIME_DIR/omamobile-autorotate.log`.
+  `omamobile-autorotate --self-test` covers 60/75/80 deg, wobble, flat.
+  Martin checked orientations 2026-10-21; angle threshold 2026-10-28.
 
 Persist is never written. hexagonfs opens everything `O_RDONLY` and
 refuses writes ("Tried to open … for writing"), and it serves a copy anyway.

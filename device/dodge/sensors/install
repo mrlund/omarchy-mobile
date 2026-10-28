@@ -4,7 +4,7 @@
 #    hexagonrpc with 0001-*.patch), /usr/local/lib/libssc.so* (libssc), and
 #    iio-sensor-proxy built with -Dssc-support=enabled installed to /usr;
 #  - ./prepare-root run once (read-only copies of the phone's own registry/config).
-# hexagonrpcd is gated on /etc/omamobile/sensors.enable. Autorotate is added to the session user's hypr/autostart.lua and is gated on the same flag.
+# hexagonrpcd is gated on /etc/omamobile/sensors.enable. Autorotate (raw ssccli accel, 75 deg hysteresis) is added to the session user's hypr/autostart.lua and is gated on the same flag.
 # SPDX-License-Identifier: MIT
 set -eu
 cd "$(dirname "$0")"

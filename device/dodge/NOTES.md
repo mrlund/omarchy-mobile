@@ -2527,3 +2527,18 @@ dev-docs/2026-10-27-smcinvoke-qcomtee-abi-map.md.
 - **Out of scope (post-PR):** rotation flicker (compositor reconfigure) and any
   remaining lock-keypad sizing glitches during a transform. Fewer accidental
   rotates will make them rarer; a real fix needs Hyprland/lock work.
+
+### Auto-rotate 75 deg hysteresis (2026-10-28)
+- Martin (t489u): debounce helped, but wants ~75 deg of rotation before a
+  change, same amount both directions (hysteresis relative to *current*
+  orientation, not iio-sensor-proxy's ~35 deg flip).
+- **Data source:** no IIO `in_accel_*` on dodge; SensorProxy D-Bus has names
+  only. Raw samples from `ssccli --sensor accelerometer` (libssc → ADSP SSC
+  BMI26x). Mount matrix matches udev: `(-X, -Y, Z)`.
+- **Logic:** unit XY refs normal=(0,-1), left-up=(1,0), bottom-up=(0,1),
+  right-up=(-1,0). Switch only when angle from current ref >=
+  `OMAMOBILE_ROTATE_ANGLE_DEG` (75) and the new candidate holds
+  `OMAMOBILE_ROTATE_DEBOUNCE_MS` (600). Near-flat
+  (`OMAMOBILE_ROTATE_FLAT_DEG`=30) cancels. Decide at
+  `OMAMOBILE_ROTATE_HZ`=8; pause `ssccli` while backlight is 0. Live scale kept.
+- **Post-PR (unchanged):** compositor flicker; remaining lock-keypad sizing.
