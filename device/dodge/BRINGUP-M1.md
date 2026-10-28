@@ -23,17 +23,20 @@ Descriptor: [device.conf](device.conf) (`BOOT_METHOD=qcom-abl`,
 `BOOT_IMAGES=boot`, `UFS_RW="boot_a boot_b userdata"`).
 
 1. Phone in fastboot; product `dodge`; bootloader unlocked.
-2. Installer reads `current-slot`, picks the other as inactive.
-3. Requires `--firmware-slots-match <token>` (non-boot firmware on the inactive
-   slot already matches the running slot). The installer **never** flashes
-   xbl, abl, vbmeta, modem, radio, persist, efs or devinfo.
-4. Flashes only `boot_<inactive>` and `userdata`, then
-   `--set-active=<inactive>` and reboot.
+2. Install target = `OMAMOBILE_SLOT` (`b`) when set, else the inactive slot
+   (first install from stock on A → flash B).
+3. Requires `--firmware-slots-match <token>`: non-boot firmware on the target
+   slot already matches the running slot (sha256 of A/B pairs, or a confirmed
+   A→target copy). This ABL returns an empty `version-bootloader`, so the
+   Pixel-style BL string check cannot substitute. The installer **never**
+   flashes xbl, abl, vbmeta, modem, radio, persist, efs or devinfo.
+4. Flashes only `boot_<target>` and `userdata`, then
+   `--set-active=<target>` and reboot.
 5. `--dry-run` prints every command first.
 
-Preparing the inactive slot's firmware from stock (once per phone) is a
-manual fastboot copy of the running slot's firmware partitions onto the
-inactive slot; record the bootloader version you attested in the flag.
+Preparing target-slot firmware (once per phone when slots differ): byte-exact
+copy of the running slot's differing firmware partitions onto the target
+(read-back verified). On 2026-10-28 that was 27 partitions; see §5.
 
 ## 3. Boot success and rollback
 
@@ -50,19 +53,28 @@ named good EFS *copy* under `/var/lib/omamobile/efs-good/` (read-only `dd` of
 the phone's own partitions; never `-P` on the live partitions; never committed
 to git). See [modem/README.md](modem/README.md).
 
-## 5. Phone-smoke checklist (fill before opening the PR)
+## 5. Phone-smoke evidence (2026-10-28 slot-B move)
 
-| Gate | Command / evidence | Result |
+On-phone bring-up (private branch `oneplus13-dodge` @ `4bb5c98`), kernel
+`7.3.0-rc6-dodge-gpu2`, OxygenOS family CPH2653 16.0.10:
+
+| Gate | Evidence | Result |
 | --- | --- | --- |
-| SSH | `ssh root@172.16.42.1` | _placeholder_ |
-| Display | Hyprland / brightness / DPMS | _placeholder_ |
-| GPU | `glmark2-es2` | _placeholder_ |
-| Wi-Fi | NetworkManager scan + associate | _placeholder_ |
-| BT | `bluetoothctl` pair | _placeholder_ |
-| Audio | speaker + mic through PipeWire | _placeholder_ |
-| Autorotate | tilt; rotation lock tile | _placeholder_ |
-| Modem | MM registers; NM `omamobile-cellular` | _placeholder_ |
-| Inactive install | `install-phone --dry-run` then real | _placeholder_ |
+| Firmware-match | sha256 of every `*_a`/`*_b` pair: **27 differed** (B not blank). Byte-exact A→B copy of abl/aop/…/xbl/modem/… (read-back verified). Left untouched: vbmeta, qweslicstore, oplusstanvbk, modemst/fsg/fsc/persist/EFS/oplusdycnvbk/RPMB | pass |
+| Inactive-slot boot | Omarchy `boot_b` set active; stock OTA `boot.img` on `boot_a` only (not booted; Arch owns userdata) | pass |
+| `version-bootloader` | empty on this ABL → installer must use `--firmware-slots-match`, not Pixel BL strings | noted |
+| SSH / Wi-Fi | up after `set_active b` | pass |
+| Cellular | registered with data (gpu2 IPA) | pass |
+| Audio | PipeWire / WirePlumber up | pass |
+| Display | DSI-1 | pass |
+| Autorotate | running | pass |
+| Boot-success | `dodge-boot-success` marked `boot_b` successful | pass |
+| EFS guards | modemst/fsg/fsc/oplusdycnvbk/qweslicstore/oplusstanvbk/modem hashes unchanged | pass |
+| `install-phone --dry-run` | still to run against this descriptor on a spare / dry path | _TODO before open_ |
+
+Full narrative stays on the private branch
+(`device/dodge/dev-docs/2026-10-28-slot-b-firmware-match.md`); this table is
+the review-facing summary.
 
 ## 6. Shared-code rule
 

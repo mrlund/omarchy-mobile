@@ -4,7 +4,7 @@
 # laptop (docs/RELEASES.md §6). In a release bundle this file is "install".
 #
 # What it writes, and nothing else:
-#   - the *inactive* slot's boot images, one "fastboot flash <image>_<slot>"
+#   - the Omarchy slot's boot images (OMAMOBILE_SLOT if set, else the inactive slot), one "fastboot flash <image>_<slot>"
 #     per BOOT_IMAGES entry of the device descriptor (slot = the other of a/b
 #     from current-slot), each checked against its storage-guard allowlist
 #     (UFS_RW);
@@ -230,44 +230,61 @@ product=$(var product)
 [[ $(var unlocked) == yes ]] || die "the bootloader is locked: unlock it first (this erases the phone; see CONTRIBUTING.md)"
 current_slot=$(var current-slot)
 current_bl=$(var version-bootloader)
-[[ -n $current_bl ]] || die "the phone reports no version-bootloader"
 # Per-slot bootloader versions, where the bootloader reports them
 bl_a=$(sed -nE 's/^version-bootloader[-_:]a:[ ]*//p' <<<"$vars" | head -1)
 bl_b=$(sed -nE 's/^version-bootloader[-_:]b:[ ]*//p' <<<"$vars" | head -1)
 if [[ -n $bl_a && -n $bl_b ]]; then
   [[ $bl_a == "$bl_b" ]] || die "the bootloader slots differ (a: $bl_a, b: $bl_b): flash the same factory bootloader to both from stock first"
   note "bootloader $bl_a on both slots"
+  current_bl=${current_bl:-$bl_a}
 elif [[ -n $slots_match ]]; then
+  [[ -n $current_bl ]] || die "the phone reports no version-bootloader; pass a non-empty --bootloader-slots-match token"
   [[ $slots_match == "$current_bl" ]] || die "--bootloader-slots-match $slots_match, but slot ${current_slot:-?} has $current_bl"
   note "bootloader $current_bl on slot ${current_slot:-?}; the other slot confirmed by you (--bootloader-slots-match)"
+elif [[ $BOOT_METHOD == qcom-abl ]]; then
+  # Some Qualcomm ABLs (OnePlus 13) return an empty version-bootloader. The
+  # firmware-slots-match gate below replaces the bootloader-version check.
+  note "bootloader version not reported (qcom-abl); firmware-slots-match is the gate"
 else
+  [[ -n $current_bl ]] || die "the phone reports no version-bootloader"
   die "the phone only reports slot ${current_slot:-?}'s bootloader ($current_bl). Activating the other slot runs that slot's bootloader, so both must match. Check the other slot (fastboot getvar version-bootloader while it is current), then rerun with --bootloader-slots-match $current_bl"
 fi
 note "$CODENAME, unlocked, current slot ${current_slot:-?}"
-# Inactive slot: Omarchy always installs to the other of a/b. Pixel descriptors
-# that only allowlist *_b still work when the phone is on slot A (the usual
-# case). Qualcomm descriptors allowlist both boot slots.
+# Install target: prefer OMAMOBILE_SLOT (Omarchy's home slot after first
+# light). Otherwise the inactive slot (first install from stock). Pixel
+# descriptors omit OMAMOBILE_SLOT and only allowlist *_b, so with the phone
+# on A the inactive slot is B — unchanged.
 case ${current_slot:-} in
   a) inactive_slot=b ;;
   b) inactive_slot=a ;;
   *) die "the phone reports current-slot='${current_slot:-}', expected a or b" ;;
 esac
+target_slot=${D[OMAMOBILE_SLOT]:-$inactive_slot}
+[[ $target_slot == a || $target_slot == b ]] || die "$conf: OMAMOBILE_SLOT must be a or b, not $target_slot"
 for p in $BOOT_IMAGES; do
-  [[ " $UFS_RW " == *" ${p}_${inactive_slot} "* ]] \
-    || die "$conf: inactive slot is ${inactive_slot}, but ${p}_${inactive_slot} is not on the storage-guard allowlist (UFS_RW). Stay on the other slot, or allowlist both boot slots."
+  [[ " $UFS_RW " == *" ${p}_${target_slot} "* ]] \
+    || die "$conf: install target is slot ${target_slot}, but ${p}_${target_slot} is not on the storage-guard allowlist (UFS_RW)"
 done
-note "install target: slot ${inactive_slot} (inactive); running slot ${current_slot} stays untouched"
+if [[ $target_slot == "$current_slot" ]]; then
+  note "install target: slot ${target_slot} (OMAMOBILE_SLOT / already active; reflash in place)"
+else
+  note "install target: slot ${target_slot} (inactive relative to current ${current_slot})"
+fi
 # Firmware gate: xbl/abl/modem/vbmeta/… are never flashed. For qcom-abl the
-# inactive slot must already carry matching non-boot firmware, attested with
-# --firmware-slots-match. For android-v4 (Pixel), matching bootloader slots
-# (above) are the attestation unless the user also passes the flag.
+# target slot must already carry matching non-boot firmware, attested with
+# --firmware-slots-match (sha256 / copy-partitions). For android-v4 (Pixel),
+# matching bootloader slots (above) are the attestation unless the user also
+# passes the flag. Phone evidence 2026-10-28 (dodge): 27 A/B firmware
+# partitions differed; A→B copy then set_active b.
 if [[ -n $firmware_match ]]; then
   note "firmware slots match attested (--firmware-slots-match $firmware_match)"
 elif [[ $BOOT_METHOD == qcom-abl ]]; then
-  die "BOOT_METHOD=qcom-abl needs matching firmware on slot ${inactive_slot}. Copy the running slot's firmware to the inactive slot from stock first, then rerun with --firmware-slots-match $current_bl (the installer never flashes xbl, abl, vbmeta or modem)"
+  die "BOOT_METHOD=qcom-abl needs matching firmware on slot ${target_slot} (sha256 of A/B firmware pairs, or a confirmed copy). Then rerun with --firmware-slots-match <token>. The installer never flashes xbl, abl, vbmeta or modem"
 else
-  note "firmware on slot ${inactive_slot} not attested; Pixel path relies on matching bootloader slots (installer never flashes radio/modem/vbmeta)"
+  note "firmware on slot ${target_slot} not attested; Pixel path relies on matching bootloader slots (installer never flashes radio/modem/vbmeta)"
 fi
+# Downstream flash paths use target_slot (was inactive_slot).
+inactive_slot=$target_slot
 # Each image must fit its inactive-slot partition. An AVB_FOOTERS image is padded to
 # the descriptor's partition size and ABL reads the footer from the end of the
 # partition, so that size must be the phone's exactly.

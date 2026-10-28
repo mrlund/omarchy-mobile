@@ -14,17 +14,18 @@ branch proposed as `dodge/pr-kernel-v1` (subsystem-split; gpu2 + IPA). Device
 tree: `arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts`. Userspace: this
 tree's `device/dodge/` and `packages/omamobile-device-dodge`.
 
-Install path: `BOOT_METHOD=qcom-abl`. `tools/install-phone` flashes only the
-**inactive** slot's `boot` image and `userdata`, then `--set-active` to that
-slot. It never flashes xbl, abl, vbmeta or modem. Before install, copy the
-running slot's firmware to the inactive slot from stock (or attest with
-`--firmware-slots-match`). See [BRINGUP-M1.md](BRINGUP-M1.md).
+Install path: `BOOT_METHOD=qcom-abl`, `OMAMOBILE_SLOT=b`. `tools/install-phone`
+flashes `boot_<OMAMOBILE_SLOT>` (else the inactive slot) and `userdata`, then
+`--set-active` to that slot. It never flashes xbl, abl, vbmeta or modem.
+`--firmware-slots-match` is required (this ABL's `version-bootloader` is
+empty). Phone evidence 2026-10-28: 27 firmware partitions differed; A→B copy
+then Omarchy on `boot_b` — see [BRINGUP-M1.md](BRINGUP-M1.md) §5.
 
 ## Feature matrix (phone-verified)
 
 | Block | Status | Notes |
 | --- | --- | --- |
-| Boot | works | inactive-slot `boot` + userdata; boot-success timer marks the slot |
+| Boot | works | Omarchy on `boot_b` (2026-10-28); stock `boot_a` fallback image; boot-success marks B |
 | Storage | works | UFS; guard allowlists `boot_a`/`boot_b` and `userdata` |
 | Display | works | Samsung panel through msm/dpu; brightness and DPMS |
 | GPU | works | Adreno A740 (gpu2); glmark2 on the phone |
