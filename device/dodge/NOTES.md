@@ -2512,3 +2512,18 @@ dev-docs/2026-10-27-smcinvoke-qcomtee-abi-map.md.
 - 2026-10-27 qwes-xlat step 3A: faithful bionic env runs vendor qwes_cli; translator wired (shim->minkadaptor->qcomtee); -m list reaches /dev/tee0 open (ENOENT on gpu1, expected). Corrected symbol diff: closure needs 4 libminkdescriptor syms (2 thin Mink forwards + 2 libQSEEComAPI-only legacy syms stubbed); read path uses pure Mink path, legacy stubs never called. Next: qtee1 chain trial boot.
 - 2026-10-27 qwes-xlat step 3B: on qtee1 (QTEE 5.2, /dev/tee0, no /dev/qseecom) vendor qwes_cli reads+validates the provisioned QWES license set through real QTEE via the translator. listfids + checkall both Success; every CheckFeatureEnablement (=modem IPFM_CheckInstalledLicense) returned Status 1 (licensed). RPMB listener served 31 reads (cmd_id 0x102), ZERO writes, no refusals; FS only a harmless read-path miss. No secure-storage write needed, no /dev/qseecom hit. All 11 protected partitions hash-identical to baseline. See dev-docs/2026-10-27-qwes-xlat-step3B-license-read.md.
 - 2026-10-27 offline MCFG edit: modem_fs1/fs2 EFS sync images are encrypted (entropy ~8 bits/byte, ~99.6 % bytes change per sync), so the carrier MCFG cannot be deselected by editing the writable copies; oem_*nvbk are cleartext but static/restore-only (not edited, NV/calibration). No boots used; 12/12 hashes unchanged. Snapshot copy sets before+after every modem-on boot. See dev-docs/2026-10-27-efs-copy-offline-mcfg-edit.md.
+
+### Auto-rotate sensitivity (2026-10-28)
+- **Root cause:** dodge's `sensors/omamobile-autorotate` applied every
+  `monitor-sensor` orientation flip immediately. iio-sensor-proxy decides at
+  ~35 deg with almost no hysteresis, so a small hand tilt flipped the screen.
+- **Fix (consumer only, no iio-sensor-proxy patch):** debounce
+  (`OMAMOBILE_ROTATE_DEBOUNCE_MS`, default 600) before `hyprctl` transform; cancel
+  pending on return-to-current or near-flat tilt (face-up/face-down).
+  `--self-test` covers wobble / clear-hold / near-flat / cancel.
+- **Also in this change:** `apply` now keeps the live monitor scale from
+  `hyprctl -j monitors` (was hardcoded default 2; UI runs at 3), which was a
+  likely contributor to lock-keypad size jumps on rotate.
+- **Out of scope (post-PR):** rotation flicker (compositor reconfigure) and any
+  remaining lock-keypad sizing glitches during a transform. Fewer accidental
+  rotates will make them rarer; a real fix needs Hyprland/lock work.

@@ -4,7 +4,102 @@
 # Hyprland session (polkit only lets the active session claim the sensor), so
 # ./install adds it to ~/.config/hypr/autostart.lua. Does nothing without
 # /etc/omamobile/sensors.enable. Logs to $XDG_RUNTIME_DIR/omamobile-autorotate.log.
+#
+# Sensitivity: iio-sensor-proxy flips at ~35 deg with almost no hysteresis, and the
+# previous script applied every flip immediately - a small hand tilt rotated the
+# screen. We debounce here (new orientation must hold OMAMOBILE_ROTATE_DEBOUNCE_MS,
+# default 600) and ignore orientation while the phone is near flat (tilt face-up
+# or face-down). Flicker / lock-keypad sizing during a real rotate are compositor
+# issues, tracked as post-PR in NOTES.md.
 # SPDX-License-Identifier: MIT
+
+# --self-test: exercise the decision logic with sample events, no sensors.
+if [ "${1:-}" = --self-test ]; then
+  DEBOUNCE_MS=600
+  CURRENT= PENDING= PENDING_MS=0 TILT=undefined
+  APPLIED=()
+  now_ms() { echo "$TEST_NOW"; }
+  apply() { APPLIED+=("$1@$TEST_NOW"); CURRENT=$1; echo "apply $1"; }
+  # shellcheck source=/dev/null
+  # Re-define helpers inline for the test (same as below).
+  parse_orient() {
+    case "$1" in
+      *"orientation changed: normal"*|*"orientation: normal"*) echo 0 ;;
+      *"orientation changed: left-up"*|*"orientation: left-up"*) echo 1 ;;
+      *"orientation changed: bottom-up"*|*"orientation: bottom-up"*) echo 2 ;;
+      *"orientation changed: right-up"*|*"orientation: right-up"*) echo 3 ;;
+      *) echo "" ;;
+    esac
+  }
+  on_line() {
+    local line=$1 t
+    case "$line" in
+      *"Tilt changed:"*)
+        TILT=${line##*Tilt changed: }; TILT=${TILT%%[$' \t\r\n']*}
+        case "$TILT" in face-up|face-down) PENDING= ;; esac
+        ;;
+      *"orientation"*)
+        t=$(parse_orient "$line")
+        if [ -n "$t" ]; then
+          if [ "$t" = "$CURRENT" ]; then PENDING=
+          elif [ "$t" != "$PENDING" ]; then PENDING=$t; PENDING_MS=$TEST_NOW
+          fi
+        fi
+        ;;
+    esac
+  }
+  commit_if_due() {
+    [ -n "$PENDING" ] || return 0
+    [ "$PENDING" != "$CURRENT" ] || { PENDING=; return 0; }
+    local elapsed=$((TEST_NOW - PENDING_MS))
+    [ "$elapsed" -ge "$DEBOUNCE_MS" ] || return 0
+    case "$TILT" in
+      face-up|face-down)
+        echo "skip near-flat $TILT pending=$PENDING"
+        PENDING=
+        return 0
+        ;;
+    esac
+    apply "$PENDING"
+    PENDING=
+  }
+  fail=0
+  check() { if [ "$1" = "$2" ]; then echo "PASS: $3"; else echo "FAIL: $3 (got '$1' want '$2')"; fail=1; fi; }
+
+  # 1) small tilt wobble: left-up then back to normal within 600 ms -> no rotate
+  TEST_NOW=0; CURRENT=0; PENDING=; TILT=vertical
+  on_line "Accelerometer orientation changed: left-up"; commit_if_due
+  TEST_NOW=200; on_line "Accelerometer orientation changed: normal"; commit_if_due
+  TEST_NOW=800; commit_if_due
+  check "$CURRENT" "0" "brief wobble does not rotate"
+  check "${#APPLIED[@]}" "0" "brief wobble applied nothing"
+
+  # 2) clear 90 deg hold: left-up held 700 ms -> rotate after delay
+  APPLIED=(); TEST_NOW=1000; CURRENT=0; PENDING=; TILT=vertical
+  on_line "Accelerometer orientation changed: left-up"; commit_if_due
+  check "$CURRENT" "0" "no rotate before debounce"
+  TEST_NOW=1600; commit_if_due
+  check "$CURRENT" "1" "clear hold rotates after debounce"
+  check "${APPLIED[*]}" "1@1600" "applied once at T+600"
+
+  # 3) near flat: orientation chatter while face-up -> no rotate
+  APPLIED=(); TEST_NOW=2000; CURRENT=0; PENDING=; TILT=face-up
+  on_line "Tilt changed: face-up"
+  on_line "Accelerometer orientation changed: bottom-up"; commit_if_due
+  TEST_NOW=2800; commit_if_due
+  check "$CURRENT" "0" "near-flat ignores orientation"
+  check "${#APPLIED[@]}" "0" "near-flat applied nothing"
+
+  # 4) pending cancelled when returning to current before deadline
+  APPLIED=(); TEST_NOW=3000; CURRENT=0; PENDING=; TILT=vertical
+  on_line "Accelerometer orientation changed: right-up"
+  TEST_NOW=3200; on_line "Accelerometer orientation changed: normal"; commit_if_due
+  TEST_NOW=4000; commit_if_due
+  check "$CURRENT" "0" "return to current cancels pending"
+
+  exit $fail
+fi
+
 [ -e /etc/omamobile/sensors.enable ] || exit 0
 LOG=${XDG_RUNTIME_DIR:-/tmp}/omamobile-autorotate.log
 exec 9>"${XDG_RUNTIME_DIR:-/tmp}/omamobile-autorotate.lock"
@@ -12,17 +107,93 @@ flock -n 9 || exit 0          # one instance per session
 [ -t 1 ] || exec >>"$LOG" 2>&1
 MON=${OMAMOBILE_ROTATE_OUTPUT:-DSI-1}
 SCALE=${OMAMOBILE_ROTATE_SCALE:-2}
+DEBOUNCE_MS=${OMAMOBILE_ROTATE_DEBOUNCE_MS:-600}
+
+CURRENT=
+PENDING=
+PENDING_MS=0
+TILT=undefined
+
+now_ms() { date +%s%3N; }
+
 apply() {
-  echo "$(date +%T) apply transform $1"
-  hyprctl eval "hl.monitor({ output = \"$MON\", mode = \"preferred\", position = \"auto\", scale = $SCALE, transform = $1 })" >/dev/null
+  # Keep the live monitor scale (UI is often 3; a hardcoded 2 was resizing the lock keypad).
+  local scale
+  scale=$(hyprctl -j monitors 2>/dev/null | python3 -c "
+import json,sys
+ms=json.load(sys.stdin)
+print(next((m.get("scale", $SCALE) for m in ms if m.get("name")=="$MON"), $SCALE))
+" 2>/dev/null) || scale=$SCALE
+  echo "$(date +%T) apply transform $1 scale $scale (was ${CURRENT:--})"
+  hyprctl eval "hl.monitor({ output = \"$MON\", mode = \"preferred\", position = \"auto\", scale = $scale, transform = $1 })" >/dev/null
   hyprctl eval "hl.config({ input = { touchdevice = { transform = $1 } } })" >/dev/null
+  CURRENT=$1
 }
-stdbuf -oL monitor-sensor --accel | while read -r line; do
-  echo "$(date +%T) $line"
-  case "$line" in
-    *"orientation changed: normal"*|*"orientation: normal"*)       apply 0 ;;
-    *"orientation changed: left-up"*|*"orientation: left-up"*)     apply 1 ;;
-    *"orientation changed: bottom-up"*|*"orientation: bottom-up"*) apply 2 ;;
-    *"orientation changed: right-up"*|*"orientation: right-up"*)   apply 3 ;;
+
+parse_orient() {
+  case "$1" in
+    *"orientation changed: normal"*|*"orientation: normal"*) echo 0 ;;
+    *"orientation changed: left-up"*|*"orientation: left-up"*) echo 1 ;;
+    *"orientation changed: bottom-up"*|*"orientation: bottom-up"*) echo 2 ;;
+    *"orientation changed: right-up"*|*"orientation: right-up"*) echo 3 ;;
+    *) echo "" ;;
   esac
+}
+
+on_line() {
+  local line=$1 t
+  case "$line" in
+    *"Tilt changed:"*)
+      TILT=${line##*Tilt changed: }; TILT=${TILT%%[$' \t\r\n']*}
+      case "$TILT" in
+        face-up|face-down)
+          if [ -n "$PENDING" ]; then
+            echo "$(date +%T) cancel pending $PENDING (near flat: $TILT)"
+            PENDING=
+          fi
+          ;;
+      esac
+      ;;
+    *"orientation"*)
+      t=$(parse_orient "$line")
+      [ -n "$t" ] || return 0
+      if [ "$t" = "$CURRENT" ]; then
+        if [ -n "$PENDING" ]; then
+          echo "$(date +%T) cancel pending $PENDING (back to current $CURRENT)"
+          PENDING=
+        fi
+      elif [ "$t" != "$PENDING" ]; then
+        PENDING=$t
+        PENDING_MS=$(now_ms)
+        echo "$(date +%T) pending transform $PENDING (debounce ${DEBOUNCE_MS}ms, tilt $TILT)"
+      fi
+      ;;
+  esac
+}
+
+commit_if_due() {
+  [ -n "$PENDING" ] || return 0
+  [ "$PENDING" != "$CURRENT" ] || { PENDING=; return 0; }
+  local now elapsed
+  now=$(now_ms)
+  elapsed=$((now - PENDING_MS))
+  [ "$elapsed" -ge "$DEBOUNCE_MS" ] || return 0
+  case "$TILT" in
+    face-up|face-down)
+      echo "$(date +%T) skip transform $PENDING (near flat: $TILT)"
+      PENDING=
+      return 0
+      ;;
+  esac
+  apply "$PENDING"
+  PENDING=
+}
+
+echo "$(date +%T) start debounce=${DEBOUNCE_MS}ms mon=$MON scale=$SCALE"
+stdbuf -oL monitor-sensor --accel | while true; do
+  if IFS= read -r -t 0.1 line; then
+    echo "$(date +%T) $line"
+    on_line "$line"
+  fi
+  commit_if_due
 done

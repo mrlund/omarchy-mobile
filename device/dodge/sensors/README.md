@@ -36,8 +36,11 @@ Pieces:
   touch transform. `install` appends `hl.exec_cmd("omamobile-autorotate")` to the
   session user's `~/.config/hypr/autostart.lua`. The script exits without
   `/etc/omamobile/sensors.enable`, runs one instance per session (flock), and logs to
-  `$XDG_RUNTIME_DIR/omamobile-autorotate.log`. Martin checked all four
-  orientations in hand on 2026-10-21.
+  `$XDG_RUNTIME_DIR/omamobile-autorotate.log`. Debounces orientation changes
+  (`OMAMOBILE_ROTATE_DEBOUNCE_MS`, default 600) and ignores them while tilt is
+  face-up/face-down, so a small hand tip does not rotate; `omamobile-autorotate
+  --self-test` checks that. Martin checked all four orientations in hand on
+  2026-10-21; sensitivity re-tuned 2026-10-28.
 
 Persist is never written. hexagonfs opens everything `O_RDONLY` and
 refuses writes ("Tried to open … for writing"), and it serves a copy anyway.
