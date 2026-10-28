@@ -151,6 +151,14 @@ refuse "a wrong confirmed version" --bootloader-slots-match cloudripper-16.0-9
 install --dry-run --bootloader-slots-match cloudripper-17.0-15199429 || { cat "$t/out"; fail "a confirmed matching version passes"; }
 pass "refuses another phone, a locked bootloader, mismatched or unconfirmed bootloader slots"
 
+printf '\nFASTBOOT_PRODUCT=sun\n' >> "$R/device/testdev/device.conf"
+vars sun "" $'version-bootloader-a:x\nversion-bootloader-b:x'
+install --dry-run || { cat "$t/out"; fail "FASTBOOT_PRODUCT=sun accepts product sun"; }
+vars other "" $'version-bootloader-a:x\nversion-bootloader-b:x'
+refuse "product outside FASTBOOT_PRODUCT"; grep -q "not sun" "$t/out" || fail "names the expected FASTBOOT_PRODUCT"
+descriptor > "$R/device/testdev/device.conf"
+pass "FASTBOOT_PRODUCT accepts the ABL product string and still refuses others"
+
 vars "" "" $'version-bootloader-a:x\nversion-bootloader-b:x'
 for name in root omamobile omarchy alarm omandroid; do
   USERS=$(printf '%s\nalice' "$name") install --dry-run || { cat "$t/out"; fail "re-asks after $name"; }
@@ -162,7 +170,7 @@ CONFIRM=cheetah refuse "a wrong confirmation"; grep -q 'not confirmed' "$t/out" 
 pass "refuses reserved and invalid user names, and anything but the codename as confirmation"
 
 descriptor | sed 's/^BOOT_IMAGES=.*/BOOT_IMAGES="boot vbmeta"/' > "$R/device/testdev/device.conf"
-refuse "an image outside UFS_RW"; grep -q 'vbmeta_b is not on the storage-guard allowlist' "$t/out" || fail "names the partition outside UFS_RW"
+refuse "an image outside UFS_RW"; grep -q 'neither vbmeta_a nor vbmeta_b is on the storage-guard allowlist' "$t/out" || fail "names the partition outside UFS_RW"
 descriptor | sed 's/^UFS_RW=.*/UFS_RW="boot_b init_boot_b vendor_boot_b vendor_kernel_boot_b dtbo_b userdata persist"/' > "$R/device/testdev/device.conf"
 refuse "a non-slot-B partition on the allowlist"; grep -q 'not persist' "$t/out" || fail "names persist"
 descriptor | sed 's/^UFS_RW=.*/UFS_RW="boot_b init_boot_b vendor_boot_b vendor_kernel_boot_b dtbo_b"/' > "$R/device/testdev/device.conf"

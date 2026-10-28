@@ -226,7 +226,10 @@ fb() { "$FASTBOOT" -s "$serial" "$@"; }
 vars=$(fb getvar all 2>&1 | sed -E 's/^\(bootloader\) //')
 var() { awk -F: -v k="$1" '$1 == k { sub(/^[^:]*:[ ]*/, ""); print; exit }' <<<"$vars"; }
 product=$(var product)
-[[ $product == "$CODENAME" ]] || die "the phone is '${product:-unknown}', not $CODENAME (${D[NAME]:-}): wrong descriptor or wrong phone"
+# FASTBOOT_PRODUCT: optional ABL product string when it differs from CODENAME
+# (OnePlus 13 reports "sun"). Pixels omit it and match CODENAME.
+fastboot_product=${D[FASTBOOT_PRODUCT]:-$CODENAME}
+[[ $product == "$fastboot_product" ]] || die "the phone is '${product:-unknown}', not $fastboot_product ($CODENAME / ${D[NAME]:-}): wrong descriptor or wrong phone"
 [[ $(var unlocked) == yes ]] || die "the bootloader is locked: unlock it first (this erases the phone; see CONTRIBUTING.md)"
 current_slot=$(var current-slot)
 current_bl=$(var version-bootloader)

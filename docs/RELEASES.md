@@ -59,6 +59,7 @@ Bring-up tools (`*-stage`, `display-hz`, `usbc-deadman`) stay per plan: they pok
 | Key | cheetah | Meaning |
 | --- | --- | --- |
 | `CODENAME` | `cheetah` | Must equal the directory name and `DEVICE` |
+| `FASTBOOT_PRODUCT` | (unset → `CODENAME`) | Optional. Value of `fastboot getvar product` when it differs from `CODENAME` (dodge: `sun`). `tools/install-phone` accepts this string; Pixels omit it and match `CODENAME`. |
 | `NAME` | `Pixel 7 Pro` | Marketing name, for messages and bundle READMEs, and the USB product string when `USB_PRODUCT` is unset |
 | `USB_PRODUCT` | `Pixel 7 Pro (M1)` | Optional. The USB gadget's product string, packed into the initramfs as `/etc/omamobile-usb-product`; defaults to `NAME`. Printable ASCII, at most 126 characters. With neither key the init says `Omarchy Mobile` |
 | `SOC` | `gs201` | SoC family |
