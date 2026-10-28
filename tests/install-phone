@@ -311,16 +311,24 @@ grep -q 'would run: fastboot -s FAKE123 flash boot_b' "$t/out" || fail "cross-sl
 install --dry-run --firmware-slots-match lab-ok || { cat "$t/out"; fail "qcom-abl with --firmware-slots-match"; }
 grep -q 'firmware slots match attested (--firmware-slots-match lab-ok)' "$t/out" || fail "honours --firmware-slots-match override"
 
-# OMAMOBILE_SLOT=inactive with current=b → target a
+# OMAMOBILE_SLOT=inactive with current=b → target a (first-install)
 qcom_desc | sed 's/^OMAMOBILE_SLOT=b/OMAMOBILE_SLOT=inactive/' > "$R/device/testdev/device.conf"
 qcom_vars b
 install --dry-run || { cat "$t/out"; fail "OMAMOBILE_SLOT=inactive dry-run"; }
-grep -q 'install target: slot a (inactive relative to current b)' "$t/out" || fail "inactive resolves to a when current is b"
+grep -q 'install target: slot a (inactive relative to current b; first-install)' "$t/out" || fail "inactive resolves to a when current is b"
 grep -q 'would run: fastboot -s FAKE123 flash boot_a' "$t/out" || fail "inactive flashes boot_a"
 grep -q 'firmware-match would run: current b → target a' "$t/out" || fail "inactive path would run helper b→a"
+grep -q 'rerun with --reflash' "$t/out" || fail "hints --reflash for already-Omarchy phones"
+
+# --reflash with OMAMOBILE_SLOT=inactive + current=b → stay on b, skip helper
+install --dry-run --reflash || { cat "$t/out"; fail "--reflash dry-run"; }
+grep -q 'install target: slot b (--reflash: rewrite active slot in place' "$t/out" || fail "--reflash targets current b"
+grep -q 'would run: fastboot -s FAKE123 flash boot_b' "$t/out" || fail "--reflash flashes boot_b"
+grep -q 'firmware-match skipped' "$t/out" || fail "--reflash skips firmware-match"
+grep -q 'would run: fastboot -s FAKE123 flash boot_a' "$t/out" && fail "--reflash must not flash boot_a"
 
 descriptor > "$R/device/testdev/device.conf"
-pass "qcom-abl: same-slot skips helper; cross-slot dry-runs helper; --firmware-slots-match override; OMAMOBILE_SLOT=inactive"
+pass "qcom-abl: same-slot skips helper; cross-slot dry-runs helper; --firmware-slots-match override; OMAMOBILE_SLOT=inactive; --reflash"
 
 # The script itself: one write path, and none of the forbidden fastboot forms
 code=$(grep -v '^[[:space:]]*#' tools/install-phone)

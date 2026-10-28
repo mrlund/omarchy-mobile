@@ -4,7 +4,8 @@
 # laptop (docs/RELEASES.md §6). In a release bundle this file is "install".
 #
 # What it writes, and nothing else:
-#   - the Omarchy slot's boot images (OMAMOBILE_SLOT, default b), one "fastboot flash <image>_<slot>"
+#   - the Omarchy slot's boot images (OMAMOBILE_SLOT: a|b|inactive, default b),
+#     one "fastboot flash <image>_<slot>"
 #     per BOOT_IMAGES entry of the device descriptor, each checked against its
 #     storage-guard allowlist
 #     (UFS_RW);
@@ -50,6 +51,11 @@
 #                            the installer never flashes those partitions. The
 #                            value is recorded in the log; any non-empty token
 #                            is accepted (use the current bootloader version)
+#     --reflash              rewrite the currently active slot in place (day-2
+#                            boot/userdata reflash on an already-Omarchy phone).
+#                            Overrides OMAMOBILE_SLOT=inactive so the stock
+#                            fallback slot is left alone; skips firmware-match.
+#                            Day-2 package updates do not need this.
 #     --unsigned             accept a bundle without SHA256SUMS.sig (development)
 #
 # Answers are read from standard input, so they can be piped for tests.
@@ -69,7 +75,7 @@ say() { printf '\e[1m==> %s\e[0m\n' "$*"; }
 note() { printf '    %s\n' "$*"; }
 die() { printf '\e[31merror:\e[0m %s\n' "$*" >&2; exit 1; }
 
-dry=0 device="" images="" rootfs="" work="" slots_match="" firmware_match="" unsigned=0
+dry=0 device="" images="" rootfs="" work="" slots_match="" firmware_match="" unsigned=0 reflash=0
 while (($#)); do
   case $1 in
     --dry-run) dry=1 ;;
@@ -79,8 +85,9 @@ while (($#)); do
     --work) work=${2:?}; shift ;;
     --bootloader-slots-match) slots_match=${2:?}; shift ;;
     --firmware-slots-match) firmware_match=${2:?}; shift ;;
+    --reflash) reflash=1 ;;
     --unsigned) unsigned=1 ;;
-    -h|--help) sed -n '3,50p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '3,55p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown argument $1 (see --help)" ;;
   esac
   shift
@@ -253,33 +260,38 @@ else
   die "the phone only reports slot ${current_slot:-?}'s bootloader ($current_bl). Activating the other slot runs that slot's bootloader, so both must match. Check the other slot (fastboot getvar version-bootloader while it is current), then rerun with --bootloader-slots-match $current_bl"
 fi
 note "$CODENAME, unlocked, current slot ${current_slot:-?}"
-# Install target: OMAMOBILE_SLOT is a generic descriptor key for Omarchy's
-# home slot (default b = current upstream / Pixel behaviour). Descriptors
-# may set it explicitly. Dodge first-installs onto the inactive slot at
-# stock (A→B), which matches the default; after the firmware-match move it
-# sets OMAMOBILE_SLOT=b so reflashes stay on B. Never flashes firmware.
+# Install target: OMAMOBILE_SLOT is a generic descriptor key (default b =
+# current upstream / Pixel behaviour). a|b pins a home slot; "inactive"
+# means the slot that is not currently active — first-install onto the
+# non-running slot so stock stays where it is. Day-2 updates are packages;
+# --reflash rewrites the active slot in place (keeps the other slot as
+# stock/Omarchy fallback). Never flashes firmware. This ABL cannot fetch
+# boot images, so we cannot auto-detect an already-Omarchy phone from
+# fastboot alone: use --reflash for that case.
 case ${current_slot:-} in
   a) inactive_slot=b ;;
   b) inactive_slot=a ;;
   *) die "the phone reports current-slot='${current_slot:-}', expected a or b" ;;
 esac
-# OMAMOBILE_SLOT: a|b pins the Omarchy home slot; "inactive" means the slot
-# that is not currently active (first-install / classic A/B flip). Default b.
 _om_slot=${D[OMAMOBILE_SLOT]:-b}
 case $_om_slot in
   a|b) target_slot=$_om_slot ;;
   inactive) target_slot=$inactive_slot ;;
   *) die "$conf: OMAMOBILE_SLOT must be a, b, or inactive, not $_om_slot" ;;
 esac
+if ((reflash)); then
+  target_slot=$current_slot
+  note "install target: slot ${target_slot} (--reflash: rewrite active slot in place; other slot untouched)"
+elif [[ $target_slot == "$current_slot" ]]; then
+  note "install target: slot ${target_slot} (OMAMOBILE_SLOT / already active; reflash in place)"
+else
+  note "install target: slot ${target_slot} (inactive relative to current ${current_slot}; first-install)"
+  note "if Omarchy is already on slot ${current_slot} and you meant to reflash it, abort and rerun with --reflash"
+fi
 for p in $BOOT_IMAGES; do
   [[ " $UFS_RW " == *" ${p}_${target_slot} "* ]] \
     || die "$conf: install target is slot ${target_slot}, but ${p}_${target_slot} is not on the storage-guard allowlist (UFS_RW)"
 done
-if [[ $target_slot == "$current_slot" ]]; then
-  note "install target: slot ${target_slot} (OMAMOBILE_SLOT / already active; reflash in place)"
-else
-  note "install target: slot ${target_slot} (inactive relative to current ${current_slot})"
-fi
 # Firmware gate: xbl/abl/modem/vbmeta/… are never flashed. For qcom-abl the
 # target slot must carry matching non-boot firmware. Preferred path: RAM-boot
 # tools/firmware-match (copies current → target when they differ). Manual
@@ -307,7 +319,10 @@ elif [[ $BOOT_METHOD == qcom-abl ]]; then
 else
   note "firmware on slot ${target_slot} not attested; Pixel path relies on matching bootloader slots (installer never flashes radio/modem/vbmeta)"
 fi
-# Downstream flash paths use target_slot (was inactive_slot).
+# Downstream flash paths use target_slot (was inactive_slot). Keep the
+# physical other slot for the confirmation banner.
+other_slot=$inactive_slot
+[[ $other_slot == "$target_slot" ]] && case $target_slot in a) other_slot=b ;; b) other_slot=a ;; esac
 inactive_slot=$target_slot
 # Each image must fit its inactive-slot partition. An AVB_FOOTERS image is padded to
 # the descriptor's partition size and ABL reads the footer from the end of the
@@ -484,10 +499,15 @@ echo "    fastboot flash userdata $userdata_image"
 echo "    fastboot --set-active=${inactive_slot}"
 echo "    fastboot reboot"
 echo
-echo "userdata will be ERASED: stock Android's data is lost, and stock Android on"
-echo "slot ${current_slot} will need a factory reset if you ever boot it again. Slot"
-echo "${current_slot} itself, the bootloader, radio, persist, efs, modem, vbmeta and"
-echo "devinfo are not touched."
+if [[ $target_slot == "$current_slot" ]]; then
+  echo "userdata will be ERASED (Omarchy root rewritten in place on slot ${target_slot})."
+  echo "Slot ${other_slot} (the other slot), the bootloader, radio, persist, efs,"
+  echo "modem, vbmeta and devinfo are not touched."
+else
+  echo "userdata will be ERASED: stock Android's data is lost. Stock/other OS on"
+  echo "slot ${current_slot} stays as the fallback (not flashed). The bootloader,"
+  echo "radio, persist, efs, modem, vbmeta and devinfo are not touched."
+fi
 echo
 answer=$(ask "Type the phone's codename ($CODENAME) to go ahead")
 [[ $answer == "$CODENAME" ]] || die "not confirmed; nothing was written"

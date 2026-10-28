@@ -35,11 +35,13 @@ the source slot stays intact, and stock/OTA remains the recovery path.
 Operators who want a dump can pull the dest partitions over SSH before
 passing `--copy`.
 
-## Same-slot target
+## Same-slot / --reflash target
 
-When `OMAMOBILE_SLOT` equals `current-slot` (dodge reflash on B), the
-helper reports `RESULT=MATCH` with `DETAIL=same-slot-target` and writes
-nothing. `install-phone` may skip the RAM-boot entirely in that case.
+When the install target equals `current-slot` (pinned `OMAMOBILE_SLOT=a|b`
+already active, or `install-phone --reflash`), `install-phone` skips the
+RAM-boot helper entirely: there is no inactive firmware copy to make.
+Dodge ships `OMAMOBILE_SLOT=inactive` for first install; day-2 boot
+rewrites use `--reflash` so the stock fallback slot stays untouched.
 
 ## Partition discovery
 

@@ -14,16 +14,18 @@ branch proposed as `dodge/pr-kernel-v1` (subsystem-split; gpu2 + IPA). Device
 tree: `arch/arm64/boot/dts/qcom/sm8750-oneplus-dodge.dts`. Userspace: this
 tree's `device/dodge/` and `packages/omamobile-device-dodge`.
 
-Install path: `BOOT_METHOD=qcom-abl`, `OMAMOBILE_SLOT=b`. `tools/install-phone`
-flashes `boot_<OMAMOBILE_SLOT>` (generic key, default `b`) and `userdata`, then
-`--set-active` to that slot. It never flashes xbl, abl, vbmeta or modem. On
-cross-slot installs it auto-runs `tools/firmware-match` (RAM-boot helper;
-see [firmware-match/README.md](firmware-match/README.md)); `--firmware-slots-match`
-remains a manual override. Same-slot reflash (dodge on B) skips the helper.
-Phone evidence 2026-10-28: 27 firmware partitions differed; A→B copy then
-Omarchy on `boot_b` — see [BRINGUP-M1.md](BRINGUP-M1.md) §5. Helper e2e
-2026-10-28: `fastboot boot` + RESULT=MATCH (A==B, no writes), returned to
-Omarchy on `boot_b`.
+Install path: `BOOT_METHOD=qcom-abl`, `OMAMOBILE_SLOT=inactive`. First
+install flashes the slot that is **not** running (stock stays on the running
+slot); `tools/firmware-match` copies firmware running→target (see
+[firmware-match/README.md](firmware-match/README.md)). `--firmware-slots-match`
+remains a manual override. Day-2 updates are packages; to rewrite
+boot/userdata on an already-Omarchy phone without touching the other slot:
+`install-phone --reflash` (this ABL cannot fetch boot images, so the
+installer cannot auto-detect Omarchy from fastboot alone). Never flashes
+xbl, abl, vbmeta or modem. Phone evidence 2026-10-28: 27 firmware partitions
+differed; A→B copy then Omarchy on `boot_b` — see [BRINGUP-M1.md](BRINGUP-M1.md)
+§5. Helper e2e 2026-10-28: `fastboot boot` + RESULT=MATCH (A==B, no writes),
+returned to Omarchy on `boot_b`.
 
 ## Feature matrix (phone-verified)
 

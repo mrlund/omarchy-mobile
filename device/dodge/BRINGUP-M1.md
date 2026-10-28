@@ -22,16 +22,21 @@ slot's `boot` partition. Kernel tip for review: curated `dodge/pr-kernel-v1`
 Descriptor: [device.conf](device.conf) (`BOOT_METHOD=qcom-abl`,
 `BOOT_IMAGES=boot`, `UFS_RW="boot_a boot_b userdata"`).
 
-1. Phone in fastboot; product `dodge`; bootloader unlocked.
-2. Install target = `OMAMOBILE_SLOT` (generic key; dodge sets `b`; default `b`)
-   (first install from stock on A → flash B).
+1. Phone in fastboot; product `sun` (`FASTBOOT_PRODUCT`); bootloader unlocked.
+2. Install target = `OMAMOBILE_SLOT` (generic key; dodge sets `inactive`;
+   default `b`). First install: flash the non-running slot so stock stays
+   on the running one. Day-2: package updates. Boot/userdata rewrite on an
+   already-Omarchy phone: `install-phone --reflash` (targets `current-slot`;
+   leaves the other slot alone). This ABL cannot `fastboot fetch`, so the
+   installer cannot auto-detect Omarchy from fastboot — `--reflash` is the
+   explicit re-install path.
 3. Firmware gate (qcom-abl): when the install target differs from
    `current-slot`, `install-phone` auto-runs `tools/firmware-match` —
    RAM-boots a helper image, hashes A/B firmware pairs, copies
-   running→inactive with sha256 read-back if needed, reports over USB
+   running→target with sha256 read-back if needed, reports over USB
    NCM SSH, reboots to bootloader. Refuses if the helper fails.
    `--firmware-slots-match <token>` remains a manual override (skips the
-   helper). Same-slot reflash skips both. This ABL's empty
+   helper). Same-slot / `--reflash` skips both. This ABL's empty
    `version-bootloader` is why the Pixel BL string check cannot
    substitute. The installer **never** flashes xbl, abl, vbmeta, modem,
    radio, persist, efs or devinfo. Design: [firmware-match/README.md](firmware-match/README.md).
