@@ -1,12 +1,14 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
 # Install the kmod-overlay + tip-modules-overlay helpers into /usr/local/sbin
-# (not under the omamobile bind). Run as root.
+# (not under the omamobile bind) and systemd's watchdog drop-in. Run as root.
 set -eu
 cd "$(dirname "$0")"
 install -Dm755 omamobile-kmod-overlay /usr/local/sbin/omamobile-kmod-overlay
 install -Dm755 omamobile-tip-modules-overlay /usr/local/sbin/omamobile-tip-modules-overlay
 install -Dm644 omamobile-kmod-overlay.service /etc/systemd/system/omamobile-kmod-overlay.service
+# 7.3's Gunyah watchdog: systemd must take it over at switch_root.
+install -Dm644 30-omamobile-watchdog.conf /etc/systemd/system.conf.d/30-omamobile-watchdog.conf
 systemctl daemon-reload
 systemctl enable omamobile-kmod-overlay.service || true
 echo "installed omamobile-kmod-overlay + tip-modules-overlay"
