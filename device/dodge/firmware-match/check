@@ -1,0 +1,81 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# firmware-match check: compare the A/B firmware pairs of a OnePlus 13
+# (dodge) before anything is installed on, or activated in, the other slot.
+# Read-only: it hashes partitions and writes nothing to the UFS (no
+# blockdev --setrw, no dd). Runs as root under the booted Omarchy root, or
+# piped over SSH from the host:
+#
+#   tools/phone-ssh 'sh -s -- --from b --to a' < device/dodge/firmware-match/check
+#
+# Prints MATCH/DIFF per pair, then one line
+#   RESULT=MATCH FROM=b TO=a MATCHED=n DIFF=0 MISSING=0
+# and exits 0 only when every pair matched. RESULT=DIFF names the pairs
+# that differ (RESULT=MISSING: a pair was not found, so nothing is proven); copying them is a separate, by-hand step the owner approves
+# (device/dodge/BRINGUP-M1.md §3), never this script.
+#
+# The pairs: every A/B firmware partition except vbmeta, qweslicstore and
+# oplusstanvbk (never copied) and the boot images the install writes
+# (boot, init_boot, vendor_boot, dtbo). Non-A/B partitions (modemst*, fsg,
+# fsc, persist, EFS) are not read.
+set -eu
+
+PARTS="soccp_dcd qupfw cpucp_dtb multiimgoem multiimgqti pdp_cdb featenabler
+devcfg spuservice soccp_debug keymaster aop aop_config pdp shrm engineering_cdt
+pvmfw abl cpucp bluetooth imagefv uefisecapp xbl_ramdump xbl xbl_config
+tz uefi hyp oplus_sec splash dsp recovery modem"
+
+SYS=${FWM_SYS:-/sys}   # tests point this at a stand-in sysfs
+FROM= TO=
+usage() { echo "usage: check --from a|b --to a|b" >&2; exit 2; }
+while [ $# -gt 0 ]; do
+	case $1 in
+	--from) FROM=${2:-}; shift 2 ;;
+	--to) TO=${2:-}; shift 2 ;;
+	*) usage ;;
+	esac
+done
+case $FROM in a|b) ;; *) usage ;; esac
+case $TO in a|b) ;; *) usage ;; esac
+[ "$FROM" != "$TO" ] || { echo "check: --from and --to are the same slot" >&2; exit 2; }
+[ "$(id -u)" = 0 ] || { echo "check: run as root" >&2; exit 2; }
+
+# The block node of PARTNAME $1, by sysfs (the Arch root and the initramfs
+# often have no /dev/disk/by-partlabel). Empty when there is none.
+node() {
+	for ue in "$SYS"/class/block/*/uevent; do
+		[ "$(sed -n 's/^PARTNAME=//p' "$ue")" = "$1" ] || continue
+		d=${ue%/uevent}
+		echo "/dev/${d##*/}"
+		return 0
+	done
+}
+
+matched=0 diff=0 missing=0 differ=""
+for p in $PARTS; do
+	s=$(node "${p}_$FROM") d=$(node "${p}_$TO")
+	if [ -z "$s" ] || [ -z "$d" ] || [ ! -b "$s" ] || [ ! -b "$d" ]; then
+		echo "MISSING $p"
+		missing=$((missing + 1))
+		continue
+	fi
+	hs=$(sha256sum < "$s" | cut -d' ' -f1)
+	hd=$(sha256sum < "$d" | cut -d' ' -f1)
+	if [ "$hs" = "$hd" ]; then
+		echo "MATCH $p"
+		matched=$((matched + 1))
+	else
+		echo "DIFF $p"
+		diff=$((diff + 1))
+		differ="$differ $p"
+	fi
+done
+
+if [ "$diff" = 0 ] && [ "$missing" = 0 ]; then
+	echo "RESULT=MATCH FROM=$FROM TO=$TO MATCHED=$matched DIFF=0 MISSING=0"
+	exit 0
+fi
+r=DIFF
+[ "$diff" != 0 ] || r=MISSING
+echo "RESULT=$r FROM=$FROM TO=$TO MATCHED=$matched DIFF=$diff MISSING=$missing PAIRS=${differ# }"
+exit 1
