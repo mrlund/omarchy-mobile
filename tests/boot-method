@@ -206,6 +206,27 @@ printf 'clean-looking-payload\n' > "$t/clean-Image"
 grep -q 'ok - STAGE2_IMAGE is clean' "$t/log" || fail "clean Image missing ok line"
 echo 'ok - dodge-chain check-stage2-image accepts a clean Image'
 
+# dodge-chain footer: pads boot-chain.img to the partition with an AVB hash
+# footer for a flash, keeps the image bytes, and never writes pack's image.
+mkdir -p "$t/fchain/images" "$t/favb"
+head -c 8192 /dev/urandom > "$t/fchain/images/boot-chain.img"
+cp "$t/fchain/images/boot-chain.img" "$t/fchain/pack-copy.img"
+: > "$t/favb/key.pem"
+# shellcheck disable=SC2016 # fake avbtool body runs in the child
+printf '#!/bin/sh\ncase $1 in\n  add_hash_footer) shift; while [ $# -gt 0 ]; do case $1 in --image) img=$2;; --partition_size) size=$2;; esac; shift; done; truncate -s "$size" "$img" ;;\n  info_image) exit 0 ;;\n  *) exit 3 ;;\nesac\n' > "$t/favb/avbtool"
+chmod +x "$t/favb/avbtool"
+CHAIN_OUT="$t/fchain" AVBTOOL="$t/favb/avbtool" AVB_BOOT_KEY="$t/favb/key.pem" BOOT_PARTITION_SIZE=65536 \
+  "$t/repo/tools/dodge-chain" footer > "$t/log" 2>&1 || fail "dodge-chain footer fails"
+[[ $(stat -c %s "$t/fchain/images/boot-chain-avb.img") == 65536 ]] || fail "footer image is not the partition size"
+cmp -s "$t/fchain/images/boot-chain.img" "$t/fchain/pack-copy.img" || fail "footer changed pack's boot-chain.img"
+cmp -s -n 8192 "$t/fchain/images/boot-chain.img" "$t/fchain/images/boot-chain-avb.img" || fail "footer changed the image bytes"
+if CHAIN_OUT="$t/fchain" AVBTOOL="$t/favb/avbtool" AVB_BOOT_KEY="$t/favb/key.pem" BOOT_PARTITION_SIZE=4096 \
+    "$t/repo/tools/dodge-chain" footer > "$t/log" 2>&1; then fail "footer accepts an image larger than the partition"; fi
+if CHAIN_OUT="$t/fchain" AVBTOOL="$t/favb/avbtool" AVB_BOOT_KEY="$t/favb/missing.pem" \
+    "$t/repo/tools/dodge-chain" footer > "$t/log" 2>&1; then fail "footer runs without a key"; fi
+grep -q 'no AVB key' "$t/log" || fail "footer fails for the wrong reason without a key"
+echo 'ok - dodge-chain footer pads to the partition and keeps the image bytes'
+
 # slot_suffix resolver: bootconfig wins; bootargs fallback; empty if neither.
 rs="device/dodge/chainload/resolve-slot-suffix.sh"
 [[ -x $rs ]] || fail "resolve-slot-suffix.sh missing"

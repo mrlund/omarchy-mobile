@@ -3,6 +3,9 @@
 # dodge-chain: build a qcom-abl kexec chain-loader boot.img for one device.
 #
 #   tools/dodge-chain pack   stage 2 DTB, stage 1 kernel, boot-chain.img
+#   tools/dodge-chain footer boot-chain-avb.img: boot-chain.img plus an AVB
+#                            hash footer padded to the boot partition, for a
+#                            fastboot flash of boot_<slot>. No phone access.
 #
 # ABL does not start header v2 images under fastboot boot, and ignores a
 # ramdisk in an uploaded v4 boot.img. Stage 1 is therefore our kernel with
@@ -42,6 +45,16 @@ STAGE2_CMDLINE="${STAGE2_CMDLINE:-rdinit=/init clk_ignore_unused pd_ignore_unuse
 # Stage 1 must not enable LPIs: a GIC that already turned them on will not
 # give stage 2 a clean ITS.
 STAGE1_CMDLINE="rdinit=/omamobile/init panic=10 irqchip.gicv3_nolpi=1"
+# boot_a/boot_b are 96 MiB. vbmeta chains boot to an AVB footer at the end
+# of the partition; a flashed image without one is invalid metadata, which
+# this ABL refuses even unlocked (fastboot boot never reads the footer).
+BOOT_PARTITION_SIZE="${BOOT_PARTITION_SIZE:-100663296}"
+# Any RSA-4096 key: the unlocked bootloader accepts a key vbmeta does not
+# chain to. Defaults to the pinned avbtool and AOSP test key from
+# tools/fetch-toolchain (bin/omamobile's AVB_FOOTERS use the same pair).
+TOOLCHAIN_DIR="${OMAMOBILE_TOOLCHAIN:-${XDG_CACHE_HOME:-$HOME/.cache}/omamobile/toolchain}"
+AVBTOOL="${AVBTOOL:-$TOOLCHAIN_DIR/avb/avbtool.py}"
+AVB_BOOT_KEY="${AVB_BOOT_KEY:-$TOOLCHAIN_DIR/avb/test/data/testkey_rsa4096.pem}"
 ALPINE_VER=3.24.2
 ALPINE_SUM=9bf70a7f18ea44094cbb5f70c58f9af129c8214745743db0e68e5502cc2ce773
 
@@ -50,10 +63,16 @@ die() { printf '\e[31merror:\e[0m %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<USAGE
-Usage: tools/dodge-chain pack|check-stage2-image <Image>
+Usage: tools/dodge-chain pack|footer|check-stage2-image <Image>
 
   pack   Stage 2 DTB (live memory map, DTB_OPTS), stage 1 kernel with the
          built-in chain-loader, and \$CHAIN_OUT/images/boot-chain.img.
+         No phone access.
+  footer Copy \$CHAIN_OUT/images/boot-chain.img to boot-chain-avb.img and
+         add a signed AVB hash footer padded to BOOT_PARTITION_SIZE
+         (\$BOOT_PARTITION_SIZE) with AVBTOOL and AVB_BOOT_KEY (default: the
+         pinned avbtool and AOSP test key, tools/fetch-toolchain). Only for
+         a flash; pack's image stays as it is.
          No phone access.
 
 CHAINLOAD_DIR=$CHAINLOAD_DIR
@@ -279,8 +298,40 @@ LIST
   ls -l "$out"
 }
 
+avb() {
+  if [[ $AVBTOOL == *.py ]]; then python3 "$AVBTOOL" "$@"; else "$AVBTOOL" "$@"; fi
+}
+
+cmd_footer() {
+  [[ -n $CHAIN_OUT ]] || die "set CHAIN_OUT (or STAGE2_OUT/KERNEL_OUT)"
+  [[ $AVBTOOL == *.py && -f $AVBTOOL ]] || command -v "$AVBTOOL" >/dev/null ||
+    die "no avbtool at $AVBTOOL: run tools/fetch-toolchain, or set AVBTOOL"
+  [[ -n $AVB_BOOT_KEY && -f $AVB_BOOT_KEY ]] ||
+    die "no AVB key at ${AVB_BOOT_KEY:-(unset)}: run tools/fetch-toolchain, or set AVB_BOOT_KEY"
+  [[ $BOOT_PARTITION_SIZE =~ ^[0-9]+$ ]] && ((BOOT_PARTITION_SIZE % 4096 == 0)) ||
+    die "BOOT_PARTITION_SIZE must be a byte count, a multiple of 4096"
+  local src="$CHAIN_OUT/images/boot-chain.img" out="$CHAIN_OUT/images/boot-chain-avb.img"
+  local src_bytes out_bytes
+  [[ -f $src ]] || die "missing $src (run pack first)"
+  src_bytes=$(stat -c %s "$src")
+  ((src_bytes < BOOT_PARTITION_SIZE)) || die "$src is already $src_bytes bytes"
+  cp -- "$src" "$out"
+  avb add_hash_footer --image "$out" --partition_name boot \
+    --partition_size "$BOOT_PARTITION_SIZE" --algorithm SHA256_RSA4096 \
+    --key "$AVB_BOOT_KEY" --rollback_index 0 \
+    --prop com.android.build.boot.os_version:15 \
+    --prop com.android.build.boot.security_patch:2026-08-01
+  out_bytes=$(stat -c %s "$out")
+  ((out_bytes == BOOT_PARTITION_SIZE)) || die "$out is $out_bytes bytes, want $BOOT_PARTITION_SIZE"
+  cmp -n "$src_bytes" "$src" "$out" || die "the footer changed the image bytes"
+  avb info_image --image "$out" >/dev/null || die "avbtool cannot read the footer back"
+  say "Footer on $out"
+  sha256sum "$out"
+}
+
 case "${1:-}" in
   pack) cmd_pack ;;
+  footer) cmd_footer ;;
   check-stage2-image)
     # Test/CI helper: validate one Image path with the same rules as pack.
     [[ -n ${2:-} ]] || die "usage: tools/dodge-chain check-stage2-image <Image>"
