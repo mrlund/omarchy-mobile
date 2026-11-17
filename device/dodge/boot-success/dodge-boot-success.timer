@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=Mark the boot successful 90 s after a good boot (dodge)
+
+[Timer]
+OnBootSec=90s
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
