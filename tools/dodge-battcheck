@@ -1,0 +1,9 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# dodge-battcheck: battery gate for a dodge reboot or flash. Reads the phone
+# over USB SSH (tools/phone-ssh): 10 samples of current_now 1 s apart, and
+# passes only if the mean is negative (charging, qcom-battmgr-bat) and the
+# capacity is above 20 %. Read-only on the phone. Prints BATT_OK or BATT_FAIL.
+set -u
+cd "$(dirname "$(readlink -f "$0")")/.."
+timeout 40 tools/phone-ssh 'c=$(cat /sys/class/power_supply/qcom-battmgr-bat/capacity); for i in $(seq 10); do cat /sys/class/power_supply/qcom-battmgr-bat/current_now; sleep 1; done | awk -v c=$c "{s+=\$1;n++} END {m=s/n; printf \"cap %d%% mean %.0f mA\n\", c, m/1000; exit !(m<0 && c>20)}"' </dev/null && echo BATT_OK || { echo BATT_FAIL; exit 1; }

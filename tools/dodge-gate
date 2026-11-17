@@ -1,0 +1,14 @@
+#!/bin/bash
+# SPDX-License-Identifier: MIT
+# dodge-gate: the check before every dodge reboot or flash
+# (`tools/dodge-gate && ...`). tools/dodge-battcheck, plus a full-battery
+# rule: at 100 % capacity a charger that idles at full fails battcheck on the
+# current's sign alone, so 100 % passes. Read-only on the phone. Prints
+# GATE_OK or GATE_FAIL.
+set -u
+cd "$(dirname "$(readlink -f "$0")")/.."
+tools/dodge-battcheck && exit 0
+c=$(timeout 15 tools/phone-ssh 'cat /sys/class/power_supply/qcom-battmgr-bat/capacity' </dev/null)
+[[ ${c:-0} =~ ^[0-9]+$ ]] || c=0
+((c >= 100)) && { echo "GATE_OK full-battery rule (cap $c%)"; exit 0; }
+echo GATE_FAIL; exit 1
