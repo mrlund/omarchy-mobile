@@ -186,9 +186,16 @@ def backlight_on() -> bool:
     base = '/sys/class/backlight'
     try:
         for name in os.listdir(base):
-            path = os.path.join(base, name, 'brightness')
+            dev = os.path.join(base, name)
             try:
-                with open(path) as f:
+                # DPMS off blanks through bl_power (4) and leaves brightness alone.
+                with open(os.path.join(dev, 'bl_power')) as f:
+                    if int(f.read().strip() or '0') != 0:
+                        continue
+            except (OSError, ValueError):
+                pass
+            try:
+                with open(os.path.join(dev, 'brightness')) as f:
                     if int(f.read().strip() or '0') > 0:
                         return True
             except (OSError, ValueError):
